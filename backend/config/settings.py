@@ -29,6 +29,10 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', '.railway.app', '.up.railway.app']
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
 
 # Application definition
 
@@ -86,8 +90,14 @@ if CORS_ALLOWED_ORIGIN_ENV:
     CORS_ALLOWED_ORIGINS.extend(extra_origins)
 
 
-# Also trust these origins for CSRF if needed (though API usually skips this)
-CSRF_TRUSTED_ORIGINS = [o for o in CORS_ALLOWED_ORIGINS if o.startswith('https://')]
+# Also trust these origins for CSRF if needed
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "https://notce-ai-tutor-2026-blueprint.vercel.app"
+]
+if CORS_ALLOWED_ORIGIN_ENV:
+    extra_csrf = [o.strip().rstrip('/') for o in CORS_ALLOWED_ORIGIN_ENV.split(',') if o.strip() and o.startswith('https://')]
+    CSRF_TRUSTED_ORIGINS.extend(extra_csrf)
 
 
 ROOT_URLCONF = 'config.urls'

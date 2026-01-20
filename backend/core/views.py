@@ -648,7 +648,7 @@ class MockStudyViewSet(viewsets.ModelViewSet):
                 "options": question_data.get("options", [])
             },
              "highlights": session.highlights
-# ... end of file ...
+        })
 
 from .stripe_service import create_checkout_session, handle_stripe_webhook
 from django.views.decorators.csrf import csrf_exempt
