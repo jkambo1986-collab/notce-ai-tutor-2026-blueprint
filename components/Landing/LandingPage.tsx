@@ -30,14 +30,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister 
                     
                     <div className="hidden md:flex items-center gap-8">
                         <a href="#features" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Features</a>
-                        <a href="#about" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">About</a>
+                        <a href="#pricing" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Pricing</a>
                         <div className="h-4 w-px bg-white/10" />
                         <button onClick={onLogin} className="text-sm font-bold text-gray-300 hover:text-white transition-colors">Login</button>
                         <button 
                             onClick={onRegister}
-                            className="px-6 py-2.5 bg-white text-[#0F172A] rounded-full font-bold text-sm hover:bg-cyan-400 transition-all active:scale-95 shadow-lg shadow-white/5"
+                            className="px-6 py-2.5 bg-cyan-500 text-[#0F172A] rounded-full font-bold text-sm hover:bg-cyan-400 transition-all active:scale-95 shadow-lg shadow-cyan-500/20"
                         >
-                            Get Started
+                            Join Now
                         </button>
                     </div>
                 </div>
@@ -55,15 +55,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister 
                     </div>
                     
                     <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight mb-8 leading-[1.1]">
-                        Master the NOTCE <br />
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600">
-                            with Precision AI.
+                        The Blueprint is <br />
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-orange-500 to-amber-500">
+                            Changing Forever.
                         </span>
                     </h1>
                     
                     <p className="max-w-2xl text-lg md:text-xl text-gray-400 leading-relaxed mb-12">
-                        The world's most advanced AI-powered tutor for Occupational Therapists. 
-                        Interactive case studies, adaptive clinical reasoning, and real-time exam simulations.
+                        Writing in April? This is your last chance before the NOTCE exam changes to the 2021 Competencies. 
+                        Don't risk studying the wrong material. Master the <span className="text-white font-bold">Legacy Standards</span> before it's too late.
                     </p>
                     
                     <div className="flex flex-col sm:flex-row gap-4">
@@ -111,48 +111,132 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister 
                 </div>
             </section>
 
-            {/* Features Section */}
-            <section id="features" className="py-32 px-6 bg-[#0B1120]">
+            {/* Convenience Hook Section */}
+            <section className="py-24 px-6 relative overflow-hidden">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16">
+                    <div className="flex-1">
+                        <h2 className="text-4xl font-black mb-6 leading-tight">
+                            Stop Struggling with <br />
+                            <span className="text-red-400">LockLizard.</span>
+                        </h2>
+                        <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+                            The official CAOT guide locks you to a single device. Our platform works wherever you are. Study on the bus, in the clinic, or even on your phone in bed. 
+                            <span className="text-cyan-400 block mt-4 font-bold">No restrictions. No limits. Just mastery.</span>
+                        </p>
+                        <ul className="space-y-4">
+                            {[
+                                "Unlimited Device Switching",
+                                "Mobile-First Interactive UI",
+                                "Offline Progress Syncing",
+                                "Cloud-Based Rationale Engine"
+                            ].map((item) => (
+                                <li key={item} className="flex items-center gap-3 text-gray-200">
+                                    <div className="w-5 h-5 bg-cyan-500/20 rounded-full flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                    {item}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="flex-1 relative">
+                        <div className="absolute inset-0 bg-blue-600/20 blur-[100px]" />
+                        <div className="relative bg-white/5 border border-white/10 p-4 rounded-[2.5rem] shadow-2xl rotate-3">
+                             <div className="bg-[#0F172A] rounded-[2rem] p-6 space-y-4 border border-white/5">
+                                <div className="h-4 w-1/2 bg-white/10 rounded" />
+                                <div className="h-32 w-full bg-cyan-500/10 rounded-xl" />
+                                <div className="space-y-2">
+                                    <div className="h-3 w-full bg-white/5 rounded" />
+                                    <div className="h-3 w-4/5 bg-white/5 rounded" />
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Pricing Section */}
+            <section id="pricing" className="py-32 px-6 bg-[#0B1120] relative">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-20">
-                        <h2 className="text-4xl md:text-5xl font-black mb-6">Built for OT Excellence.</h2>
+                        <h2 className="text-4xl md:text-5xl font-black mb-6">Choose Your Path to Passing.</h2>
                         <p className="text-gray-400 max-w-2xl mx-auto">
-                            Everything you need to pass the NOTCE on your first attempt, powered by the latest clinical reasoning models.
+                            Cheaper than failing and paying $755 to re-write. Invest in your career today.
                         </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {/* Feature 1 */}
-                        <div className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-cyan-500/50 transition-all hover:translate-y-[-8px] group">
-                            <div className="w-14 h-14 bg-cyan-500/20 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
-                                <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        {/* Tier 1: The Crammer */}
+                        <div className="relative p-8 rounded-3xl bg-white/5 border border-white/10 flex flex-col">
+                            <h3 className="text-xl font-bold mb-2">The Crammer</h3>
+                            <div className="flex items-baseline gap-1 mb-6">
+                                <span className="text-4xl font-black">$69</span>
+                                <span className="text-gray-500 text-sm">CAD / one-time</span>
                             </div>
-                            <h3 className="text-2xl font-bold mb-4">Adaptive Mock Session</h3>
-                            <p className="text-gray-400 leading-relaxed">
-                                Our AI detects your weak areas in real-time and pivoits the case study to challenge your reasoning where it matters most.
-                            </p>
+                            <p className="text-sm text-gray-400 mb-8 italic">Target: April 2026 Writers</p>
+                            <ul className="space-y-4 mb-10 flex-1">
+                                {[
+                                    "200+ Practice Questions",
+                                    "Legacy Blueprint Focus",
+                                    "Mobile-Friendly (No LockLizard)",
+                                    "Valid until April 9, 2026"
+                                ].map(item => (
+                                    <li key={item} className="flex gap-3 text-sm text-gray-300">
+                                        <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                            <button onClick={onRegister} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all">Buy Now</button>
                         </div>
 
-                        {/* Feature 2 */}
-                        <div className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all hover:translate-y-[-8px] group">
-                            <div className="w-14 h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
-                                <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                        {/* Tier 2: The Guarantee */}
+                        <div className="relative p-8 rounded-3xl bg-gradient-to-b from-cyan-500/10 to-transparent border-2 border-cyan-500/50 flex flex-col scale-105 shadow-2xl shadow-cyan-500/10 transform">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-1 bg-cyan-500 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg">Most Popular</div>
+                            <h3 className="text-xl font-bold mb-2 text-cyan-400">The Guarantee</h3>
+                            <div className="flex items-baseline gap-1 mb-6">
+                                <span className="text-4xl font-black text-white">$99</span>
+                                <span className="text-gray-400 text-sm">CAD / one-time</span>
                             </div>
-                            <h3 className="text-2xl font-bold mb-4">Real-Time Analytics</h3>
-                            <p className="text-gray-400 leading-relaxed">
-                                Detailed clinical reasoning heatmaps and confidence-weighted statistics to track your mastery across the 2026 blueprint.
-                            </p>
+                            <p className="text-sm text-cyan-500/70 mb-8 font-bold">"Blueprint Insurance"</p>
+                            <ul className="space-y-4 mb-10 flex-1">
+                                {[
+                                    "Everything in Crammer",
+                                    "Lifetime Access",
+                                    "FREE Sept 2026 Update if you fail",
+                                    "Personalized Risk Analysis"
+                                ].map(item => (
+                                    <li key={item} className="flex gap-3 text-sm text-white font-medium">
+                                        <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                            <button onClick={onRegister} className="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-[#0F172A] rounded-2xl font-black text-lg transition-all shadow-lg shadow-cyan-500/30 active:scale-95">Pass Guaranteed</button>
                         </div>
 
-                        {/* Feature 3 */}
-                        <div className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition-all hover:translate-y-[-8px] group">
-                            <div className="w-14 h-14 bg-indigo-500/20 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
-                                <svg className="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                        {/* Tier 3: The Early Bird */}
+                        <div className="relative p-8 rounded-3xl bg-white/5 border border-white/10 flex flex-col">
+                            <h3 className="text-xl font-bold mb-2">The Beta Bird</h3>
+                            <div className="flex items-baseline gap-1 mb-6">
+                                <span className="text-4xl font-black">$49</span>
+                                <span className="text-gray-500 text-sm">CAD / month</span>
                             </div>
-                            <h3 className="text-2xl font-bold mb-4">Exam Mode Simulation</h3>
-                            <p className="text-gray-400 leading-relaxed">
-                                Practice under pressure with 1:1 exam timing and question distribution exactly like the official NBCOT examination.
-                            </p>
+                            <p className="text-sm text-gray-400 mb-8 italic">Target: Sept 2026 Writers</p>
+                            <ul className="space-y-4 mb-10 flex-1">
+                                {[
+                                    "Full New-Comp Content",
+                                    "Active Beta Testing Rights",
+                                    "Adaptive SRS Engine",
+                                    "Priority Feature Requests"
+                                ].map(item => (
+                                    <li key={item} className="flex gap-3 text-sm text-gray-300">
+                                        <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                            <button onClick={onRegister} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all">Pre-Order Now</button>
                         </div>
                     </div>
                 </div>
