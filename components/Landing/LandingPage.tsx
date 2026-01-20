@@ -83,36 +83,35 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister 
 
                     {/* Dashboard Preview Mockup */}
                     <div className="mt-24 relative w-full max-w-5xl group">
-                        <div className="absolute inset-0 bg-cyan-500/20 blur-[100px] group-hover:bg-cyan-500/30 transition-all" />
-                        <div className="relative bg-[#1E293B] rounded-3xl border border-white/10 shadow-2xl overflow-hidden aspect-video">
-                            {/* Mock UI window elements */}
-                            <div className="h-10 bg-black/20 flex items-center px-4 gap-2">
-                                <div className="w-3 h-3 rounded-full bg-red-500/50" />
-                                <div className="w-3 h-3 rounded-full bg-amber-500/50" />
-                                <div className="w-3 h-3 rounded-full bg-green-500/50" />
-                            </div>
-                            <div className="p-8 flex gap-8 h-full">
-                                <div className="w-1/4 space-y-4">
-                                    <div className="h-8 w-full bg-white/5 rounded-lg" />
-                                    <div className="h-8 w-full bg-white/5 rounded-lg" />
-                                    <div className="h-8 w-full bg-cyan-500/20 rounded-lg" />
-                                    <div className="h-8 w-full bg-white/5 rounded-lg" />
-                                </div>
-                                <div className="flex-1 space-y-6">
-                                    <div className="h-40 w-full bg-white/5 rounded-2xl animate-pulse" />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="h-32 bg-white/5 rounded-2xl" />
-                                        <div className="h-32 bg-white/5 rounded-2xl" />
-                                    </div>
+                        <div className="absolute inset-0 bg-cyan-500/30 blur-[120px] group-hover:bg-cyan-500/40 transition-all" />
+                        <div className="relative bg-[#1E293B] rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden aspect-video">
+                            {/* Browser Header */}
+                            <div className="h-10 bg-black/40 flex items-center px-6 gap-2 border-b border-white/5 relative z-10">
+                                <div className="w-3 h-3 rounded-full bg-red-500/30" />
+                                <div className="w-3 h-3 rounded-full bg-amber-500/30" />
+                                <div className="w-3 h-3 rounded-full bg-green-500/30" />
+                                <div className="ml-4 h-5 w-48 bg-white/5 rounded-full flex items-center px-3">
+                                    <div className="w-2 h-2 rounded-full bg-cyan-500/50 mr-2" />
+                                    <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">notce-ai.app/dashboard</div>
                                 </div>
                             </div>
+                            
+                            {/* High-Fidelity App UI Preivew */}
+                            <img 
+                                src="/dashboard-preview.png" 
+                                alt="NOTCE AI-Tutor Dashboard" 
+                                className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-700"
+                            />
+
+                            {/* Overlay Gradient for depth */}
+                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-[#0F172A]/40 to-transparent" />
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* Convenience Hook Section */}
-            <section className="py-24 px-6 relative overflow-hidden">
+            <section id="features" className="py-24 px-6 relative overflow-hidden">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16">
                     <div className="flex-1">
                         <h2 className="text-4xl font-black mb-6 leading-tight">
