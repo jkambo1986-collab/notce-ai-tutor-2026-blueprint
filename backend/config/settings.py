@@ -73,9 +73,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 
-# Add Vercel domain from environment
-if 'CORS_ALLOWED_ORIGIN' in os.environ:
-    CORS_ALLOWED_ORIGINS.append(os.environ['CORS_ALLOWED_ORIGIN'])
+CORS_ALLOWED_ORIGIN_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', os.environ.get('CORS_ALLOWED_ORIGIN', ''))
+if CORS_ALLOWED_ORIGIN_ENV:
+    extra_origins = [o.strip() for o in CORS_ALLOWED_ORIGIN_ENV.split(',') if o.strip()]
+    CORS_ALLOWED_ORIGINS.extend(extra_origins)
+
+# Also trust these origins for CSRF if needed (though API usually skips this)
+CSRF_TRUSTED_ORIGINS = [o for o in CORS_ALLOWED_ORIGINS if o.startswith('https://')]
+
 
 ROOT_URLCONF = 'config.urls'
 
