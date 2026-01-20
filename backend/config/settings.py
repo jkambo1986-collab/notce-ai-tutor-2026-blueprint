@@ -71,7 +71,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:3000",
+    "https://notce-ai-tutor-2026-blueprint.vercel.app",
 ]
+
 
 CORS_ALLOWED_ORIGIN_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', os.environ.get('CORS_ALLOWED_ORIGIN', ''))
 if CORS_ALLOWED_ORIGIN_ENV:
