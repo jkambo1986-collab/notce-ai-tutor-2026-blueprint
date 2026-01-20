@@ -128,8 +128,11 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
             # Return serialized full structure
             serializer = self.get_serializer(case)
             return Response(serializer.data, status=201)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
             
     @action(detail=False, methods=['post'])
+
     def prefetch(self, request):
         """
         Generates a new case study in the background and saves it to the library.
