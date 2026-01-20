@@ -291,8 +291,20 @@ export const api = {
         if (!response.ok) throw new Error('Failed to generate pivot');
         return response.json();
     }
+  },
 
+  async createCheckoutSession(tier: string): Promise<{ url: string }> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
+    const response = await fetch(`${API_BASE_URL}/stripe/checkout/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tier })
+    });
+    if (!response.ok) throw new Error('Checkout session creation failed');
+    return response.json();
   }
 };
 

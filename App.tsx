@@ -62,7 +62,7 @@ const MainApp: React.FC = () => {
   const [evidenceLinkResult, setEvidenceLinkResult] = useState<EvidenceLinkResult | null>(null);
   
   // Current view mode
-  const [view, setView] = useState<'landing' | 'study' | 'dashboard' | 'mock-study' | 'exam-mode'>('landing');
+  const [view, setView] = useState<'landing' | 'study' | 'dashboard' | 'mock-study' | 'exam-mode' | 'payment-success' | 'payment-cancel'>('landing');
   
   // Mock Study State
   const [isMockSetupOpen, setIsMockSetupOpen] = useState(false);
@@ -72,8 +72,20 @@ const MainApp: React.FC = () => {
 
   // --- EFFECTS ---
 
-  // Fetch initial data on mount
-  useEffect(() => {
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('session_id')) {
+            setView('payment-success');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (urlParams.has('cancel')) {
+            setView('payment-cancel');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
+
+    // Fetch initial data on mount
+    useEffect(() => {
     const init = async () => {
       try {
         setIsLoading(true);
@@ -727,6 +739,28 @@ const MainApp: React.FC = () => {
                 onExit={() => setView('landing')}
             />
         )}
+
+        {view === 'payment-success' && (
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
+                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <h2 className="text-3xl font-black text-gray-900 mb-4">Payment Successful!</h2>
+                <p className="text-gray-600 mb-8 max-w-md">Thank you for your purchase. Your account has been upgraded and you now have full access to all features.</p>
+                <button onClick={() => setView('landing')} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition">Go to Dashboard</button>
+            </div>
+        )}
+
+        {view === 'payment-cancel' && (
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-6">
+                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                </div>
+                <h2 className="text-3xl font-black text-gray-900 mb-4">Payment Cancelled</h2>
+                <p className="text-gray-600 mb-8 max-w-md">The payment process was cancelled. No charges were made.</p>
+                <button onClick={() => setView('landing')} className="px-8 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 transition">Return Home</button>
+            </div>
+        )}
       </main>
     </div>
   );
@@ -735,6 +769,30 @@ const MainApp: React.FC = () => {
 const App: React.FC = () => {
     const { isAuthenticated } = useAuth();
     const [authView, setAuthView] = useState<'landing' | 'login' | 'register'>('landing');
+    const [pendingPlan, setPendingPlan] = useState<string | null>(null);
+
+    const handleSelectPlan = async (tier: string) => {
+        if (isAuthenticated) {
+            try {
+                const { url } = await api.createCheckoutSession(tier);
+                window.location.href = url;
+            } catch (err) {
+                console.error("Checkout failed:", err);
+                alert("Failed to initiate checkout. Please try again.");
+            }
+        } else {
+            setPendingPlan(tier);
+            setAuthView('register');
+        }
+    };
+
+    useEffect(() => {
+        if (isAuthenticated && pendingPlan) {
+            const tier = pendingPlan;
+            setPendingPlan(null);
+            handleSelectPlan(tier);
+        }
+    }, [isAuthenticated, pendingPlan]);
 
     if (isAuthenticated) {
         return <MainApp />;
@@ -746,6 +804,7 @@ const App: React.FC = () => {
                 onStart={() => setAuthView('register')}
                 onLogin={() => setAuthView('login')}
                 onRegister={() => setAuthView('register')}
+                onSelectPlan={handleSelectPlan}
             />
         );
     }

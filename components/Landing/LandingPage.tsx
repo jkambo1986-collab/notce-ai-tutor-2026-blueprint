@@ -4,9 +4,10 @@ interface LandingPageProps {
     onStart: () => void;
     onLogin: () => void;
     onRegister: () => void;
+    onSelectPlan?: (tier: string) => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister, onSelectPlan }) => {
     return (
         <div className="min-h-screen bg-[#0F172A] text-white selection:bg-cyan-500/30">
             {/* Animated Background Blobs */}
@@ -186,7 +187,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister 
                                     </li>
                                 ))}
                             </ul>
-                            <button onClick={onRegister} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all">Buy Now</button>
+                            <button onClick={() => onSelectPlan?.('crammer')} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all">Buy Now</button>
                         </div>
 
                         {/* Tier 2: The Guarantee */}
@@ -211,7 +212,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister 
                                     </li>
                                 ))}
                             </ul>
-                            <button onClick={onRegister} className="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-[#0F172A] rounded-2xl font-black text-lg transition-all shadow-lg shadow-cyan-500/30 active:scale-95">Pass Guaranteed</button>
+                            <button onClick={() => onSelectPlan?.('guarantee')} className="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-[#0F172A] rounded-2xl font-black text-lg transition-all shadow-lg shadow-cyan-500/30 active:scale-95">Pass Guaranteed</button>
                         </div>
 
                         {/* Tier 3: The Early Bird */}
@@ -235,7 +236,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister 
                                     </li>
                                 ))}
                             </ul>
-                            <button onClick={onRegister} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all">Pre-Order Now</button>
+                            <button onClick={() => onSelectPlan?.('beta')} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all">Pre-Order Now</button>
                         </div>
                     </div>
                 </div>

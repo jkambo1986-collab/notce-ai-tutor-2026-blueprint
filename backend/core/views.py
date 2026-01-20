@@ -648,6 +648,40 @@ class MockStudyViewSet(viewsets.ModelViewSet):
                 "options": question_data.get("options", [])
             },
              "highlights": session.highlights
-        })
+# ... end of file ...
+
+from .stripe_service import create_checkout_session, handle_stripe_webhook
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+class CreateCheckoutSessionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        tier = request.data.get('tier')
+        success_url = request.data.get('success_url', 'http://localhost:5173/?session_id={CHECKOUT_SESSION_ID}')
+        cancel_url = request.data.get('cancel_url', 'http://localhost:5173/?cancel=true')
+
+        try:
+            session = create_checkout_session(request.user, tier, success_url, cancel_url)
+            return Response({'sessionId': session.id, 'url': session.url})
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class StripeWebhookView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        payload = request.body
+        sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+
+        try:
+            handle_stripe_webhook(payload, sig_header)
+            return Response(status=200)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
 
 

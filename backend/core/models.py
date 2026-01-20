@@ -76,6 +76,9 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.TextField(blank=True)
     target_exam_date = models.DateField(null=True, blank=True)
+    stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
+    subscription_tier = models.CharField(max_length=50, default='free') # 'free', 'crammer', 'guarantee', 'beta'
+    is_paid = models.BooleanField(default=False)
 
 class UserSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
