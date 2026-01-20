@@ -16,8 +16,13 @@ export const LoginPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
         try {
             const data = await api.login(username, password);
             login(data.access, data.refresh, username);
-        } catch (err) {
-            setError('Invalid credentials');
+        } catch (err: any) {
+            console.error('Login error:', err);
+            if (err.message && err.message.includes('FAILED')) {
+                setError('Network error: Unable to connect to the backend server. Please check your connection or wait for deployment.');
+            } else {
+                setError('Invalid username or password. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
