@@ -1,0 +1,5 @@
+{
+  "name": "NOTCE AI-Tutor (2026 Blueprint)",
+  "description": "A high-fidelity clinical reasoning simulator for the National Occupational Therapy Certification Exam, featuring a relational parent-child case architecture and adaptive AI tutoring.",
+  "requestFramePermissions": []
+}
