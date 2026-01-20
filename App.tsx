@@ -19,6 +19,7 @@ import { validateCaseStudy } from './services/geminiService';
 import MockStudySession from './components/MockStudySession';
 import MockStudySetupModal from './components/MockStudySetupModal';
 import ExamSession from './components/ExamSession';
+import LandingPage from './components/Landing/LandingPage';
 
 // The main application logic, assumed to be authenticated
 const MainApp: React.FC = () => {
@@ -733,15 +734,25 @@ const MainApp: React.FC = () => {
 
 const App: React.FC = () => {
     const { isAuthenticated } = useAuth();
-    const [authView, setAuthView] = useState<'login' | 'register'>('login');
+    const [authView, setAuthView] = useState<'landing' | 'login' | 'register'>('landing');
 
-    if (!isAuthenticated) {
-        return authView === 'login' 
-            ? <LoginPage onSwitch={() => setAuthView('register')} /> 
-            : <RegisterPage onSwitch={() => setAuthView('login')} />;
+    if (isAuthenticated) {
+        return <MainApp />;
     }
 
-    return <MainApp />;
+    if (authView === 'landing') {
+        return (
+            <LandingPage 
+                onStart={() => setAuthView('register')}
+                onLogin={() => setAuthView('login')}
+                onRegister={() => setAuthView('register')}
+            />
+        );
+    }
+
+    return authView === 'login' 
+        ? <LoginPage onSwitch={() => setAuthView('register')} /> 
+        : <RegisterPage onSwitch={() => setAuthView('login')} />;
 };
 
 export default function AppWrapper() {
