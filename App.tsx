@@ -142,6 +142,25 @@ const MainApp: React.FC = () => {
     }
   }, [currentQuestionIndex, view, currentCase, answers]);
 
+  /**
+   * Background Prefetch Logic:
+   * When a user starts a case study, prefetch the next one in the background
+   * to reduce latency if they choose to generate another one.
+   */
+  useEffect(() => {
+    if (view === 'study' && currentCase) {
+        const domain = currentCase.tags?.find(t => t !== 'AI-Generated' && t !== 'Prefetched') || 'OT Expertise';
+        const difficulty = currentCase.tags?.find(t => ['Easy', 'Medium', 'Hard'].includes(t)) || 'Medium';
+        
+        const timer = setTimeout(() => {
+            api.prefetchCase(domain, difficulty);
+        }, 8000); // Wait 8s to prioritize current interactive experience
+        return () => clearTimeout(timer);
+    }
+  }, [view, currentCase?.id]);
+
+
+
   // --- ACTIONS ---
 
   const addHighlight = (h: Highlight) => setHighlights(prev => [...prev, h]);

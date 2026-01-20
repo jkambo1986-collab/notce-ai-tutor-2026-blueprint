@@ -36,11 +36,17 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     const [pivotData, setPivotData] = useState<any>(null);
     const [isPivoting, setIsPivoting] = useState(false);
 
-    // Scroll to top upon new question
+    // Scroll to top upon new question & trigger prefetch
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         setPivotData(null); // Reset pivot on new question
-    }, [currentQuestion]);
+        
+        // Background prefetch the next question to reduce latency
+        if (!isComplete) {
+            api.mockStudy.prefetch(sessionId);
+        }
+    }, [currentQuestion, isComplete]);
+
 
     const handlePivot = async () => {
         setIsPivoting(true);

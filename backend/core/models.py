@@ -130,6 +130,9 @@ class MockStudySession(models.Model):
     topics_covered = models.JSONField(default=list, blank=True)
     # Store the current question data so we can validate answers
     current_question_data = models.JSONField(null=True, blank=True)
+    # Prefetched question for latency reduction
+    next_question_data = models.JSONField(null=True, blank=True)
+
     session_history = models.JSONField(default=list, blank=True)
     highlights = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)

@@ -53,7 +53,9 @@ export interface CaseStudy {
   vignette: string; // The descriptive text scenario
   setting: string;  // The clinical setting (e.g., "Community Rehabilitation")
   questions: QuestionItem[];
+  tags?: string[];
 }
+
 
 /**
  * Represents a user's submission for a specific question.

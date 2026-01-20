@@ -46,10 +46,16 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
         return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
-    // Scroll to top upon new question
+    // Scroll to top upon new question & trigger prefetch
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [currentQuestion]);
+        
+        // Background prefetch the next question to reduce latency
+        if (!isComplete) {
+            api.mockStudy.prefetch(sessionId);
+        }
+    }, [currentQuestion, isComplete]);
+
 
     const addHighlight = (h: Highlight) => setHighlights(prev => [...prev, h]);
     const removeHighlight = (id: string) => setHighlights(prev => prev.filter(h => h.id !== id));

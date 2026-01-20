@@ -129,13 +129,56 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
             serializer = self.get_serializer(case)
             return Response(serializer.data, status=201)
             
-        except json.JSONDecodeError:
-            print(f"JSON Error: {json_str[:100]}...") # Log start of invalid JSON
-            return Response({"error": "Invalid JSON from AI"}, status=500)
+    @action(detail=False, methods=['post'])
+    def prefetch(self, request):
+        """
+        Generates a new case study in the background and saves it to the library.
+        """
+        domain = request.data.get('domain', 'OT Expertise')
+        difficulty = request.data.get('difficulty', 'Medium')
+        
+        # We'll just reuse the generation logic
+        try:
+            from .gemini_service import generate_full_case_study
+            import json
+            import uuid
+            from .models import CaseStudy, Question, Distractor
+            
+            json_str = generate_full_case_study(domain, difficulty)
+            if not json_str:
+                return Response({"status": "failed", "reason": "empty"}, status=503)
+            
+            data = json.loads(json_str)
+            case_id = f"case-{uuid.uuid4().hex[:8]}"
+            case = CaseStudy.objects.create(
+                id=case_id,
+                title=data.get('title', 'Untitled Case'),
+                vignette=data.get('vignette', ''),
+                setting=data.get('setting', 'General'),
+                tags=["Prefetched", domain, difficulty]
+            )
+            
+            for idx, q_data in enumerate(data.get('questions', [])):
+                q_id = f"{case_id}-q{idx+1}"
+                question = Question.objects.create(
+                    id=q_id,
+                    case_study=case,
+                    stem=q_data.get('stem'),
+                    domain=q_data.get('domain', 'OT_EXP'),
+                    correct_label=q_data.get('correct_label'),
+                    correct_rationale=q_data.get('correct_rationale')
+                )
+                for d_data in q_data.get('distractors', []):
+                    Distractor.objects.create(
+                        question=question,
+                        label=d_data.get('label'),
+                        text=d_data.get('text'),
+                        incorrect_rationale=d_data.get('incorrect_rationale')
+                    )
+            return Response({"status": "success", "case_id": case_id}, status=201)
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return Response({"error": f"Generation Error: {str(e)}"}, status=500)
+            return Response({"status": "failed", "error": str(e)}, status=500)
+
 
 from .models import AgentMemory
 from .serializers import AgentMemorySerializer
@@ -346,6 +389,39 @@ class MockStudyViewSet(viewsets.ModelViewSet):
                 "options": question_data.get("options", [])
             }
         }, status=201)
+
+    @action(detail=False, methods=['post'])
+    def prefetch(self, request):
+        """
+        Background endpoint to generate the NEXT question ahead of time.
+        """
+        session_id = request.data.get('session_id')
+        try:
+            session = MockStudySession.objects.get(id=session_id, is_active=True)
+        except MockStudySession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=404)
+        
+        # Don't prefetch if we're at the end
+        if session.current_question >= session.total_questions:
+            return Response({"status": "no_more_questions"})
+
+        # Only generate if we don't already have one
+        if not session.next_question_data:
+            next_num = session.current_question + 1
+            question_data = generate_practice_question(
+                domain=session.domain,
+                difficulty=session.difficulty,
+                question_number=next_num,
+                total_questions=session.total_questions,
+                topics_covered=session.topics_covered or []
+            )
+            if question_data:
+                session.next_question_data = question_data
+                session.save()
+                return Response({"status": "prefetched", "question_number": next_num})
+        
+        return Response({"status": "already_prefetched"})
+
     
     @action(detail=False, methods=['post'])
     def save_progress(self, request):
@@ -540,14 +616,19 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         # Advance to next question
         session.current_question += 1
         
-        # Generate next question
-        question_data = generate_practice_question(
-            domain=session.domain,
-            difficulty=session.difficulty,
-            question_number=session.current_question,
-            total_questions=session.total_questions,
-            topics_covered=session.topics_covered or []
-        )
+        # USE PREFETCHED DATA IF AVAILABLE
+        if session.next_question_data:
+            question_data = session.next_question_data
+            session.next_question_data = None # Clear it
+        else:
+            # Fallback to synchronous generation
+            question_data = generate_practice_question(
+                domain=session.domain,
+                difficulty=session.difficulty,
+                question_number=session.current_question,
+                total_questions=session.total_questions,
+                topics_covered=session.topics_covered or []
+            )
         
         if not question_data:
             return Response({"error": "Failed to generate question"}, status=503)
@@ -563,6 +644,7 @@ class MockStudyViewSet(viewsets.ModelViewSet):
                 "stem": question_data.get("stem"),
                 "options": question_data.get("options", [])
             },
-             "highlights": session.highlights  # Return highlights in case they persist or we want to re-render
+             "highlights": session.highlights
         })
+
 

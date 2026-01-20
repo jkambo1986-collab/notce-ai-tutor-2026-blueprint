@@ -73,9 +73,25 @@ export const api = {
     const data = await response.json();
     return transformCaseStudy(data);
   },
+  
+  /**
+   * Prefetches a new case study in the background.
+   */
+  async prefetchCase(domain: string, difficulty: string): Promise<void> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    
+    fetch(`${API_BASE_URL}/cases/prefetch/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ domain, difficulty })
+    }).catch(err => console.warn('Case prefetch failed:', err));
+  },
 
   /**
    * Register a new user.
+
    */
   async register(username: string, password: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/auth/register/`, {
@@ -223,6 +239,16 @@ export const api = {
         if (!response.ok) throw new Error('Failed to fetch next question');
         return response.json();
     },
+
+    async prefetch(sessionId: string): Promise<void> {
+        // We don't wait for this or handle errors strictly as it's a background prefetch
+        fetch(`${API_BASE_URL}/mock-study/prefetch/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId })
+        }).catch(err => console.warn('Prefetch failed:', err));
+    },
+
 
     async getActiveSession(): Promise<any> {
         const token = localStorage.getItem('auth_token');
