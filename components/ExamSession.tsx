@@ -228,32 +228,40 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
                         </div>
                     </div>
 
-                    {/* Step Indicators (Simplified for large question count) */}
+                    {/* Step Indicators */}
                     <div className="flex items-center justify-center relative">
                         {/* Connecting Line */}
                         <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/30 -translate-y-1/2 mx-[10%]" />
                         
                         <div className="flex justify-between w-full max-w-sm relative z-10">
-                            {[1, 2, 3, 4, 5].map((i) => {
-                                // For exams, we'll show steps as chunks of the total
-                                const stepNum = i;
-                                const currentStepGroup = Math.ceil((progress.current / progress.total) * 5);
-                                const isPassed = currentStepGroup > stepNum;
-                                const isCurrent = currentStepGroup === stepNum;
+                            {(() => {
+                                const maxVisible = 5;
+                                let start = Math.max(1, progress.current - Math.floor(maxVisible / 2));
+                                let end = Math.min(progress.total, start + maxVisible - 1);
                                 
-                                return (
-                                    <div key={i} className="flex flex-col items-center">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-lg ${
-                                            isCurrent ? 'bg-blue-600 text-white border-2 border-white' : 
-                                            isPassed ? 'bg-emerald-500 text-white' : 
-                                            'bg-white text-cyan-500'
-                                        }`}>
-                                            {stepNum}
-                                            {isCurrent && <div className="absolute -bottom-1 w-1.5 h-1.5 bg-red-500 rounded-full" />}
+                                if (end - start + 1 < maxVisible) {
+                                    start = Math.max(1, end - maxVisible + 1);
+                                }
+                                
+                                return Array.from({ length: end - start + 1 }).map((_, i) => {
+                                    const stepNum = start + i;
+                                    const isPassed = progress.current > stepNum;
+                                    const isCurrent = progress.current === stepNum;
+                                    
+                                    return (
+                                        <div key={stepNum} className="flex flex-col items-center">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-lg ${
+                                                isCurrent ? 'bg-blue-600 text-white border-2 border-white' : 
+                                                isPassed ? 'bg-emerald-500 text-white' : 
+                                                'bg-white text-cyan-500'
+                                            }`}>
+                                                {stepNum}
+                                                {isCurrent && <div className="absolute -bottom-1 w-1.5 h-1.5 bg-red-500 rounded-full" />}
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                });
+                            })()}
                         </div>
                     </div>
                 </div>
