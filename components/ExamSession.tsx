@@ -38,7 +38,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
         return () => clearInterval(timer);
     }, []);
 
-    // Format Time
+    // Format Time (HH:MM:SS for Exam)
     const formatTime = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
@@ -113,85 +113,214 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
     // --- RENDER: COMPLETION SCREEN ---
     if (finalScore) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
-                <div className="bg-white p-10 rounded-3xl shadow-xl max-w-2xl w-full text-center">
-                    <h2 className="text-4xl font-bold mb-4">Exam Completed</h2>
-                    <p className="text-gray-600 mb-8">Review your performance.</p>
-                    <div className="text-6xl font-black text-indigo-600 mb-4">{finalScore.percentage}%</div>
-                    <div className="text-xl text-gray-800">Score: {finalScore.correct} / {finalScore.total}</div>
-                    <button onClick={onExit} className="mt-8 px-8 py-3 bg-gray-900 text-white rounded-xl">Exit Exam</button>
+            <div className="min-h-screen bg-gray-50 flex flex-col">
+                {/* Gradient Header */}
+                <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-12 text-center text-white">
+                    <h2 className="text-4xl font-extrabold mb-2">Congratulations !</h2>
+                    <p className="text-emerald-50 text-xl">You Completed the Exam.</p>
                 </div>
+                
+                <main className="flex-1 max-w-2xl mx-auto w-full p-6 space-y-6 -mt-8">
+                    {/* Your Result Card */}
+                    <div className="bg-white rounded-2xl shadow-sm p-8 space-y-8">
+                        <h3 className="text-xl font-bold text-gray-800 text-center">Your Result</h3>
+                        
+                        {/* Status Checkmark */}
+                        <div className="flex justify-center">
+                            <div className="w-32 h-32 rounded-full bg-cyan-100 flex items-center justify-center relative">
+                                <div className="w-24 h-24 rounded-full bg-cyan-400 flex items-center justify-center text-white">
+                                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Accuracy Bar */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-end mb-1">
+                                <span className="text-sm font-bold text-emerald-500">{finalScore.percentage}%</span>
+                                <span className="text-sm font-bold text-red-400">{100 - finalScore.percentage}%</span>
+                            </div>
+                            <div className="h-2 w-full bg-gray-100 rounded-full flex overflow-hidden">
+                                <div className="h-full bg-emerald-400" style={{ width: `${finalScore.percentage}%` }} />
+                                <div className="h-full bg-red-400" style={{ width: `${100 - finalScore.percentage}%` }} />
+                            </div>
+                            
+                            {/* Legend */}
+                            <div className="flex flex-col gap-2 pt-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-3 bg-emerald-400 rounded" />
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Correct Answers</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-3 bg-red-400 rounded" />
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Incorrect Answers</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-3 bg-amber-400 rounded" />
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Skipped Questions</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Question Summary TABLE */}
+                    <div className="bg-white rounded-2xl shadow-sm p-8 space-y-6">
+                        <h3 className="text-xl font-bold text-gray-800 text-center">Question Summary</h3>
+                        
+                        <div className="space-y-3">
+                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
+                                <div className="flex items-center gap-3 font-bold">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Total Questions
+                                </div>
+                                <span className="font-mono text-xl">{finalScore.total.toString().padStart(2, '0')}</span>
+                            </div>
+                            <div className="bg-emerald-400 text-white p-4 rounded-lg flex justify-between items-center">
+                                <div className="flex items-center gap-3 font-bold">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Correct Answers
+                                </div>
+                                <span className="font-mono text-xl">{finalScore.correct.toString().padStart(2, '0')}</span>
+                            </div>
+                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
+                                <div className="flex items-center gap-3 font-bold">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Wrong Answers
+                                </div>
+                                <span className="font-mono text-xl">{(finalScore.total - finalScore.correct).toString().padStart(2, '0')}</span>
+                            </div>
+                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
+                                <div className="flex items-center gap-3 font-bold">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+                                    Skipped Questions
+                                </div>
+                                <span className="font-mono text-xl">00</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4 pt-4">
+                            <button 
+                                onClick={onExit}
+                                className="flex-1 py-4 bg-cyan-500 text-white font-bold rounded-xl"
+                            >
+                                Exit Exam
+                            </button>
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
 
     // --- RENDER: EXAM VIEW ---
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* Exam Header */}
-            <div className="bg-gray-900 text-white sticky top-0 z-30 shadow-md">
-                <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-lg font-bold text-gray-200">NBCOT Exam Simulation</h1>
-                        <div className="text-sm text-gray-400">Question {progress.current} of {progress.total}</div>
+        <div className="min-h-screen bg-white flex flex-col">
+            {/* Header: Gradient + Step Indicators */}
+            <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-6 text-white relative">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex justify-between items-center mb-8">
+                        <h1 className="text-2xl font-bold">Exam Mode</h1>
+                        <div className="flex items-center gap-2 opacity-90">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="font-mono text-lg font-bold">Time left - {formatTime(timeLeft)}</span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className={`text-2xl font-mono font-bold ${timeLeft < 300 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
-                            {formatTime(timeLeft)}
+
+                    {/* Step Indicators (Simplified for large question count) */}
+                    <div className="flex items-center justify-center relative">
+                        {/* Connecting Line */}
+                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/30 -translate-y-1/2 mx-[10%]" />
+                        
+                        <div className="flex justify-between w-full max-w-sm relative z-10">
+                            {[1, 2, 3, 4, 5].map((i) => {
+                                // For exams, we'll show steps as chunks of the total
+                                const stepNum = i;
+                                const currentStepGroup = Math.ceil((progress.current / progress.total) * 5);
+                                const isPassed = currentStepGroup > stepNum;
+                                const isCurrent = currentStepGroup === stepNum;
+                                
+                                return (
+                                    <div key={i} className="flex flex-col items-center">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-lg ${
+                                            isCurrent ? 'bg-blue-600 text-white border-2 border-white' : 
+                                            isPassed ? 'bg-emerald-500 text-white' : 
+                                            'bg-white text-cyan-500'
+                                        }`}>
+                                            {stepNum}
+                                            {isCurrent && <div className="absolute -bottom-1 w-1.5 h-1.5 bg-red-500 rounded-full" />}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
-                {/* Progress Bar */}
-                <div className="h-1 bg-gray-800">
-                    <div 
-                        className="h-full bg-indigo-500 transition-all duration-300"
-                        style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                    ></div>
+            </div>
+
+            {/* Sub-Header: Context */}
+            <div className="bg-white px-6 py-4 flex justify-between items-center border-b border-gray-100">
+                <div className="text-gray-400 font-bold text-sm">
+                    {progress.current}. Question
+                </div>
+                <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+                    NBCOT Simulation
                 </div>
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 max-w-5xl mx-auto w-full p-6 pb-24 space-y-8">
+            <main className="flex-1 max-w-4xl mx-auto w-full p-6 pb-24 space-y-6">
                 {/* Question Stem */}
-                <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-                     <HighlightableText 
-                        text={currentQuestion.stem}
-                        highlights={highlights}
-                        onAddHighlight={addHighlight}
-                        onRemoveHighlight={removeHighlight}
-                    />
+                <div className="bg-white p-2">
+                     <div className="text-lg leading-relaxed text-gray-700">
+                        <span className="font-bold mr-2">{progress.current}.</span>
+                        <HighlightableText 
+                            text={currentQuestion.stem}
+                            highlights={highlights}
+                            onAddHighlight={addHighlight}
+                            onRemoveHighlight={removeHighlight}
+                        />
+                     </div>
                 </div>
 
-                {/* Options */}
+                {/* Options List */}
                 <div className="space-y-3">
-                    {currentQuestion.options.map((option: any) => (
-                        <button
-                            key={option.label}
-                            onClick={() => setSelectedLabel(option.label)}
-                            className={`w-full p-4 text-left rounded-lg border-2 transition-all flex items-start gap-4 ${
-                                selectedLabel === option.label 
-                                ? 'border-indigo-600 bg-indigo-50 shadow-md' 
-                                : 'border-gray-200 bg-white hover:bg-gray-50'
-                            }`}
-                        >
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border ${
-                                selectedLabel === option.label ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-100 text-gray-500 border-gray-300'
-                            }`}>
-                                {option.label}
-                            </div>
-                            <span className="mt-1 text-gray-900 font-medium">{option.text}</span>
-                        </button>
-                    ))}
+                    {currentQuestion.options.map((option: any) => {
+                        const isSelected = selectedLabel === option.label;
+                        
+                        let cardClasses = "w-full p-4 flex items-center gap-4 transition-all rounded bg-gray-100/50 ";
+                        if (isSelected) {
+                            cardClasses += "ring-2 ring-emerald-400 bg-emerald-50";
+                        }
+
+                        return (
+                            <button
+                                key={option.label}
+                                onClick={() => setSelectedLabel(option.label)}
+                                className={cardClasses}
+                            >
+                                <div className={`w-5 h-5 rounded-sm border flex items-center justify-center transition-colors ${
+                                    isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-gray-300'
+                                }`}>
+                                    {isSelected && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>}
+                                </div>
+                                <span className={`text-lg transition-colors ${isSelected ? 'text-emerald-900 font-medium' : 'text-gray-600'}`}>
+                                    {option.label}. {option.text}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </main>
 
             {/* Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
-                <div className="max-w-5xl mx-auto flex justify-end">
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40">
+                <div className="max-w-4xl mx-auto flex justify-end">
                     <button
                         onClick={handleSubmitAndNext}
                         disabled={!selectedLabel || isLoading}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-600 text-white px-12 py-4 rounded font-bold text-lg transition-all flex items-center justify-center gap-2"
                     >
                         {isLoading ? (
                             <>
@@ -203,7 +332,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
                             </>
                         ) : (
                             <>
-                                Next Question
+                                Next
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                             </>
                         )}

@@ -42,10 +42,26 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
         setPivotData(null); // Reset pivot on new question
         
         // Background prefetch the next question to reduce latency
-        if (!isComplete) {
+        if (!isComplete && sessionId) {
             api.mockStudy.prefetch(sessionId);
         }
-    }, [currentQuestion, isComplete]);
+    }, [currentQuestion, isComplete, sessionId]);
+
+    // Simple timer logic if none exists (mocking it for UI parity with mockup)
+    const [secondsLeft, setSecondsLeft] = useState(841); // 14:01
+    useEffect(() => {
+        if (isComplete || finalScore) return;
+        const timer = setInterval(() => {
+            setSecondsLeft(prev => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [isComplete, finalScore]);
+
+    const formatTime = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
 
 
     const handlePivot = async () => {
@@ -162,115 +178,204 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     // --- RENDER: COMPLETION SCREEN ---
     if (finalScore) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
-                <div className="bg-white rounded-3xl shadow-xl overflow-hidden max-w-2xl w-full">
-                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-10 text-center text-white">
-                        <div className="text-6xl mb-4">🎉</div>
-                        <h2 className="text-4xl font-extrabold mb-2">Session Complete!</h2>
-                        <p className="text-indigo-100 text-lg">Great job practicing your clinical reasoning.</p>
-                    </div>
-                    
-                    <div className="p-10 space-y-8">
-                        <div className="grid grid-cols-2 gap-8 text-center">
-                            <div className="p-6 bg-green-50 rounded-2xl border border-green-100">
-                                <div className="text-4xl font-black text-green-600 mb-1">{finalScore.percentage}%</div>
-                                <div className="text-sm font-bold text-green-800 uppercase tracking-wide">Accuracy</div>
-                            </div>
-                            <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100">
-                                <div className="text-4xl font-black text-blue-600 mb-1">{finalScore.correct}/{finalScore.total}</div>
-                                <div className="text-sm font-bold text-blue-800 uppercase tracking-wide">Questions Correct</div>
+            <div className="min-h-screen bg-gray-50 flex flex-col">
+                {/* Gradient Header */}
+                <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-12 text-center text-white">
+                    <h2 className="text-4xl font-extrabold mb-2">Congratulations !</h2>
+                    <p className="text-emerald-50 text-xl">You Passed the test.</p>
+                </div>
+                
+                <main className="flex-1 max-w-2xl mx-auto w-full p-6 space-y-6 -mt-8">
+                    {/* Your Result Card */}
+                    <div className="bg-white rounded-2xl shadow-sm p-8 space-y-8">
+                        <h3 className="text-xl font-bold text-gray-800 text-center">Your Result</h3>
+                        
+                        {/* Status Checkmark */}
+                        <div className="flex justify-center">
+                            <div className="w-32 h-32 rounded-full bg-cyan-100 flex items-center justify-center relative">
+                                <div className="w-24 h-24 rounded-full bg-cyan-400 flex items-center justify-center text-white">
+                                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-4">
+                        {/* Accuracy Bar */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-end mb-1">
+                                <span className="text-sm font-bold text-emerald-500">{finalScore.percentage}%</span>
+                                <span className="text-sm font-bold text-red-400">{100 - finalScore.percentage}%</span>
+                            </div>
+                            <div className="h-2 w-full bg-gray-100 rounded-full flex overflow-hidden">
+                                <div className="h-full bg-emerald-400" style={{ width: `${finalScore.percentage}%` }} />
+                                <div className="h-full bg-red-400" style={{ width: `${100 - finalScore.percentage}%` }} />
+                            </div>
+                            
+                            {/* Legend */}
+                            <div className="flex flex-col gap-2 pt-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-3 bg-emerald-400 rounded" />
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Correct Answers</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-3 bg-red-400 rounded" />
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Incorrect Answers</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-3 bg-amber-400 rounded" />
+                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Skipped Questions</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Question Summary TABLE */}
+                    <div className="bg-white rounded-2xl shadow-sm p-8 space-y-6">
+                        <h3 className="text-xl font-bold text-gray-800 text-center">Question Summary</h3>
+                        
+                        <div className="space-y-3">
+                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
+                                <div className="flex items-center gap-3 font-bold">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Total Questions
+                                </div>
+                                <span className="font-mono text-xl">{finalScore.total.toString().padStart(2, '0')}</span>
+                            </div>
+                            <div className="bg-emerald-400 text-white p-4 rounded-lg flex justify-between items-center">
+                                <div className="flex items-center gap-3 font-bold">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Correct Answers
+                                </div>
+                                <span className="font-mono text-xl">{finalScore.correct.toString().padStart(2, '0')}</span>
+                            </div>
+                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
+                                <div className="flex items-center gap-3 font-bold">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Wrong Answers
+                                </div>
+                                <span className="font-mono text-xl">{(finalScore.total - finalScore.correct).toString().padStart(2, '0')}</span>
+                            </div>
+                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
+                                <div className="flex items-center gap-3 font-bold">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+                                    Skipped Questions
+                                </div>
+                                <span className="font-mono text-xl">00</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4 pt-4">
+                            <button 
+                                onClick={() => window.location.reload()}
+                                className="flex-1 py-4 bg-gray-200 text-gray-700 font-bold rounded-xl"
+                            >
+                                Restart
+                            </button>
                             <button 
                                 onClick={onExit}
-                                className="flex-1 py-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition"
+                                className="flex-1 py-4 bg-cyan-500 text-white font-bold rounded-xl"
                             >
-                                Back to Dashboard
+                                Exit
                             </button>
                         </div>
                     </div>
-                </div>
+                </main>
             </div>
         );
     }
 
     // --- RENDER: QUESTION VIEW ---
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* Header / Progress Bar */}
-            <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
-                <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-
-                        <button 
-                            onClick={handleSaveAndExit}
-                            disabled={isLoading}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                            Save & Exit
-                        </button>
-                        <div>
-                            <span className="font-bold text-gray-900">Question {progress.current}</span>
-                            <span className="text-gray-400 mx-2">/</span>
-                            <span className="text-gray-500">{progress.total}</span>
+        <div className="min-h-screen bg-white flex flex-col">
+            {/* Header: Gradient + Step Indicators */}
+            <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-6 text-white relative">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex justify-between items-center mb-8">
+                        <h1 className="text-2xl font-bold">Multichoice MCQ</h1>
+                        <div className="flex items-center gap-2 opacity-90">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="font-mono text-lg font-bold">Time left - {formatTime(secondsLeft)}</span>
                         </div>
                     </div>
-                    <div className="w-48 h-3 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out"
-                            style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                        ></div>
+
+                    {/* Step Indicators */}
+                    <div className="flex items-center justify-center relative">
+                        {/* Connecting Line */}
+                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/30 -translate-y-1/2 mx-[10%]" />
+                        
+                        <div className="flex justify-between w-full max-w-sm relative z-10">
+                            {Array.from({ length: 5 }).map((_, i) => {
+                                const stepNum = i + 1;
+                                const isPassed = progress.current > stepNum;
+                                const isCurrent = progress.current === stepNum;
+                                
+                                return (
+                                    <div key={i} className="flex flex-col items-center">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-lg ${
+                                            isCurrent ? 'bg-blue-600 text-white border-2 border-white' : 
+                                            isPassed ? 'bg-emerald-500 text-white' : 
+                                            'bg-white text-cyan-500'
+                                        }`}>
+                                            {stepNum}
+                                            {isCurrent && <div className="absolute -bottom-1 w-1.5 h-1.5 bg-red-500 rounded-full" />}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             </div>
 
+            {/* Sub-Header: Save/Exit & Context */}
+            <div className="bg-white px-6 py-4 flex justify-between items-center border-b border-gray-100">
+                <button 
+                    onClick={handleSaveAndExit}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                    Previous
+                </button>
+                <div className="text-gray-400 font-bold text-sm">
+                    {progress.current}. Question
+                </div>
+            </div>
+
             {/* Main Content */}
-            <main className="flex-1 max-w-4xl mx-auto w-full p-6 pb-24 space-y-8">
+            <main className="flex-1 max-w-4xl mx-auto w-full p-6 pb-24 space-y-6">
                 {/* Question Stem */}
-                <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                     <p className="text-sm text-gray-400 font-bold mb-4 uppercase tracking-wide">Question Stem (Highlight Key Details)</p>
-                     <HighlightableText 
-                        text={currentQuestion.stem}
-                        highlights={highlights}
-                        onAddHighlight={addHighlight}
-                        onRemoveHighlight={removeHighlight}
-                    />
+                <div className="bg-white p-2">
+                     <div className="text-lg leading-relaxed text-gray-700">
+                        <span className="font-bold mr-2">{progress.current}.</span>
+                        <HighlightableText 
+                            text={currentQuestion.stem}
+                            highlights={highlights}
+                            onAddHighlight={addHighlight}
+                            onRemoveHighlight={removeHighlight}
+                        />
+                     </div>
                 </div>
 
-                {/* Options Grid */}
-                <div className="grid grid-cols-1 gap-4">
+                {/* Options List */}
+                <div className="space-y-3">
                     {currentQuestion.options.map((option: any) => {
                         const isSelected = selectedLabel === option.label;
-                        const isCorrect = feedback && option.label === feedback.explanation.charAt(feedback.explanation.indexOf('Correct answer (') + 16); // Hacky parsing, better if API returned explicit correct label
-                        // Actually, let's rely on feedback state logic properly
-                        // If feedback exists:
-                        // - If this option was selected and correct -> Green
-                        // - If this option was selected and wrong -> Red
-                        // - If this is the correct option (even if not selected) -> Green (reveal)
+                        const isCorrect = feedback && option.label === feedback.explanation.charAt(feedback.explanation.indexOf('Correct answer (') + 16);
                         
-                        let cardClasses = "p-6 rounded-2xl border-2 text-left transition-all relative overflow-hidden group ";
+                        let cardClasses = "w-full p-4 flex items-center gap-4 transition-all rounded bg-gray-100/50 ";
                         
                         if (feedback) {
-                            // Review Mode
                             if (isSelected && feedback.is_correct) {
-                                cardClasses += "border-green-500 bg-green-50 text-green-900 pointer-events-none";
+                                cardClasses += "border border-emerald-500 bg-emerald-50";
                             } else if (isSelected && !feedback.is_correct) {
-                                cardClasses += "border-red-500 bg-red-50 text-red-900 pointer-events-none";
+                                cardClasses += "border border-red-500 bg-red-50";
                             } else if (!feedback.is_correct && feedback.explanation.includes(`Correct answer (${option.label})`)) {
-                                cardClasses += "border-green-500 bg-green-50 text-green-900 pointer-events-none opacity-100";
-                            } else {
-                                cardClasses += "border-gray-100 bg-gray-50 text-gray-400 opacity-60 pointer-events-none";
+                                cardClasses += "border border-emerald-500 bg-emerald-50";
                             }
-                        } else {
-                            // Active Mode
-                            if (isSelected) {
-                                cardClasses += "border-indigo-600 bg-indigo-50 shadow-md transform scale-[1.01] z-10";
-                            } else {
-                                cardClasses += "border-gray-100 bg-white hover:border-indigo-200 hover:bg-gray-50 hover:shadow-sm cursor-pointer";
-                            }
+                        } else if (isSelected) {
+                            cardClasses += "ring-2 ring-emerald-400 bg-emerald-50";
                         }
 
                         return (
@@ -279,28 +384,14 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                                 onClick={() => !feedback && setSelectedLabel(option.label)}
                                 className={cardClasses}
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0 transition-colors ${
-                                        isSelected && !feedback ? 'bg-indigo-600 text-white' : 
-                                        feedback && isSelected ? 'bg-transparent border-2 border-current' :
-                                        'bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'
-                                    }`}>
-                                        {option.label}
-                                    </div>
-                                    <span className="text-lg font-medium">{option.text}</span>
-                                    
-                                    {/* Feedback Icons */}
-                                    {feedback && isSelected && feedback.is_correct && (
-                                        <div className="ml-auto text-green-600">
-                                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                        </div>
-                                    )}
-                                    {feedback && isSelected && !feedback.is_correct && (
-                                        <div className="ml-auto text-red-500">
-                                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                                        </div>
-                                    )}
+                                <div className={`w-5 h-5 rounded-sm border flex items-center justify-center transition-colors ${
+                                    isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-gray-300'
+                                }`}>
+                                    {isSelected && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>}
                                 </div>
+                                <span className={`text-lg transition-colors ${isSelected ? 'text-emerald-900 font-medium' : 'text-gray-600'}`}>
+                                    {option.label}. {option.text}
+                                </span>
                             </button>
                         );
                     })}
@@ -364,53 +455,25 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
             </main>
 
             {/* Bottom Action Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-6 z-40">
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40">
                 <div className="max-w-4xl mx-auto flex justify-end">
                     {!feedback ? (
                         <button
                             onClick={handleSubmitAnswer}
                             disabled={!selectedLabel || isLoading}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+                            className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-600 text-white px-12 py-4 rounded font-bold text-lg transition-all flex items-center justify-center gap-2"
                         >
-                            {isLoading ? 'Checking...' : 'Check Answer'}
+                            {isLoading ? 'Checking...' : 'Next'}
+                            {!isLoading && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>}
                         </button>
                     ) : (
                         <div className="w-full flex gap-4">
-                            {!pivotData ? (
-                                <button
-                                    onClick={handlePivot}
-                                    disabled={isPivoting}
-                                    className="flex-1 py-4 bg-white text-indigo-600 font-bold rounded-xl border-2 border-indigo-100 hover:bg-indigo-50 hover:border-indigo-200 transition flex items-center justify-center gap-2"
-                                >
-                                    {isPivoting ? (
-                                        <>
-                                            <svg className="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Analyzing Shift...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                            </svg>
-                                            Pivot Scenario
-                                        </>
-                                    )}
-                                </button>
-                            ) : (
-                                <div className="flex-1 text-center py-4 text-gray-400 font-medium text-sm flex items-center justify-center border border-dashed border-gray-200 rounded-xl">
-                                    Pivot Analyzed
-                                </div>
-                            )}
-                            
                             <button
                                 onClick={handleNextQuestion}
-                                className="flex-1 py-4 bg-gray-900 hover:bg-black text-white font-bold rounded-xl shadow-xl shadow-gray-200 transition flex items-center justify-center gap-2"
+                                className="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-4 rounded font-bold text-lg transition-all flex items-center justify-center gap-2"
                             >
-                                <span>{loadingMessage ? 'Continue...' : (isComplete ? 'Finish Session' : 'Continue')}</span>
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                                <span>{loadingMessage ? 'Continue...' : (isComplete ? 'Finish Session' : 'Next')}</span>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                             </button>
                         </div>
                     )}
