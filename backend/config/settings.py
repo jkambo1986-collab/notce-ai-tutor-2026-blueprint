@@ -27,7 +27,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ks^u!^98ntxpiqp06)l5x
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', '.railway.app', '.up.railway.app']
 
 
 # Application definition
@@ -67,12 +67,16 @@ MIDDLEWARE = [
 ]
 
 # Update CORS settings
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:3000",
     "https://notce-ai-tutor-2026-blueprint.vercel.app",
 ]
+
 
 
 CORS_ALLOWED_ORIGIN_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', os.environ.get('CORS_ALLOWED_ORIGIN', ''))
