@@ -217,7 +217,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
         <div className="min-h-screen bg-white flex flex-col">
             {/* Header: Gradient + Step Indicators */}
             <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-6 text-white relative">
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-6xl mx-auto">
                     <div className="flex justify-between items-center mb-8">
                         <h1 className="text-2xl font-bold">Exam Mode</h1>
                         <div className="flex items-center gap-2 opacity-90">
@@ -278,7 +278,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 max-w-4xl mx-auto w-full p-6 pb-24 space-y-6">
+            <main className="flex-1 max-w-6xl mx-auto w-full px-6 lg:px-12 pb-24 pt-6 space-y-6">
                 {/* Question Stem */}
                 <div className="bg-white p-2">
                      <div className="text-lg leading-relaxed text-gray-700">
@@ -324,7 +324,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
 
             {/* Footer */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40">
-                <div className="max-w-4xl mx-auto flex justify-end">
+                <div className="max-w-6xl mx-auto px-6 lg:px-12 flex justify-end">
                     <button
                         onClick={handleSubmitAndNext}
                         disabled={!selectedLabel || isLoading}
