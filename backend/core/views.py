@@ -10,6 +10,7 @@ from .mock_study_service import generate_practice_question, generate_answer_feed
 import logging
 import uuid
 import traceback
+import os
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
