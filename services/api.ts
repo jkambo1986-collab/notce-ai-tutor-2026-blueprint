@@ -93,15 +93,30 @@ export const api = {
    * Register a new user.
 
    */
-  async register(username: string, password: string): Promise<void> {
+  async register(username: string, email: string, password: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/auth/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, email, password })
     });
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(JSON.stringify(errorData) || 'Registration failed');
+    }
+  },
+
+  /**
+   * Verify email with token.
+   */
+  async verifyEmail(token: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/verify-email/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+    });
+    if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Verification failed');
     }
   },
 
@@ -211,9 +226,13 @@ export const api = {
    */
   mockStudy: {
     async start(domain: string, difficulty: string, total_questions: number, mode: 'practice' | 'exam' = 'practice'): Promise<any> {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetch(`${API_BASE_URL}/mock-study/start/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ domain, difficulty, total_questions, mode })
         });
         if (!response.ok) throw new Error('Failed to start session');
@@ -221,9 +240,13 @@ export const api = {
     },
 
     async submitAnswer(sessionId: string, selectedLabel: string): Promise<any> {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetch(`${API_BASE_URL}/mock-study/submit/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ session_id: sessionId, selected_label: selectedLabel })
         });
         if (!response.ok) throw new Error('Failed to submit answer');
@@ -231,9 +254,13 @@ export const api = {
     },
 
     async nextQuestion(sessionId: string): Promise<any> {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetch(`${API_BASE_URL}/mock-study/next/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ session_id: sessionId })
         });
         if (!response.ok) throw new Error('Failed to fetch next question');
@@ -241,10 +268,14 @@ export const api = {
     },
 
     async prefetch(sessionId: string): Promise<void> {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         // We don't wait for this or handle errors strictly as it's a background prefetch
         fetch(`${API_BASE_URL}/mock-study/prefetch/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ session_id: sessionId })
         }).catch(err => console.warn('Prefetch failed:', err));
     },
@@ -304,6 +335,32 @@ export const api = {
         body: JSON.stringify({ tier })
     });
     if (!response.ok) throw new Error('Checkout session creation failed');
+    return response.json();
+  },
+
+  async getMe(): Promise<User> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/auth/me/`, {
+        method: 'GET',
+        headers
+    });
+    if (!response.ok) throw new Error('Failed to fetch user data');
+    return response.json();
+  },
+
+  async syncPayment(): Promise<{ success: boolean; updated: boolean; is_paid: boolean; tier: string }> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/sync-payment/`, {
+        method: 'POST',
+        headers
+    });
+    if (!response.ok) throw new Error('Payment sync failed');
     return response.json();
   }
 };

@@ -19,11 +19,13 @@ import { validateCaseStudy } from './services/geminiService';
 import MockStudySession from './components/MockStudySession';
 import MockStudySetupModal from './components/MockStudySetupModal';
 import ExamSession from './components/ExamSession';
+
 import LandingPage from './components/Landing/LandingPage';
+import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
 
 // The main application logic, assumed to be authenticated
 const MainApp: React.FC = () => {
-    const { logout, user } = useAuth();
+    const { logout, user, refreshProfile } = useAuth();
 
   // --- STATE MANAGEMENT ---
 
@@ -77,13 +79,19 @@ const MainApp: React.FC = () => {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('session_id')) {
             setView('payment-success');
+            // Sync payment status with backend and refresh local profile
+            api.syncPayment().then(() => {
+                refreshProfile();
+            }).catch(err => {
+                console.error("Failed to sync payment:", err);
+            });
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
         } else if (urlParams.has('cancel')) {
             setView('payment-cancel');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-    }, []);
+    }, [refreshProfile]);
 
     // Fetch initial data on mount
     useEffect(() => {
@@ -265,6 +273,10 @@ const MainApp: React.FC = () => {
      * Starts the Mock Study Setup process.
      */
     const handleStartMockStudySetup = () => {
+        if (!user?.userprofile?.is_paid) {
+            alert("Upgrade to Premium to access Adaptive Mock Study.");
+            return;
+        }
         setIsMockSetupOpen(true);
     };
 
@@ -272,6 +284,10 @@ const MainApp: React.FC = () => {
      * Launches a new Mock Study Session.
      */
     const handleLaunchMockStudy = async (domain: string, difficulty: string, length: number) => {
+        if (!user?.userprofile?.is_paid) {
+            alert("Upgrade to Premium to access Adaptive Mock Study.");
+            return;
+        }
         try {
             setIsGenerating(true);
             const data = await api.mockStudy.start(domain, difficulty, length);
@@ -300,6 +316,10 @@ const MainApp: React.FC = () => {
      * Launches a full Exam Simulation.
      */
     const handleLaunchExam = async () => {
+        if (!user?.userprofile?.is_paid) {
+            alert("Upgrade to Premium to access Full Exam Simulation.");
+            return;
+        }
         try {
             if (!confirm("Start Full Exam Simulation? This will start a 4-hour timer.")) return;
             
@@ -784,8 +804,16 @@ const MainApp: React.FC = () => {
 
 const App: React.FC = () => {
     const { isAuthenticated } = useAuth();
-    const [authView, setAuthView] = useState<'landing' | 'login' | 'register'>('landing');
+    const [authView, setAuthView] = useState<'landing' | 'login' | 'register' | 'verify'>('landing');
     const [pendingPlan, setPendingPlan] = useState<string | null>(null);
+
+    // Check for verification token
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('token')) {
+            setAuthView('verify');
+        }
+    }, []);
 
     const handleSelectPlan = async (tier: string) => {
         if (isAuthenticated) {
@@ -814,20 +842,21 @@ const App: React.FC = () => {
         return <MainApp />;
     }
 
-    if (authView === 'landing') {
-        return (
-            <LandingPage 
-                onStart={() => setAuthView('register')}
-                onLogin={() => setAuthView('login')}
-                onRegister={() => setAuthView('register')}
-                onSelectPlan={handleSelectPlan}
-            />
-        );
-    }
-
-    return authView === 'login' 
-        ? <LoginPage onSwitch={() => setAuthView('register')} /> 
-        : <RegisterPage onSwitch={() => setAuthView('login')} />;
+    return (
+        <>
+            {authView === 'landing' && (
+                <LandingPage 
+                    onStart={() => setAuthView('register')}
+                    onLogin={() => setAuthView('login')}
+                    onRegister={() => setAuthView('register')}
+                    onSelectPlan={handleSelectPlan}
+                />
+            )}
+            {authView === 'login' && <LoginPage onSwitch={() => setAuthView('register')} />}
+            {authView === 'register' && <RegisterPage onSwitch={() => setAuthView('login')} />}
+            {authView === 'verify' && <VerifyEmailPage />}
+        </>
+    );
 };
 
 export default function AppWrapper() {

@@ -78,3 +78,47 @@ def fulfill_order(session):
         profile.subscription_tier = tier
         profile.is_paid = True
         profile.save()
+
+        # Send Confirmation Email
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        try:
+            send_mail(
+                subject="Payment Successful - NOTCE AI Tutor",
+                message=f"Hi {user.username},\n\nYour payment was successful and your account has been upgraded to the {tier.upper()} tier.\n\nThank you for your business!",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Failed to send confirmation email: {e}")
+
+def verify_payment_status(user):
+    """
+    Manually check Stripe for any successful checkout sessions for this user
+    and update their profile if found. Useful if webhooks fail.
+    """
+    profile = user.userprofile
+    if not profile.stripe_customer_id:
+        return False
+    
+    try:
+        sessions = stripe.checkout.Session.list(
+            customer=profile.stripe_customer_id,
+            limit=5,
+        )
+        
+        for session in sessions.data:
+            if session.payment_status == 'paid':
+                # Found a paid session, ensure profile matches
+                # We can reuse fulfill_order, but we need to ensure we don't double-email 
+                # or we accept that as a side effect of manual sync.
+                # Ideally check if already paid.
+                if not profile.is_paid:
+                     fulfill_order(session)
+                     return True
+    except Exception as e:
+        print(f"Error checking stripe status: {e}")
+        
+    return False

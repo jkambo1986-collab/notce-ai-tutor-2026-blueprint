@@ -1,47 +1,54 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { User } from '../types';
+import { api } from '../services/api';
 
 interface AuthContextType {
-    user: { username: string } | null;
+    user: User | null;
     login: (access: string, refresh: string, username: string) => void;
     logout: () => void;
+    refreshProfile: () => Promise<void>;
     isAuthenticated: boolean;
+    loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-// Helper to get payload from token (simple decode)
-const parseJwt = (token: string) => {
-    try {
-        return JSON.parse(atob(token.split('.')[1]));
-    } catch (e) {
-        return null;
-    }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<{ username: string } | null>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
+    const refreshProfile = useCallback(async () => {
         const token = localStorage.getItem('auth_token');
-        if (token) {
-            const payload = parseJwt(token);
-            // Basic check if expired
-            if (payload && payload.exp * 1000 > Date.now()) {
-                 // We don't have username in standard SIMPLE_JWT payload typically unless customized
-                 // But let's assume valid for now or fetch profile
-                 setUser({ username: payload.user_id || 'User' }); 
-            } else {
-                logout();
-            }
+        if (!token) {
+            setUser(null);
+            setLoading(false);
+            return;
         }
-        setLoading(false);
+
+        try {
+            const userData = await api.getMe();
+            setUser(userData);
+        } catch (error) {
+            console.error("Failed to fetch user profile:", error);
+            // If fetching profile fails (e.g. token expired), we might want to logout
+            // but let's be conservative for now and just set user null
+            setUser(null);
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('refresh_token');
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        refreshProfile();
+    }, [refreshProfile]);
 
     const login = (access: string, refresh: string, username: string) => {
         localStorage.setItem('auth_token', access);
         localStorage.setItem('refresh_token', refresh);
-        setUser({ username });
+        // Immediately refresh profile after login to get full User object
+        refreshProfile();
     };
 
     const logout = () => {
@@ -51,8 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
-            {!loading && children}
+        <AuthContext.Provider value={{ user, login, logout, refreshProfile, isAuthenticated: !!user, loading }}>
+            {children}
         </AuthContext.Provider>
     );
 };

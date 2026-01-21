@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 # --- ENUMS (Mapped from types.ts) ---
 
@@ -79,6 +80,24 @@ class UserProfile(models.Model):
     stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
     subscription_tier = models.CharField(max_length=50, default='free') # 'free', 'crammer', 'guarantee', 'beta'
     is_paid = models.BooleanField(default=False)
+    trial_start_date = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def is_trial_active(self):
+        if self.is_paid:
+            return False
+        if not self.trial_start_date:
+            return False
+        trial_end = self.trial_start_date + timezone.timedelta(days=7)
+        return timezone.now() < trial_end
+
+    @property
+    def trial_end_date(self):
+        if not self.trial_start_date:
+            return None
+        return self.trial_start_date + timezone.timedelta(days=7)
+    email_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=100, blank=True, null=True)
 
 class UserSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

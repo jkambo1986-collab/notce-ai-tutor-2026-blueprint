@@ -32,21 +32,82 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     onResumeMockStudy,
     onStartExam
 }) => {
-    const { user } = useAuth();
+    const { user, refreshProfile } = useAuth();
     const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
     const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
     const [isProgressOpen, setIsProgressOpen] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    React.useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true') {
+            const sync = async () => {
+                setIsSyncing(true);
+                try {
+                    await api.syncPayment();
+                    await refreshProfile();
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (err) {
+                    console.error("Sync failed:", err);
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+            sync();
+        }
+    }, [refreshProfile]);
+
+    const handleUpgrade = async () => {
+        try {
+            // Using 'guarantee' tier for the upgrade button
+            const { url } = await api.createCheckoutSession('guarantee');
+            window.location.href = url;
+        } catch (err) {
+            console.error("Upgrade failed:", err);
+            alert("Failed to start upgrade process. Please try again.");
+        }
+    };
+
+    const profile = user?.userprofile;
+    const isPaid = profile?.is_paid;
+    const isTrial = profile?.is_trial_active;
+    const trialEndDate = profile?.trial_end_date ? new Date(profile.trial_end_date) : null;
+    const daysRemaining = trialEndDate ? Math.ceil((trialEndDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
 
     return (
         <div className="min-h-screen bg-gray-50 p-8">
             <div className="max-w-5xl mx-auto space-y-8">
+                {/* Trial Banner */}
+                {isTrial && !isPaid && (
+                     <div className="bg-indigo-600 rounded-2xl p-4 shadow-lg flex items-center justify-between text-white animate-pulse">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2 rounded-lg">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </div>
+                            <div>
+                                <h3 className="font-bold">7-Day Free Trial Active</h3>
+                                <p className="text-indigo-100 text-sm">{daysRemaining} days remaining of full premium access.</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleUpgrade}
+                            className="px-4 py-2 bg-white text-indigo-600 font-bold rounded-lg text-sm hover:bg-indigo-50 transition"
+                        >
+                            Lock in Access
+                        </button>
+                    </div>
+                )}
+
                 {/* Header Section */}
                 <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div>
                         <h1 className="text-3xl font-extrabold text-gray-900 mb-2">
                             Welcome back, <span className="text-blue-600">{user?.username}</span>!
                         </h1>
-                        <p className="text-gray-500 text-lg">Ready to master your clinical reasoning?</p>
+                        <p className="text-gray-500 text-lg">
+                            {isPaid ? 'Premium Member' : isTrial ? 'Trial Member' : 'Free Member'} • Ready to master your clinical reasoning?
+                        </p>
                     </div>
                     <div className="flex gap-4">
                         {hasActiveCase && onResumeCase && (
@@ -120,12 +181,25 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                     </button>
                 </div>
 
-                {/* Second Row: Mock Study Feature */}
-                <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-3xl p-8 border border-teal-100 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group">
+                <div className={`bg-gradient-to-r from-teal-50 to-emerald-50 rounded-3xl p-8 border border-teal-100 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group ${!isPaid && !isTrial ? 'cursor-not-allowed' : ''}`}>
                      {/* Decorative Elements */}
                      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-teal-200 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
                      <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-cyan-200 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
                      
+                     {/* Locked Overlay */}
+                     {!isPaid && (
+                         <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-40 flex items-center justify-center">
+                             <div className="bg-white p-8 rounded-3xl shadow-2xl border border-teal-100 flex flex-col items-center text-center max-w-sm animate-in zoom-in-95 duration-300">
+                                 <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-4">
+                                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                 </div>
+                                 <h4 className="text-xl font-bold text-gray-900 mb-2">Premium Drill Mode</h4>
+                                 <p className="text-sm text-gray-500 mb-6">Adaptive Mock Study is reserved for Premium Members only. Unlock your path to mastery.</p>
+                                 <button onClick={handleUpgrade} className="w-full py-3 bg-teal-600 text-white rounded-xl font-bold text-base hover:bg-teal-700 transition shadow-lg shadow-teal-100 transform active:scale-95">Upgrade to Unlock</button>
+                             </div>
+                         </div>
+                     )}
+
                      <div className="z-10 flex-1">
                         <div className="flex items-center gap-3 mb-3">
                              <span className="px-3 py-1 bg-teal-200 text-teal-800 text-xs font-bold rounded-full uppercase tracking-wider">New</span>
@@ -144,13 +218,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                         </div>
                      </div>
                      
-                     
-
-                     
                      <div className="z-10 flex flex-col gap-3">
                         <button 
-                            onClick={() => onStartMockStudy?.()} 
-                            className="px-8 py-4 bg-teal-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-teal-200 hover:bg-teal-700 hover:scale-105 transition-all flex items-center gap-3 whitespace-nowrap justify-center w-48"
+                            onClick={() => isPaid && onStartMockStudy?.()} 
+                            disabled={!isPaid}
+                            className="px-8 py-4 bg-teal-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-teal-200 hover:bg-teal-700 hover:scale-105 transition-all flex items-center gap-3 whitespace-nowrap justify-center w-48 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span>Start Drill</span>
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -159,8 +231,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                         {/* Resume Button */}
                         {onResumeMockStudy && (
                             <button 
-                                onClick={() => onResumeMockStudy()}
-                                className="px-8 py-3 bg-white text-teal-700 rounded-xl font-bold text-base border-2 border-teal-200 hover:bg-teal-50 hover:border-teal-300 transition-all flex items-center gap-2 whitespace-nowrap justify-center w-48"
+                                onClick={() => isPaid && onResumeMockStudy()}
+                                disabled={!isPaid}
+                                className="px-8 py-3 bg-white text-teal-700 rounded-xl font-bold text-base border-2 border-teal-200 hover:bg-teal-50 hover:border-teal-300 transition-all flex items-center gap-2 whitespace-nowrap justify-center w-48 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <span>Resume</span>
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -170,10 +243,24 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 </div>
 
                 {/* Exam Simulation Feature */}
-                <div className="bg-gray-900 rounded-3xl p-8 border border-gray-800 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group">
+                <div className={`bg-gray-900 rounded-3xl p-8 border border-gray-800 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group ${!isPaid ? 'cursor-not-allowed' : ''}`}>
                      {/* Decorative Elements */}
                      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-900 rounded-full blur-3xl opacity-30 pointer-events-none"></div>
                      
+                     {/* Locked Overlay */}
+                     {!isPaid && (
+                         <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-40 flex items-center justify-center">
+                             <div className="bg-gray-800 p-8 rounded-3xl shadow-2xl border border-gray-700 flex flex-col items-center text-center max-w-sm animate-in zoom-in-95 duration-300">
+                                 <div className="w-16 h-16 bg-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center mb-4">
+                                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                 </div>
+                                 <h4 className="text-xl font-bold text-white mb-2">Full Simulation</h4>
+                                 <p className="text-sm text-gray-400 mb-6">Complete exam simulation is restricted to Premium Members. Experience the real deal.</p>
+                                 <button onClick={handleUpgrade} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-base hover:bg-indigo-700 transition shadow-lg shadow-indigo-900/50 transform active:scale-95">Unlock Now</button>
+                             </div>
+                         </div>
+                     )}
+
                      <div className="z-10 flex-1">
                         <div className="flex items-center gap-3 mb-3">
                              <span className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full uppercase tracking-wider">Timed</span>
@@ -198,8 +285,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                      
                      <div className="z-10">
                         <button 
-                            onClick={() => onStartExam?.()} 
-                            className="px-8 py-4 bg-white text-gray-900 rounded-2xl font-bold text-lg shadow-xl hover:bg-gray-100 hover:scale-105 transition-all flex items-center gap-3 whitespace-nowrap"
+                            onClick={() => isPaid && onStartExam?.()} 
+                            disabled={!isPaid}
+                            className="px-8 py-4 bg-white text-gray-900 rounded-2xl font-bold text-lg shadow-xl hover:bg-gray-100 hover:scale-105 transition-all flex items-center gap-3 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span>Start Exam</span>
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -220,6 +308,27 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* UPGRADE BANNER - Only show for free users not on trial */}
+            {!isPaid && !isTrial && (
+                <div className="max-w-5xl mx-auto mt-8 bg-gradient-to-r from-amber-200 to-yellow-400 rounded-2xl p-6 shadow-lg flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white p-3 rounded-xl shadow-sm text-yellow-600">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-amber-900">Unlock Full Access</h3>
+                            <p className="text-amber-800 font-medium">Get the "Pass Guarantee" with unlimited detailed rationales.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={handleUpgrade}
+                        className="px-6 py-3 bg-white text-amber-600 font-bold rounded-xl shadow hover:bg-amber-50 transition transform hover:scale-105"
+                    >
+                        Upgrade Now
+                    </button>
+                </div>
+            )}
 
             {/* Modals */}
             <CaseGeneratorModal

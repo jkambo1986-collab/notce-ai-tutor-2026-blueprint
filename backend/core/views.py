@@ -7,12 +7,71 @@ from django.contrib.auth.models import User
 from .models import CaseStudy, Question, UserAnswer, Highlight, DomainTag, UserSession
 from .serializers import CaseStudySerializer, UserAnswerSerializer, HighlightSerializer, UserSessionSerializer, UserSerializer
 from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario
+from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario
 from django.utils import timezone
+import uuid
+from django.core.mail import send_mail
+from django.conf import settings
+from .models import UserProfile
+from .permissions import IsPaidUser
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [permissions.AllowAny]
     serializer_class = UserSerializer
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        # Generate verification token
+        token = str(uuid.uuid4())
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        profile.verification_token = token
+        profile.email_verified = False # Default to false
+        profile.trial_start_date = timezone.now()
+        profile.save()
+
+        # Send Verification Email
+        verify_link = f"http://localhost:5173/verify?token={token}"
+        print(f"Attempting to send email to {user.email}")
+        print(f"Settings: HOST={settings.EMAIL_HOST} USER={settings.EMAIL_HOST_USER} PORT={settings.EMAIL_PORT} BACKEND={settings.EMAIL_BACKEND}")
+        try:
+            val = send_mail(
+                subject="Verify your NOTCE AI Tutor Account",
+                message=f"Welcome {user.username}!\n\nPlease click the link below to verify your email address:\n{verify_link}\n\nIf you did not sign up, please ignore this email.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            print(f"send_mail return value: {val}")
+            print("Email sent successfully")
+        except Exception as e:
+            print(f"Failed to send email: {e}")
+            import traceback
+            traceback.print_exc() 
+
+class MeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+
+class VerifyEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get('token')
+        if not token:
+            return Response({'error': 'Token required'}, status=400)
+        
+        try:
+            profile = UserProfile.objects.get(verification_token=token)
+            profile.email_verified = True
+            profile.verification_token = None # Clear token after use (optional, or keep for record)
+            profile.save()
+            return Response({'status': 'verified', 'username': profile.user.username})
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Invalid token'}, status=400)
 
 class UserSessionViewSet(viewsets.ModelViewSet):
     queryset = UserSession.objects.all()
@@ -315,7 +374,15 @@ class MockStudyViewSet(viewsets.ModelViewSet):
     """
     queryset = MockStudySession.objects.all()
     serializer_class = MockStudySessionSerializer
-    permission_classes = [permissions.AllowAny]  # Allow anonymous for now
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Enforce IsPaidOrTrial for actions that start or progress the study.
+        """
+        if self.action in ['start', 'next', 'prefetch', 'pivot']:
+            return [permissions.IsAuthenticated(), IsPaidUser()]
+        return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
         if self.request.user.is_authenticated:
@@ -683,5 +750,21 @@ class StripeWebhookView(APIView):
             return Response(status=200)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
+
+from .stripe_service import verify_payment_status
+
+class SyncPaymentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        updated = verify_payment_status(request.user)
+        # Refresh from DB to get latest status
+        request.user.userprofile.refresh_from_db()
+        return Response({
+            'success': True, 
+            'updated': updated,
+            'is_paid': request.user.userprofile.is_paid,
+            'tier': request.user.userprofile.subscription_tier
+        })
 
 

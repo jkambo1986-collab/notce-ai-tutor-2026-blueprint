@@ -154,3 +154,17 @@ export interface MockFeedback {
     feedback_message: string;
 }
 
+export interface UserProfile {
+    subscription_tier: string;
+    is_paid: boolean;
+    target_exam_date: string | null;
+    is_trial_active: boolean;
+    trial_end_date: string | null;
+}
+
+export interface User {
+    id: number;
+    username: string;
+    email: string;
+    userprofile: UserProfile;
+}

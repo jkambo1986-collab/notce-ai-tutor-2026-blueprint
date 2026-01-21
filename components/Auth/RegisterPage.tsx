@@ -3,18 +3,19 @@ import { api } from '../../services/api';
 
 export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
     const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
         try {
-            await api.register(username, password);
-            alert("Registration successful! Please login.");
-            onSwitch();
+            await api.register(username, email, password);
+            setSuccess(true);
         } catch (err: any) {
             console.error('Registration error:', err);
             const isNetworkError = err.message?.toLowerCase().includes('fetch') || 
@@ -55,6 +56,21 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                         </div>
                     )}
                     
+                    {success ? (
+                        <div className="text-center py-8">
+                            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
+                            <p className="text-gray-400 mb-6">We've sent a verification link to your email. Please click it to activate your account.</p>
+                            <button 
+                                onClick={onSwitch}
+                                className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors"
+                            >
+                                Pass to Login
+                            </button>
+                        </div>
+                    ) : (
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Choose Username</label>
@@ -62,6 +78,17 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                                 value={username} 
                                 onChange={e => setUsername(e.target.value)}
                                 placeholder="Future OT Expert"
+                                className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 p-4 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Email Address</label>
+                            <input 
+                                type="email"
+                                value={email} 
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="you@example.com"
                                 className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 p-4 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
                                 required
                             />
@@ -84,7 +111,9 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                         >
                             {loading ? 'Creating Account...' : 'Create Account'}
                         </button>
+
                     </form>
+                    )}
                     
                     <div className="mt-8 text-center">
                         <span className="text-gray-400 text-sm">Already a member?</span>

@@ -5,22 +5,22 @@ from .models import CaseStudy, Question, Distractor, UserProfile, UserAnswer, Hi
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ('subscription_tier', 'is_paid', 'target_exam_date')
+        fields = ('subscription_tier', 'is_paid', 'target_exam_date', 'is_trial_active', 'trial_end_date')
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    profile = UserProfileSerializer(source='userprofile', read_only=True)
+    userprofile = UserProfileSerializer(read_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'password', 'profile')
+        fields = ('id', 'username', 'email', 'password', 'userprofile')
 
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data['username'],
+            email=validated_data.get('email', ''),
             password=validated_data['password']
         )
-        UserProfile.objects.create(user=user)
         return user
 
 # ... existings ...
