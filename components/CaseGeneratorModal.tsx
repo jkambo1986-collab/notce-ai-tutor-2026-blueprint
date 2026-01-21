@@ -1,10 +1,10 @@
 /**
  * @file CaseGeneratorModal.tsx
  * @description A polished modal for AI-powered case generation with domain selection,
- * difficulty settings, and loading animations. Tailored to the 2026 NOTCE blueprint.
+ * difficulty settings, and enhanced loading animations. Tailored to the 2026 NOTCE blueprint.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface CaseGeneratorModalProps {
   isOpen: boolean;
@@ -28,20 +28,63 @@ const DIFFICULTIES = [
   { id: 'Hard', label: 'Expert', description: 'Complex cases', icon: '🎯' },
 ];
 
+/** Loading messages that rotate during generation */
+const LOADING_MESSAGES = [
+  { text: 'Analyzing clinical scenarios...', icon: '🔬' },
+  { text: 'Consulting evidence-based resources...', icon: '📚' },
+  { text: 'Crafting realistic patient details...', icon: '👤' },
+  { text: 'Generating assessment questions...', icon: '✏️' },
+  { text: 'Aligning with NOTCE standards...', icon: '📋' },
+  { text: 'Preparing your case study...', icon: '✨' },
+];
+
 const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose, onGenerate }) => {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('Medium');
   const [isGenerating, setIsGenerating] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  // Rotate loading messages every 2 seconds
+  useEffect(() => {
+    if (!isGenerating) return;
+    
+    const messageInterval = setInterval(() => {
+      setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+    }, 2000);
+
+    const progressInterval = setInterval(() => {
+      setLoadingProgress((prev) => Math.min(prev + Math.random() * 15, 95));
+    }, 500);
+
+    return () => {
+      clearInterval(messageInterval);
+      clearInterval(progressInterval);
+    };
+  }, [isGenerating]);
+
+  // Reset loading state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setLoadingMessageIndex(0);
+      setLoadingProgress(0);
+      setStep(1);
+      setSelectedDomain(null);
+      setSelectedDifficulty('Medium');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
     if (!selectedDomain) return;
     setIsGenerating(true);
+    setLoadingProgress(0);
     try {
       await onGenerate(selectedDomain, selectedDifficulty);
-      onClose();
+      setLoadingProgress(100);
+      setTimeout(() => onClose(), 500);
     } catch (err) {
       console.error('Generation failed:', err);
     } finally {
@@ -62,58 +105,141 @@ const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose
     return isSelected ? `${c.bg} ${c.border} ${c.text} ring-2 ring-offset-2 ring-${color}-400` : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300';
   };
 
+  const currentLoadingMessage = LOADING_MESSAGES[loadingMessageIndex];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={!isGenerating ? onClose : undefined}
       />
       
       {/* Modal */}
       <div className="relative bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
         {/* Header */}
         <div className="relative bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 p-8 text-white">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {!isGenerating && (
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
           
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-              </svg>
+              {isGenerating ? (
+                <div className="relative">
+                  <svg className="w-8 h-8 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping" />
+                </div>
+              ) : (
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              )}
             </div>
             <div>
-              <h2 className="text-2xl font-bold">AI-Powered Case Generator</h2>
-              <p className="text-white/80 mt-1">Create unlimited scenarios aligned with the 2026 NOTCE Blueprint</p>
+              <h2 className="text-2xl font-bold">
+                {isGenerating ? 'Creating Your Case...' : 'AI-Powered Case Generator'}
+              </h2>
+              <p className="text-white/80 mt-1">
+                {isGenerating 
+                  ? 'Please wait while our AI crafts your personalized scenario'
+                  : 'Create unlimited scenarios aligned with the 2026 NOTCE Blueprint'}
+              </p>
             </div>
           </div>
           
-          {/* Progress Steps */}
-          <div className="flex items-center gap-4 mt-6">
-            <div className={`flex items-center gap-2 ${step >= 1 ? 'text-white' : 'text-white/50'}`}>
-              <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step >= 1 ? 'bg-white text-indigo-600' : 'bg-white/20'}`}>1</span>
-              <span className="text-sm font-medium">Select Domain</span>
+          {/* Progress Steps / Loading Bar */}
+          {isGenerating ? (
+            <div className="mt-6">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="flex items-center gap-2">
+                  <span className="text-2xl animate-bounce">{currentLoadingMessage.icon}</span>
+                  <span className="animate-pulse">{currentLoadingMessage.text}</span>
+                </span>
+                <span className="font-bold">{Math.round(loadingProgress)}%</span>
+              </div>
+              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-yellow-400 via-green-400 to-teal-400 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${loadingProgress}%` }}
+                />
+              </div>
             </div>
-            <div className="flex-1 h-0.5 bg-white/30 rounded">
-              <div className={`h-full bg-white rounded transition-all ${step >= 2 ? 'w-full' : 'w-0'}`} />
+          ) : (
+            <div className="flex items-center gap-4 mt-6">
+              <div className={`flex items-center gap-2 ${step >= 1 ? 'text-white' : 'text-white/50'}`}>
+                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step >= 1 ? 'bg-white text-indigo-600' : 'bg-white/20'}`}>1</span>
+                <span className="text-sm font-medium">Select Domain</span>
+              </div>
+              <div className="flex-1 h-0.5 bg-white/30 rounded">
+                <div className={`h-full bg-white rounded transition-all ${step >= 2 ? 'w-full' : 'w-0'}`} />
+              </div>
+              <div className={`flex items-center gap-2 ${step >= 2 ? 'text-white' : 'text-white/50'}`}>
+                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step >= 2 ? 'bg-white text-indigo-600' : 'bg-white/20'}`}>2</span>
+                <span className="text-sm font-medium">Set Difficulty</span>
+              </div>
             </div>
-            <div className={`flex items-center gap-2 ${step >= 2 ? 'text-white' : 'text-white/50'}`}>
-              <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step >= 2 ? 'bg-white text-indigo-600' : 'bg-white/20'}`}>2</span>
-              <span className="text-sm font-medium">Set Difficulty</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Content */}
         <div className="p-8 overflow-y-auto max-h-[50vh]">
-          {step === 1 && (
+          {isGenerating ? (
+            /* Loading State - Skeleton Preview */
+            <div className="space-y-6 animate-pulse">
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
+                  <span>{DOMAINS.find(d => d.id === selectedDomain)?.icon}</span>
+                  <span>{DOMAINS.find(d => d.id === selectedDomain)?.label}</span>
+                  <span className="mx-2">•</span>
+                  <span>{selectedDifficulty} Difficulty</span>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-gray-200 rounded-xl" />
+                  <div className="flex-1">
+                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-full" />
+                  <div className="h-4 bg-gray-200 rounded w-5/6" />
+                  <div className="h-4 bg-gray-200 rounded w-4/6" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-center">
+                <div className="flex items-center gap-2 text-gray-500">
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span className="text-sm">Building your personalized case...</span>
+                </div>
+              </div>
+            </div>
+          ) : step === 1 ? (
             <div className="space-y-4">
               <p className="text-gray-600 text-center mb-6">Choose a primary domain focus for your case study:</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -134,9 +260,7 @@ const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose
                 ))}
               </div>
             </div>
-          )}
-
-          {step === 2 && (
+          ) : (
             <div className="space-y-6">
               <p className="text-gray-600 text-center mb-6">Select the complexity level:</p>
               <div className="flex gap-4 justify-center">
@@ -168,53 +292,44 @@ const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-          {step === 2 && (
-            <button
-              onClick={() => setStep(1)}
-              className="px-6 py-3 text-gray-600 font-medium hover:text-gray-900 transition"
-            >
-              ← Back
-            </button>
-          )}
-          {step === 1 && <div />}
-          
-          {step === 1 ? (
-            <button
-              onClick={() => setStep(2)}
-              disabled={!selectedDomain}
-              className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              Continue →
-            </button>
-          ) : (
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-70 transition-all flex items-center gap-3"
-            >
-              {isGenerating ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span>Generating Case...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <span>Generate Case</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
+        {!isGenerating && (
+          <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+            {step === 2 && (
+              <button
+                onClick={() => setStep(1)}
+                className="px-6 py-3 text-gray-600 font-medium hover:text-gray-900 transition"
+              >
+                ← Back
+              </button>
+            )}
+            {step === 1 && <div />}
+            
+            {step === 1 ? (
+              <button
+                onClick={() => setStep(2)}
+                disabled={!selectedDomain}
+                className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Continue →
+              </button>
+            ) : (
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-70 transition-all flex items-center gap-3"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Generate Case</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default CaseGeneratorModal;
+
