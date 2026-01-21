@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ks^u!^98ntxpiqp06)l5x7z6d-_nx15fp6ij80cnf+(8s(veh$')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', '.railway.app', '.up.railway.app']
 
@@ -112,11 +112,18 @@ if CORS_ALLOWED_ORIGIN_ENV:
 # Also trust these origins for CSRF if needed
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
-    "https://notce-ai-tutor-2026-blueprint.vercel.app"
+    "https://notce-ai-tutor-2026-blueprint.vercel.app",
+    "https://*.vercel.app",
+    "https://*.railway.app"
 ]
 if CORS_ALLOWED_ORIGIN_ENV:
     extra_csrf = [o.strip().rstrip('/') for o in CORS_ALLOWED_ORIGIN_ENV.split(',') if o.strip() and o.startswith('https://')]
     CSRF_TRUSTED_ORIGINS.extend(extra_csrf)
+
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
 
 
 ROOT_URLCONF = 'config.urls'
@@ -154,7 +161,11 @@ DATABASES = {
 }
 
 # Update database configuration from $DATABASE_URL.
-db_from_env = dj_database_url.config(conn_max_age=0)
+db_from_env = dj_database_url.config(
+    conn_max_age=600,
+    conn_health_checks=True,
+    ssl_require=True if os.environ.get('DATABASE_URL', '').startswith('postgres') else False
+)
 DATABASES['default'].update(db_from_env)
 
 

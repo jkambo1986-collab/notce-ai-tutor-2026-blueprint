@@ -18,8 +18,13 @@ export const LoginPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
             login(data.access, data.refresh, username);
         } catch (err: any) {
             console.error('Login error:', err);
-            if (err.message && err.message.includes('FAILED')) {
-                setError('Network error: Unable to connect to the backend server. Please check your connection or wait for deployment.');
+            // Check for common connection/network failure indicators
+            const isNetworkError = err.message?.toLowerCase().includes('fetch') || 
+                                 err.message?.toLowerCase().includes('failed') ||
+                                 !window.navigator.onLine;
+
+            if (isNetworkError) {
+                setError('Network error: The backend server is currently unreachable. Please wait 1-2 minutes for the deployment to finish or check your connection.');
             } else {
                 setError('Invalid username or password. Please try again.');
             }

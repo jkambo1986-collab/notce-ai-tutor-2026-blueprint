@@ -17,8 +17,12 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
             onSwitch();
         } catch (err: any) {
             console.error('Registration error:', err);
-            if (err.message && err.message.includes('FAILED')) {
-                setError('Network error: Unable to connect to the backend server. Please check your connection or wait for deployment.');
+            const isNetworkError = err.message?.toLowerCase().includes('fetch') || 
+                                 err.message?.toLowerCase().includes('failed') ||
+                                 !window.navigator.onLine;
+
+            if (isNetworkError) {
+                setError('Network error: The backend server is currently unreachable. Please wait for the deployment to finish.');
             } else {
                 setError(err.message || 'Registration failed. Please try a different username.');
             }

@@ -1,2 +1,2 @@
-web: python manage.py migrate && gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+web: (python manage.py migrate || echo "Migration failed, check logs") && gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
 
