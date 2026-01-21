@@ -8,12 +8,39 @@ from .models import CaseStudy, Question, UserAnswer, Highlight, DomainTag, UserS
 from .serializers import CaseStudySerializer, UserAnswerSerializer, HighlightSerializer, UserSessionSerializer, UserSerializer
 from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario
 from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario
-from django.utils import timezone
+import logging
 import uuid
+import traceback
+from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import UserProfile
 from .permissions import IsPaidUser
+
+logger = logging.getLogger(__name__)
+
+class TestEmailView(APIView):
+    permission_classes = [permissions.AllowAny]  # Temporary for diagnostics
+
+    def get(self, request):
+        test_recipient = request.query_params.get('email', settings.DEFAULT_FROM_EMAIL)
+        try:
+            send_mail(
+                subject="Diagnostic: NOTCE AI Tutor Email Test",
+                message="If you are reading this, your production SMTP settings are working correctly.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[test_recipient],
+                fail_silently=False,
+            )
+            return Response({"success": True, "message": f"Test email sent to {test_recipient}"})
+        except Exception as e:
+            logger.error(f"SMTP Diagnostic Failure: {str(e)}")
+            logger.error(traceback.format_exc())
+            return Response({
+                "success": False, 
+                "error": str(e),
+                "traceback": traceback.format_exc() if settings.DEBUG else "Set DEBUG=True for full traceback"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -31,7 +58,7 @@ class RegisterView(generics.CreateAPIView):
         profile.save()
 
         # Send Polished Verification Email
-        verify_link = f"http://localhost:5173/verify?token={token}"
+        verify_link = f"{settings.FRONTEND_URL}/verify?token={token}"
         
         html_content = f"""
         <!DOCTYPE html>
@@ -94,10 +121,10 @@ class RegisterView(generics.CreateAPIView):
                 fail_silently=False,
                 html_message=html_content
             )
-            print("Email sent successfully")
+            logger.info(f"Verification email sent to {user.email}")
         except Exception as e:
-            print(f"Failed to send email: {e}")
-            import traceback
+            logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+            logger.error(traceback.format_exc())
             traceback.print_exc() 
 
 class MeView(APIView):

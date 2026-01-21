@@ -80,7 +80,7 @@ def fulfill_order(session):
         profile.save()
 
         # Send Polished Confirmation Email
-        dashboard_link = "http://localhost:5173/"
+        dashboard_link = settings.FRONTEND_URL
         
         html_content = f"""
         <!DOCTYPE html>
@@ -151,8 +151,15 @@ def fulfill_order(session):
                 fail_silently=False,
                 html_message=html_content
             )
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Payment confirmation email sent to {user.email}")
         except Exception as e:
-            print(f"Failed to send confirmation email: {e}")
+            import logging
+            import traceback
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send confirmation email to {user.email}: {str(e)}")
+            logger.error(traceback.format_exc())
 
 def verify_payment_status(user):
     """
