@@ -23,6 +23,29 @@ class PingView(APIView):
     def get(self, request):
         return Response({"status": "pong"})
 
+class DiagnosticView(APIView):
+    permission_classes = [permissions.AllowAny] # Temporary for debugging
+
+    def get(self, request):
+        def obfuscate(val):
+            if not val: return None
+            if len(str(val)) < 4: return "***"
+            return str(val)[:2] + "..." + str(val)[-2:]
+
+        diag_data = {
+            "EMAIL_HOST": settings.EMAIL_HOST,
+            "EMAIL_PORT": settings.EMAIL_PORT,
+            "EMAIL_USE_TLS": settings.EMAIL_USE_TLS,
+            "EMAIL_HOST_USER": obfuscate(settings.EMAIL_HOST_USER),
+            "EMAIL_HOST_PASSWORD": obfuscate(settings.EMAIL_HOST_PASSWORD),
+            "DEFAULT_FROM_EMAIL": settings.DEFAULT_FROM_EMAIL,
+            "FRONTEND_URL": settings.FRONTEND_URL,
+            "DEBUG": settings.DEBUG,
+            "STRIPE_PUBLIC_KEY": obfuscate(settings.STRIPE_PUBLIC_KEY),
+            "DATABASE_URL_SET": bool(os.environ.get('DATABASE_URL')),
+        }
+        return Response(diag_data)
+
 class TestEmailView(APIView):
     permission_classes = [permissions.AllowAny]  # Temporary for diagnostics
 
@@ -39,10 +62,9 @@ class TestEmailView(APIView):
             return Response({"success": True, "message": f"Test email sent to {test_recipient}"})
         except Exception as e:
             logger.error(f"SMTP Diagnostic Failure: {str(e)}")
-            logger.error(traceback.format_exc())
             return Response({
                 "success": False, 
-                "error": str(e),
+                "error": f"SMTP Diagnostic Failure: {str(e)}",
                 "traceback": traceback.format_exc() if settings.DEBUG else "Set DEBUG=True for full traceback"
             }, status=status.HTTP_200_OK)
 
