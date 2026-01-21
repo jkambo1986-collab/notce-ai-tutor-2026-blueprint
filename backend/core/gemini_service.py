@@ -181,7 +181,7 @@ def analyze_evidence_link(vignette: str, question_stem: str, correct_answer: str
             )
         )
         
-        )
+
         
         cleaned_text = clean_json_text(response.text)
         result = json.loads(cleaned_text)
