@@ -19,6 +19,11 @@ from .permissions import IsPaidUser
 
 logger = logging.getLogger(__name__)
 
+class PingView(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request):
+        return Response({"status": "pong"})
+
 class TestEmailView(APIView):
     permission_classes = [permissions.AllowAny]  # Temporary for diagnostics
 
