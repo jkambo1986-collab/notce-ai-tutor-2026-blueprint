@@ -359,12 +359,14 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                 <div className="bg-white p-2">
                      <div className="text-lg leading-relaxed text-gray-700">
                         <span className="font-bold mr-2">{progress.current}.</span>
-                        <HighlightableText 
-                            text={currentQuestion.stem}
-                            highlights={highlights}
-                            onAddHighlight={addHighlight}
-                            onRemoveHighlight={removeHighlight}
-                        />
+                        <span className="inline">
+                            <HighlightableText 
+                                text={currentQuestion.stem}
+                                highlights={highlights}
+                                onAddHighlight={addHighlight}
+                                onRemoveHighlight={removeHighlight}
+                            />
+                        </span>
                      </div>
                 </div>
 
@@ -425,7 +427,10 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                         </div>
                         <div className="prose prose-sm max-w-none bg-white/50 p-6 rounded-2xl">
                              <div className="whitespace-pre-wrap text-gray-700 text-base leading-relaxed">
-                                {feedback.explanation}
+                                {feedback.explanation
+                                    .replace(/\*\*([^*]+)\*\*/g, '$1')  // Remove bold markdown
+                                    .replace(/\*([^*]+)\*/g, '$1')      // Remove italic markdown
+                                }
                              </div>
                         </div>
                     </div>

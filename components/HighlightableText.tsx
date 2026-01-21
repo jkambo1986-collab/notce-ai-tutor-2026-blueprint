@@ -152,14 +152,14 @@ const HighlightableText: React.FC<Props> = ({
   };
 
   return (
-    <div 
+    <span 
       id="vignette-container"
       onMouseUp={handleMouseUp}
       // 'whitespace-pre-wrap' preserves formatting, 'select-text' enables selection
       className={`prose prose-slate max-w-none leading-relaxed select-text text-gray-700 text-lg whitespace-pre-wrap ${readOnly ? 'cursor-default' : ''}`}
     >
       {renderText()}
-    </div>
+    </span>
   );
 };
 
