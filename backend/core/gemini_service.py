@@ -1,6 +1,21 @@
 import os
 from google import genai
 from google.genai import types
+import re
+import json
+
+def clean_json_text(text):
+    """
+    Strips markdown code blocks from the text to ensure valid JSON parsing.
+    """
+    if not text:
+        return ""
+    # Regex to capture content inside ```json ... ``` or just ``` ... ```
+    pattern = r"```(?:json)?\s*(.*?)\s*```"
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
 
 # Initialize Gemini client
 # Ensure GEMINI_API_KEY is set in your environment variables
@@ -90,7 +105,7 @@ def generate_full_case_study(domain="OT Expertise", difficulty="Medium"):
                 response_mime_type='application/json'
             )
         )
-        return response.text
+        return clean_json_text(response.text)
     except Exception as e:
         key = os.environ.get("GEMINI_API_KEY", "MISSING")
         masked = f"{key[:5]}...{key[-3:]}" if key and len(key) > 8 else key
@@ -166,8 +181,10 @@ def analyze_evidence_link(vignette: str, question_stem: str, correct_answer: str
             )
         )
         
-        import json
-        result = json.loads(response.text)
+        )
+        
+        cleaned_text = clean_json_text(response.text)
+        result = json.loads(cleaned_text)
         
         # Process expert indicators to find their positions in the vignette
         expert_highlights = []

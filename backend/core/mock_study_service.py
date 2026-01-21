@@ -9,6 +9,7 @@ import os
 from google import genai
 from google.genai import types
 import json
+from .gemini_service import clean_json_text
 
 
 def get_client():
@@ -110,7 +111,7 @@ def generate_practice_question(domain: str, difficulty: str,
             )
         )
         
-        result = json.loads(response.text)
+        result = json.loads(clean_json_text(response.text))
         return result
         
     except Exception as e:
@@ -185,7 +186,7 @@ def generate_pivot_scenario(original_stem: str, original_correct_label: str, ori
             )
         )
         
-        return json.loads(response.text)
+        return json.loads(clean_json_text(response.text))
         
     except Exception as e:
         print(f"Pivot Generation Error: {e}")
