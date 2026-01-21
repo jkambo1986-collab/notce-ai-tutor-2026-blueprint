@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ks^u!^98ntxpiqp06)l5x7z6d-_nx15fp6ij80cnf+(8s(veh$')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = True # Temporarily enable to debug 502/500
 
 ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', '.railway.app', '.up.railway.app']
 
@@ -213,7 +213,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
