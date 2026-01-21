@@ -301,8 +301,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
 
                     {/* Step Indicators */}
                     <div className="flex items-center justify-center relative">
-                        {/* Connecting Line */}
-                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/30 -translate-y-1/2 mx-[10%]" />
+                        {/* Removed connecting line per user request */}
                         
                         <div className="flex justify-between w-full max-w-sm relative z-10">
                             {(() => {
@@ -357,17 +356,9 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
             <main className="flex-1 max-w-6xl mx-auto w-full px-6 lg:px-12 pb-24 pt-6 space-y-6">
                 {/* Question Stem */}
                 <div className="bg-white p-2">
-                     <div className="text-lg leading-relaxed text-gray-700">
-                        <span className="font-bold mr-2">{progress.current}.</span>
-                        <span className="inline">
-                            <HighlightableText 
-                                text={currentQuestion.stem}
-                                highlights={highlights}
-                                onAddHighlight={addHighlight}
-                                onRemoveHighlight={removeHighlight}
-                            />
-                        </span>
-                     </div>
+                     <p className="text-lg leading-relaxed text-gray-700">
+                        {currentQuestion.stem}
+                     </p>
                 </div>
 
                 {/* Options List */}
@@ -426,10 +417,11 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                             </div>
                         </div>
                         <div className="prose prose-sm max-w-none bg-white/50 p-6 rounded-2xl">
-                             <div className="whitespace-pre-wrap text-gray-700 text-base leading-relaxed">
-                                {feedback.explanation
-                                    .replace(/\*\*([^*]+)\*\*/g, '$1')  // Remove bold markdown
-                                    .replace(/\*([^*]+)\*/g, '$1')      // Remove italic markdown
+                             <div className="text-gray-700 text-base leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
+                                {(feedback.explanation || '')
+                                    .replace(/\*\*([^*]+)\*\*/g, '$1')
+                                    .replace(/\*([^*]+)\*/g, '$1')
+                                    .replace(/\*\*/g, '')
                                 }
                              </div>
                         </div>
