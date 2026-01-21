@@ -7,7 +7,6 @@ from django.contrib.auth.models import User
 from .models import CaseStudy, Question, UserAnswer, Highlight, DomainTag, UserSession
 from .serializers import CaseStudySerializer, UserAnswerSerializer, HighlightSerializer, UserSessionSerializer, UserSerializer
 from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario
-from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario
 import logging
 import uuid
 import traceback
@@ -45,7 +44,7 @@ class TestEmailView(APIView):
                 "success": False, 
                 "error": str(e),
                 "traceback": traceback.format_exc() if settings.DEBUG else "Set DEBUG=True for full traceback"
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            }, status=status.HTTP_200_OK)
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
