@@ -394,7 +394,7 @@ const MainApp: React.FC = () => {
           {view !== 'landing' && (
               <>
                 <button 
-                    onClick={handleGenerateCase}
+                    onClick={() => handleGenerateCase("Physical Rehabilitation", "Medium")}
                     className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-md transition border border-purple-200"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
