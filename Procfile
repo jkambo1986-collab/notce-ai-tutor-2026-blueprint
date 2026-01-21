@@ -1,1 +1,1 @@
-web: python backend/manage.py collectstatic --noinput && (python backend/manage.py migrate || echo "Migration failed") && gunicorn --pythonpath backend config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+web: cd backend && (python manage.py collectstatic --noinput || echo "Static collection failed") && (python manage.py migrate || echo "Migration failed") && gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
