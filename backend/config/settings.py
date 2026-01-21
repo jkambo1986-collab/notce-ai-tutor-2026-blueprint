@@ -27,7 +27,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ks^u!^98ntxpiqp06)l5x
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True # Temporarily enable to debug 502/500
 
-ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', '.railway.app', '.up.railway.app']
+ALLOWED_HOSTS = ['*']
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
@@ -72,34 +72,8 @@ MIDDLEWARE = [
 ]
 
 # Update CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Broadly allow for production stability
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
-
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-]
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://notce-ai-tutor-2026-blueprint.vercel.app",
-]
 
 
 
@@ -162,12 +136,12 @@ DATABASES = {
 }
 
 # Update database configuration from $DATABASE_URL.
-db_from_env = dj_database_url.config(
-    conn_max_age=600,
-    conn_health_checks=True,
-    ssl_require=True if os.environ.get('DATABASE_URL', '').startswith('postgres') else False
-)
-DATABASES['default'].update(db_from_env)
+if os.environ.get('DATABASE_URL'):
+    DATABASES['default'] = dj_database_url.config(
+        conn_max_age=600,
+        conn_health_checks=True,
+        ssl_require=True
+    )
 
 
 
