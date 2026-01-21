@@ -79,17 +79,77 @@ def fulfill_order(session):
         profile.is_paid = True
         profile.save()
 
-        # Send Confirmation Email
-        from django.core.mail import send_mail
-        from django.conf import settings
+        # Send Polished Confirmation Email
+        dashboard_link = "http://localhost:5173/"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                .button {{
+                    background-color: #0d9488;
+                    border: none;
+                    color: white !important;
+                    padding: 12px 24px;
+                    text-align: center;
+                    text-decoration: none;
+                    display: inline-block;
+                    font-size: 16px;
+                    margin: 4px 2px;
+                    cursor: pointer;
+                    border-radius: 12px;
+                    font-weight: bold;
+                }}
+                .success-icon {{
+                    font-size: 48px;
+                    color: #0d9488;
+                    margin-bottom: 20px;
+                }}
+            </style>
+        </head>
+        <body style="font-family: 'Inter', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #134e4a 0%, #0d9488 100%); padding: 40px; border-radius: 24px; color: white; text-align: center; margin-bottom: 30px;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.025em;">Payment Successful!</h1>
+                <p style="opacity: 0.9; margin-top: 10px;">Your NOTCE journey just leveled up.</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <div class="success-icon">✓</div>
+                <h2 style="font-size: 24px; font-weight: 800; color: #111; margin-bottom: 16px;">Hi {user.username},</h2>
+                <p style="font-size: 16px; color: #444; margin-bottom: 24px;">
+                    Great news! Your payment was successful and your account has been upgraded to the <strong style="color: #0d9488;">{tier.upper()}</strong> tier. 
+                    You now have full, unlimited access to all AI-driven case studies, adaptive mock examinations, and clinical indicator analysis.
+                </p>
+                
+                <div style="background-color: #f0fdfa; border: 1px solid #ccfbf1; padding: 20px; border-radius: 16px; display: inline-block; margin-bottom: 30px;">
+                    <p style="margin: 0; font-weight: bold; color: #134e4a;">Tier Unlocked: {tier.capitalize()}</p>
+                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #0d9488;">Unlimited Access Active</p>
+                </div>
+                
+                <div style="margin-bottom: 40px;">
+                    <a href="{dashboard_link}" class="button">Go to My Dashboard</a>
+                </div>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 40px 0;">
+            
+            <p style="font-size: 12px; color: #999; text-align: center;">
+                Need help? Reply to this email or visit our <a href="#" style="color: #0d9488;">support center</a>.
+            </p>
+        </body>
+        </html>
+        """
         
         try:
             send_mail(
                 subject="Payment Successful - NOTCE AI Tutor",
-                message=f"Hi {user.username},\n\nYour payment was successful and your account has been upgraded to the {tier.upper()} tier.\n\nThank you for your business!",
+                message=f"Hi {user.username}, your payment for {tier.upper()} was successful!",
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user.email],
                 fail_silently=False,
+                html_message=html_content
             )
         except Exception as e:
             print(f"Failed to send confirmation email: {e}")

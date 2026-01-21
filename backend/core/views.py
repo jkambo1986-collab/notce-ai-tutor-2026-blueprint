@@ -30,19 +30,70 @@ class RegisterView(generics.CreateAPIView):
         profile.trial_start_date = timezone.now()
         profile.save()
 
-        # Send Verification Email
+        # Send Polished Verification Email
         verify_link = f"http://localhost:5173/verify?token={token}"
-        print(f"Attempting to send email to {user.email}")
-        print(f"Settings: HOST={settings.EMAIL_HOST} USER={settings.EMAIL_HOST_USER} PORT={settings.EMAIL_PORT} BACKEND={settings.EMAIL_BACKEND}")
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                .button {{
+                    background-color: #0d9488;
+                    border: none;
+                    color: white !important;
+                    padding: 12px 24px;
+                    text-align: center;
+                    text-decoration: none;
+                    display: inline-block;
+                    font-size: 16px;
+                    margin: 4px 2px;
+                    cursor: pointer;
+                    border-radius: 12px;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body style="font-family: 'Inter', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #134e4a 0%, #0d9488 100%); padding: 40px; border-radius: 24px; color: white; text-align: center; margin-bottom: 30px;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.025em;">NOTCE AI Tutor</h1>
+                <p style="opacity: 0.9; margin-top: 10px;">Master your O.T. journey.</p>
+            </div>
+            
+            <h2 style="font-size: 24px; font-weight: 800; color: #111; margin-bottom: 16px;">Welcome to the future of Prep, {user.username}!</h2>
+            
+            <p style="font-size: 16px; color: #444; margin-bottom: 24px;">
+                You're one step away from unlocking personalized AI tutoring designed specifically for the NOTCE. Click the button below to verify your email and get started with your 7-day free trial.
+            </p>
+            
+            <div style="text-align: center; margin: 40px 0;">
+                <a href="{verify_link}" class="button">Verify My Account</a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="{verify_link}" style="color: #0d9488;">{verify_link}</a>
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 40px 0;">
+            
+            <p style="font-size: 12px; color: #999; text-align: center;">
+                If you did not sign up for NOTCE AI Tutor, please ignore this email.
+            </p>
+        </body>
+        </html>
+        """
+        
         try:
-            val = send_mail(
+            send_mail(
                 subject="Verify your NOTCE AI Tutor Account",
-                message=f"Welcome {user.username}!\n\nPlease click the link below to verify your email address:\n{verify_link}\n\nIf you did not sign up, please ignore this email.",
+                message=f"Welcome {user.username}! Please verify your account at: {verify_link}",
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user.email],
                 fail_silently=False,
+                html_message=html_content
             )
-            print(f"send_mail return value: {val}")
             print("Email sent successfully")
         except Exception as e:
             print(f"Failed to send email: {e}")
