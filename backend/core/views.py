@@ -168,19 +168,25 @@ class RegisterView(generics.CreateAPIView):
         """
         
         try:
-            send_mail(
-                subject="Verify your NOTCE AI Tutor Account",
-                message=f"Welcome {user.username}! Please verify your account at: {verify_link}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-                html_message=html_content
-            )
-            logger.info(f"Verification email sent to {user.email}")
+            import socket
+            old_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(5)  # 5 second timeout for registration emails
+            try:
+                send_mail(
+                    subject="Verify your NOTCE AI Tutor Account",
+                    message=f"Welcome {user.username}! Please verify your account at: {verify_link}",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                    html_message=html_content
+                )
+                logger.info(f"Verification email sent to {user.email}")
+            finally:
+                socket.setdefaulttimeout(old_timeout)
         except Exception as e:
             logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
-            logger.error(traceback.format_exc())
-            traceback.print_exc() 
+            # Don't block registration if email fails - user is still created
+ 
 
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
