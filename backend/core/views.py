@@ -51,23 +51,51 @@ class TestEmailView(APIView):
     permission_classes = [permissions.AllowAny]  # Temporary for diagnostics
 
     def get(self, request):
+        import socket
+        from django.core.mail import get_connection
+
         test_recipient = request.query_params.get('email', settings.DEFAULT_FROM_EMAIL)
+        
+        # Get config info for response
+        config_info = {
+            "EMAIL_HOST": settings.EMAIL_HOST,
+            "EMAIL_PORT": settings.EMAIL_PORT,
+            "EMAIL_USE_TLS": settings.EMAIL_USE_TLS,
+            "EMAIL_HOST_USER": settings.EMAIL_HOST_USER[:4] + "..." if settings.EMAIL_HOST_USER else None,
+            "DEFAULT_FROM_EMAIL": settings.DEFAULT_FROM_EMAIL,
+        }
+        
         try:
-            send_mail(
-                subject="Diagnostic: NOTCE AI Tutor Email Test",
-                message="If you are reading this, your production SMTP settings are working correctly.",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[test_recipient],
-                fail_silently=False,
-            )
-            return Response({"success": True, "message": f"Test email sent to {test_recipient}"})
+            # Set a socket timeout to prevent hanging
+            old_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(10)  # 10 second timeout
+            
+            try:
+                send_mail(
+                    subject="Diagnostic: NOTCE AI Tutor Email Test",
+                    message="If you are reading this, your production SMTP settings are working correctly.",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[test_recipient],
+                    fail_silently=False,
+                )
+            finally:
+                socket.setdefaulttimeout(old_timeout)
+                
+            return Response({
+                "success": True, 
+                "message": f"Test email sent to {test_recipient}",
+                "config": config_info
+            })
         except Exception as e:
             logger.error(f"SMTP Diagnostic Failure: {str(e)}")
             return Response({
                 "success": False, 
-                "error": f"SMTP Diagnostic Failure: {str(e)}",
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "config": config_info,
                 "traceback": traceback.format_exc() if settings.DEBUG else "Set DEBUG=True for full traceback"
             }, status=status.HTTP_200_OK)
+
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
