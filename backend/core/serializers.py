@@ -71,6 +71,35 @@ class HighlightSerializer(serializers.ModelSerializer):
         fields = ['id', 'case_study', 'start_index', 'end_index', 'text']
         read_only_fields = ['user']
 
+from .models import BankCase, BankQuestion, BankDistractor
+
+
+class BankDistractorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankDistractor
+        fields = ['label', 'text', 'incorrect_rationale']
+
+
+class BankQuestionSerializer(serializers.ModelSerializer):
+    distractors = BankDistractorSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = BankQuestion
+        fields = [
+            'id', 'domain', 'difficulty', 'format', 'case', 'stem',
+            'distractors', 'correct_label', 'correct_rationale',
+            'topic', 'cognitive_level',
+        ]
+
+
+class BankCaseSerializer(serializers.ModelSerializer):
+    questions = BankQuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = BankCase
+        fields = ['id', 'title', 'vignette', 'setting', 'domain', 'tags', 'questions']
+
+
 from .models import MockStudySession
 
 class MockStudySessionSerializer(serializers.ModelSerializer):

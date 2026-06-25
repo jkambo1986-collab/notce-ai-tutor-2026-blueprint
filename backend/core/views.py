@@ -106,17 +106,23 @@ class RegisterView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        # Generate verification token
-        token = str(uuid.uuid4())
         profile, created = UserProfile.objects.get_or_create(user=user)
-        profile.verification_token = token
-        profile.email_verified = False # Default to false
         profile.trial_start_date = timezone.now()
+        # Email verification flow is disabled for now: auto-verify on signup and
+        # skip sending the (currently unavailable) verification email so users
+        # can log in immediately. Re-enable by restoring the email send below.
+        profile.email_verified = True
+        profile.verification_token = None
         profile.save()
+        return
 
-        # Send Polished Verification Email
+        # --- Verification email (disabled) ---
+        token = str(uuid.uuid4())
+        profile.verification_token = token
+        profile.email_verified = False
+        profile.save()
         verify_link = f"{settings.FRONTEND_URL}/verify?token={token}"
-        
+
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -859,6 +865,52 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             },
              "highlights": session.highlights
         })
+
+from .models import BankCase, BankQuestion
+from .serializers import BankCaseSerializer, BankQuestionSerializer
+
+
+class BankQuestionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Serves the vetted premium question bank. Approved items only.
+    Filter via ?domain=&difficulty=&format=&topic=
+    """
+    serializer_class = BankQuestionSerializer
+    permission_classes = [IsPaidUser]
+
+    def get_queryset(self):
+        qs = BankQuestion.objects.filter(status='approved').prefetch_related('distractors')
+        params = self.request.query_params
+        if params.get('domain'):
+            qs = qs.filter(domain=params['domain'])
+        if params.get('difficulty'):
+            qs = qs.filter(difficulty=params['difficulty'])
+        if params.get('format'):
+            qs = qs.filter(format=params['format'])
+        if params.get('topic'):
+            qs = qs.filter(topic__icontains=params['topic'])
+        return qs
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Coverage summary: counts by domain x difficulty for approved items."""
+        from django.db.models import Count
+        rows = (BankQuestion.objects.filter(status='approved')
+                .values('domain', 'difficulty').annotate(n=Count('id')).order_by('domain', 'difficulty'))
+        return Response({"total": BankQuestion.objects.filter(status='approved').count(), "breakdown": list(rows)})
+
+
+class BankCaseViewSet(viewsets.ReadOnlyModelViewSet):
+    """Serves vetted premium case-based clusters (vignette + linked questions)."""
+    serializer_class = BankCaseSerializer
+    permission_classes = [IsPaidUser]
+
+    def get_queryset(self):
+        qs = BankCase.objects.prefetch_related('questions__distractors')
+        if self.request.query_params.get('domain'):
+            qs = qs.filter(domain=self.request.query_params['domain'])
+        return qs
+
 
 from .stripe_service import create_checkout_session, handle_stripe_webhook
 from django.views.decorators.csrf import csrf_exempt

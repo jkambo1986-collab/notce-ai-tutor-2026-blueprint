@@ -135,6 +135,79 @@ class Highlight(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.text[:20]}"
 
+# --- PREMIUM QUESTION BANK MODELS ---
+
+class BankCase(models.Model):
+    """A clinical vignette that groups several case-based premium bank questions."""
+    id = models.CharField(max_length=64, primary_key=True)  # deterministic hash id
+    title = models.CharField(max_length=255)
+    vignette = models.TextField()
+    setting = models.CharField(max_length=120)
+    domain = models.CharField(max_length=20, choices=DomainTag.choices)
+    tags = models.JSONField(default=list, blank=True)
+    # Audit trail: minted_by, solver verdicts, audit scores, revision count, timestamps
+    provenance = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"[Case] {self.title}"
+
+
+class BankQuestion(models.Model):
+    """
+    A pre-minted, independently-solved-and-audited premium question.
+    Unlike Question (case-bound, Gemini-live) and MockStudySession (on-the-fly),
+    these are vetted, persisted, and reusable across the app.
+    """
+    DIFFICULTY_CHOICES = [('Easy', 'Easy'), ('Medium', 'Medium'), ('Hard', 'Hard')]
+    FORMAT_CHOICES = [('standalone', 'Standalone'), ('case', 'Case-based')]
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('approved', 'Approved'),
+        ('needs_review', 'Needs Review'),
+        ('rejected', 'Rejected'),
+    ]
+    COGNITIVE_CHOICES = [('recall', 'Recall'), ('application', 'Application'), ('analysis', 'Analysis')]
+
+    id = models.CharField(max_length=64, primary_key=True)  # deterministic hash for idempotent import
+    domain = models.CharField(max_length=20, choices=DomainTag.choices)
+    difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES)
+    format = models.CharField(max_length=12, choices=FORMAT_CHOICES, default='standalone')
+    case = models.ForeignKey(BankCase, related_name='questions', on_delete=models.CASCADE, null=True, blank=True)
+    stem = models.TextField()
+    correct_label = models.CharField(max_length=1)  # 'A', 'B', 'C', 'D'
+    correct_rationale = models.TextField()
+    topic = models.CharField(max_length=160, blank=True)
+    cognitive_level = models.CharField(max_length=12, choices=COGNITIVE_CHOICES, default='application')
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='draft', db_index=True)
+    # Full pipeline audit trail: minted_by model, blind-solver answer+verdict, audit scores, revisions
+    provenance = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['domain', 'difficulty']
+        indexes = [models.Index(fields=['domain', 'difficulty', 'status'])]
+
+    def __str__(self):
+        return f"[{self.domain}/{self.difficulty}] {self.stem[:48]}"
+
+
+class BankDistractor(models.Model):
+    bank_question = models.ForeignKey(BankQuestion, related_name='distractors', on_delete=models.CASCADE)
+    label = models.CharField(max_length=1)  # 'A', 'B', 'C', 'D'
+    text = models.CharField(max_length=600)
+    incorrect_rationale = models.TextField(blank=True, null=True)
+
+    class Meta:
+        unique_together = ('bank_question', 'label')
+        ordering = ['label']
+
+    def __str__(self):
+        return f"{self.bank_question_id} - {self.label}"
+
+
 # --- MOCK STUDY MODELS ---
 
 class MockStudySession(models.Model):

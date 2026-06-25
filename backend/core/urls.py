@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView
+from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView, BankQuestionViewSet, BankCaseViewSet
 
 router = DefaultRouter()
 router.register(r'cases', CaseStudyViewSet)
@@ -13,6 +13,8 @@ router.register(r'highlights', HighlightViewSet)
 router.register(r'memory', AgentMemoryViewSet)
 router.register(r'sessions', UserSessionViewSet)
 router.register(r'mock-study', MockStudyViewSet, basename='mock-study')
+router.register(r'bank/questions', BankQuestionViewSet, basename='bank-questions')
+router.register(r'bank/cases', BankCaseViewSet, basename='bank-cases')
 
 urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='auth_register'),
