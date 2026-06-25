@@ -9,15 +9,7 @@ import os
 from google import genai
 from google.genai import types
 import json
-from .gemini_service import clean_json_text
-
-
-def get_client():
-    """Initialize Gemini client with API key from environment."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return None
-    return genai.Client(api_key=api_key)
+from .gemini_service import clean_json_text, get_client, MODEL_NAME
 
 
 def generate_practice_question(domain: str, difficulty: str, 
@@ -104,7 +96,7 @@ def generate_practice_question(domain: str, difficulty: str,
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model=MODEL_NAME,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
@@ -179,7 +171,7 @@ def generate_pivot_scenario(original_stem: str, original_correct_label: str, ori
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model=MODEL_NAME,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'

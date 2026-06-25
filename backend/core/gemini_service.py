@@ -4,6 +4,11 @@ from google.genai import types
 import re
 import json
 
+# Model name. Vertex AI exposes gemini-2.5-flash (the legacy gemini-2.0-flash
+# is not available on the Vertex project); the Developer API supports it too.
+# Override with GEMINI_MODEL if needed.
+MODEL_NAME = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+
 def clean_json_text(text):
     """
     Strips markdown code blocks from the text to ensure valid JSON parsing.
@@ -17,10 +22,52 @@ def clean_json_text(text):
         return match.group(1).strip()
     return text.strip()
 
-# Initialize Gemini client
-# Ensure GEMINI_API_KEY is set in your environment variables
+# Initialize Gemini client.
+#
+# Two modes are supported, in priority order:
+#   1. Vertex AI (production) -- billed against Google Cloud / Vertex credits.
+#      Enabled when GOOGLE_GENAI_USE_VERTEXAI is truthy OR a service-account
+#      JSON is provided via GCP_SERVICE_ACCOUNT_JSON. Auth uses the service
+#      account; project/location come from env (or the JSON's project_id).
+#   2. Gemini Developer API (local dev) -- billed against GEMINI_API_KEY.
+#
+# Relevant env vars:
+#   GOOGLE_GENAI_USE_VERTEXAI = "True"
+#   GCP_SERVICE_ACCOUNT_JSON  = <full service-account JSON, as a single string>
+#   GOOGLE_CLOUD_PROJECT      = <gcp project id>           (optional; falls back to JSON project_id)
+#   GOOGLE_CLOUD_LOCATION     = <region, e.g. us-central1> (optional; defaults to us-central1)
+#   GEMINI_API_KEY            = <dev api key>              (fallback only)
+
+def _truthy(val):
+    return str(val).strip().lower() in ("1", "true", "yes", "on")
 
 def get_client():
+    use_vertex = _truthy(os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", ""))
+    sa_json = os.environ.get("GCP_SERVICE_ACCOUNT_JSON")
+
+    if use_vertex or sa_json:
+        try:
+            credentials = None
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+
+            if sa_json:
+                from google.oauth2 import service_account
+                info = json.loads(sa_json)
+                credentials = service_account.Credentials.from_service_account_info(
+                    info, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                )
+                project = project or info.get("project_id")
+
+            return genai.Client(
+                vertexai=True,
+                project=project,
+                location=location,
+                credentials=credentials,
+            )
+        except Exception as e:
+            print(f"Vertex AI client init failed, falling back to API key: {e}")
+
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return None
@@ -50,7 +97,7 @@ def get_evolving_rationale(current_question_stem, current_correct_rationale,
 
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model=MODEL_NAME,
             contents=prompt
         )
         return response.text
@@ -99,7 +146,7 @@ def generate_full_case_study(domain="OT Expertise", difficulty="Medium"):
 
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model=MODEL_NAME,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
@@ -174,7 +221,7 @@ def analyze_evidence_link(vignette: str, question_stem: str, correct_answer: str
 
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model=MODEL_NAME,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
