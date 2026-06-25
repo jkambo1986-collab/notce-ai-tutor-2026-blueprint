@@ -273,7 +273,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
                     {progress.current}. Question
                 </div>
                 <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-                    NBCOT Simulation
+                    NOTCE Simulation
                 </div>
             </div>
 

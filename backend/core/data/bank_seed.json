@@ -168,7 +168,7 @@
       "case_id": null,
       "stem": "An occupational therapist is conducting a home visit with a 78-year-old woman who has mild dementia. During the functional assessment, the client discloses that her adult son \"hits her when she does not listen.\" She then adds, \"Please don't tell anyone — he is all I have left.\" The OT observes bilateral upper-arm bruising consistent with the disclosure. What is the MOST appropriate immediate action for the OT?",
       "correct_label": "C",
-      "correct_rationale": "Occupational therapists are mandated reporters in all U.S. jurisdictions; when there is reasonable suspicion of elder abuse, the legal and ethical duty to report to Adult Protective Services overrides a client's request for confidentiality. Informing the client of the impending report respects her dignity, maintains transparency within the therapeutic relationship, and aligns with the AOTA Code of Ethics principles of beneficence and veracity. The physical evidence (bilateral upper-arm bruising) combined with the direct disclosure meets the threshold of reasonable suspicion, making immediate reporting the single most defensible action.",
+      "correct_rationale": "Where provincial adult-protection legislation applies, a reasonable suspicion of abuse of a vulnerable adult creates a legal and ethical duty to report to the designated provincial authority that overrides a client's request for confidentiality. Informing the client of the impending report respects her dignity, maintains transparency within the therapeutic relationship, and aligns with the CAOT Code of Ethics principles of beneficence and veracity. The physical evidence (bilateral upper-arm bruising) combined with the direct disclosure meets the threshold of reasonable suspicion, making immediate reporting to the designated provincial authority the single most defensible action.",
       "topic": "Mandatory Reporting — Elder Abuse and Duty to Report",
       "cognitive_level": "application",
       "status": "approved",
@@ -176,22 +176,22 @@
         {
           "label": "A",
           "text": "Honor the client's request for confidentiality, thoroughly document the bruising and disclosure in the medical record, and monitor the situation at the next visit.",
-          "incorrect_rationale": "Mandatory reporting obligations supersede client confidentiality when elder abuse is reasonably suspected; deferring action to a future visit places the client at continued risk and violates the OT's legal duty."
+          "incorrect_rationale": "A duty to report under provincial adult-protection legislation supersedes client confidentiality when abuse of a vulnerable adult is reasonably suspected; deferring action to a future visit places the client at continued risk and violates the OT's legal and ethical duty."
         },
         {
           "label": "B",
           "text": "Contact the adult son to gather his perspective on the bruising before deciding whether a formal report to authorities is warranted.",
-          "incorrect_rationale": "Alerting the alleged abuser before filing a report can increase the client's risk of harm, compromise the investigation, and constitutes a breach of the OT's mandatory reporting duty."
+          "incorrect_rationale": "Alerting the alleged abuser before filing a report can increase the client's risk of harm, compromise any investigation, and constitutes a breach of the OT's duty to report suspected abuse of a vulnerable adult."
         },
         {
           "label": "C",
-          "text": "Report the suspected abuse to Adult Protective Services as required by mandatory reporting law, and inform the client that this report will be made to help keep her safe.",
+          "text": "Report the suspected abuse to the designated provincial authority as required under applicable adult-protection legislation, and inform the client that this report will be made to help keep her safe.",
           "incorrect_rationale": null
         },
         {
           "label": "D",
           "text": "Refer the client to a social worker and defer the reporting decision to that professional, as elder abuse falls outside occupational therapy's scope of practice.",
-          "incorrect_rationale": "Mandatory reporter status is individual and discipline-specific; the OT cannot transfer or delegate their own legal duty to report suspected abuse to another professional."
+          "incorrect_rationale": "Where a duty to report applies, that duty is individual; the OT cannot transfer or delegate their own legal and ethical duty to report suspected abuse of a vulnerable adult to another professional."
         }
       ],
       "provenance": {
@@ -262,32 +262,32 @@
       "difficulty": "Easy",
       "format": "case",
       "case_id": "bc_aae72ccd",
-      "stem": "During Mrs. Chen's discharge planning meeting, the supervising occupational therapist references a recently updated evidence-based protocol for post-stroke unilateral neglect that differs from the unit's current procedure. The observing OT student asks how the supervising therapist stays current with stroke rehabilitation research. Which response BEST exemplifies professional engagement consistent with the AOTA Standards for Continuing Competence?",
+      "stem": "During Mrs. Chen's discharge planning meeting, the supervising occupational therapist references a recently updated evidence-based protocol for post-stroke unilateral neglect that differs from the unit's current procedure. The observing OT student asks how the supervising therapist stays current with stroke rehabilitation research. Which response BEST exemplifies the Engagement with the Profession competencies in the Competencies for Occupational Therapists in Canada (COTC, 2021)?",
       "correct_label": "A",
-      "correct_rationale": "AOTA's Standards for Continuing Competence identify active participation in professional organizations and specialty groups as a core mechanism for advancing competence beyond minimum licensure thresholds. Engaging with AOTA's Neurological Rehabilitation Special Interest Section reflects proactive, discipline-specific professional engagement — directly modeling how the supervising therapist identified the updated neglect protocol referenced in Mrs. Chen's meeting. This response demonstrates the ongoing, self-directed professional growth the Standards require, rather than passive or reactive learning.",
+      "correct_rationale": "The Engagement with the Profession domain of the COTC (2021) identifies active participation in professional networks and communities of practice as a core mechanism for advancing competence beyond the minimum continuing-competency requirements of a provincial regulator. Participating in CAOT's neurosciences community of practice reflects proactive, discipline-specific professional engagement — directly modeling how the supervising therapist identified the updated neglect protocol referenced in Mrs. Chen's meeting. This response demonstrates the ongoing, self-directed professional growth the competencies expect, rather than passive or reactive learning.",
       "topic": "Professional engagement and continuing competence in occupational therapy practice",
       "cognitive_level": "application",
       "status": "approved",
       "options": [
         {
           "label": "A",
-          "text": "\"I participate in AOTA's Neurological Rehabilitation Special Interest Section to stay connected with emerging stroke evidence and practice developments.\"",
+          "text": "\"I participate in CAOT's neurosciences community of practice to stay connected with emerging stroke evidence and practice developments.\"",
           "incorrect_rationale": null
         },
         {
           "label": "B",
-          "text": "\"I renew my NBCOT certification each cycle and complete only the continuing education hours required to maintain my license.\"",
-          "incorrect_rationale": "Fulfilling minimum CE requirements to maintain licensure reflects passive regulatory compliance rather than the active, self-directed professional engagement described in AOTA's Standards for Continuing Competence, which expect practitioners to pursue growth beyond mandatory thresholds."
+          "text": "\"I renew my registration with my provincial regulatory college each year and complete only the continuing-competency hours required to maintain it.\"",
+          "incorrect_rationale": "Fulfilling the minimum continuing-competency requirements to maintain provincial registration reflects passive regulatory compliance rather than the active, self-directed professional engagement described in the Engagement with the Profession competencies of the COTC (2021), which expect practitioners to pursue growth beyond mandatory thresholds."
         },
         {
           "label": "C",
           "text": "\"I consult experienced colleagues on the unit when I am uncertain about a clinical decision for a patient like Mrs. Chen.\"",
-          "incorrect_rationale": "Peer consultation is a valid but reactive and informal strategy; it does not constitute systematic professional engagement or demonstrate the proactive, self-directed pursuit of current evidence that AOTA's Standards for Continuing Competence require."
+          "incorrect_rationale": "Peer consultation is a valid but reactive and informal strategy; it does not constitute systematic professional engagement or demonstrate the proactive, self-directed pursuit of current evidence that the COTC (2021) Engagement with the Profession competencies require."
         },
         {
           "label": "D",
           "text": "\"I apply the neurological rehabilitation principles I studied during my entry-level OT program to guide my stroke practice.\"",
-          "incorrect_rationale": "Relying exclusively on entry-level education represents a static knowledge base and directly contradicts the expectation for ongoing professional development in AOTA's Standards for Continuing Competence, which require practitioners to continuously update their knowledge as the evidence base evolves."
+          "incorrect_rationale": "Relying exclusively on entry-level education represents a static knowledge base and directly contradicts the expectation for ongoing professional development in the COTC (2021) Engagement with the Profession competencies, which require practitioners to continuously update their knowledge as the evidence base evolves."
         }
       ],
       "provenance": {

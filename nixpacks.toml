@@ -9,7 +9,7 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "VITE_API_BASE_URL=/api npm run build",
+  "npm run build",
   "cd backend && python manage.py collectstatic --noinput",
 ]
 

@@ -133,10 +133,26 @@ def generate_full_case_study(domain="OT Expertise", difficulty="Medium"):
 
     prompt = f"""
     Generate a comprehensive Occupational Therapy case study for an exam prep application.
+
+    CONTEXT: This prepares candidates for the Canadian NOTCE (National Occupational Therapy
+    Certification Examination, administered by CAOT) under the September 2026 Blueprint, which is
+    built on the Competencies for Occupational Therapists in Canada (COTC, 2021). Use the CANADIAN
+    practice context only: CAOT, provincial regulatory organizations (e.g. COTO, ACOTRO), the
+    Canadian Code of Ethics, and Canadian terminology. Do NOT reference US bodies (NBCOT, AOTA,
+    AOTA Practice Framework) or US-specific regulations. Reflect Truth & Reconciliation, Indigenous
+    cultural safety, equity and anti-racism where relevant.
+
     The case should focus on domain: "{domain}" with difficulty: "{difficulty}".
-    
-    CRITICAL REQUIREMENT: Per the 2026 NBCOT Blueprint, at least ONE question MUST have domain "CEJ_JUSTICE" (Culture, Equity, and Justice). This is mandatory.
-    
+
+    Each question must have exactly 4 options (A-D) with ONE single BEST answer. Where appropriate,
+    emphasize the decision word in the stem in capitals (e.g. FIRST, BEST, MOST, NEXT). Use plain
+    language. Vary clients realistically across the descriptors the NOTCE Blueprint samples: type of
+    client (individual, family, group, community, organization, population), age, pronouns
+    (he/she/they, non-binary, transgender), Black/Indigenous/People of Colour representation, and
+    diagnosis categories (neurological, musculoskeletal, mental health, general medical).
+
+    CRITICAL REQUIREMENT: Per the 2026 NOTCE Blueprint, at least ONE question MUST have domain "CEJ_JUSTICE" (Culture, Equity, and Justice). This is mandatory.
+
     Output strictly valid JSON with the following structure:
     {{
         "title": "Case Title",

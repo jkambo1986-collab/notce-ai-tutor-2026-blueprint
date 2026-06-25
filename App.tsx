@@ -22,6 +22,7 @@ import ExamSession from './components/ExamSession';
 
 import LandingPage from './components/Landing/LandingPage';
 import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
+import AppShell, { ShellView } from './components/AppShell';
 
 // The main application logic, assumed to be authenticated
 const MainApp: React.FC = () => {
@@ -337,6 +338,28 @@ const MainApp: React.FC = () => {
         }
     };
 
+    /**
+     * Maps a sidebar nav selection to the right action. Mock Study and Exam
+     * need a session, so they trigger their setup/launch flows rather than a
+     * bare view switch.
+     */
+    const handleNavigate = (target: ShellView) => {
+        switch (target) {
+            case 'mock-study':
+                if (activeMockSession) handleResumeMockStudy();
+                else handleStartMockStudySetup();
+                break;
+            case 'exam-mode':
+                handleLaunchExam();
+                break;
+            default:
+                setView(target);
+        }
+    };
+
+    /** Upgrade chip routes to Home, where plan/pricing options live. */
+    const handleUpgrade = () => setView('landing');
+
 
   // --- COMPUTED VALUES ---
 
@@ -382,64 +405,27 @@ const MainApp: React.FC = () => {
 
   // --- RENDER ---
 
-    // Show generating overlay
-    if (isGenerating) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+  return (
+    <AppShell
+      activeView={view}
+      onNavigate={handleNavigate}
+      user={user}
+      onLogout={logout}
+      onNewCase={() => handleGenerateCase('Physical Rehabilitation', 'Medium')}
+      onResumeMock={activeMockSession ? handleResumeMockStudy : undefined}
+      onUpgrade={handleUpgrade}
+    >
+        {/* Generating overlay (sits over content; sidebar stays visible) */}
+        {isGenerating && (
+            <div className="absolute inset-0 z-40 flex items-center justify-center bg-gray-50/95 backdrop-blur-sm">
                 <div className="text-center">
-                    <div className="h-16 w-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                    <div className="h-16 w-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Generating Magic...</h2>
                     <p className="text-gray-500 animate-pulse">Our AI is crafting a unique clinical scenario for you.</p>
                 </div>
             </div>
-        );
-    }
+        )}
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header Navigation */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('landing')}>
-          <div className="bg-blue-600 text-white p-2 rounded-lg font-bold text-xl">N</div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-800 leading-none">NOTCE AI-Tutor</h1>
-            <p className="text-xs text-gray-500 font-medium tracking-wide">2026 BLUEPRINT COMPLIANT</p>
-          </div>
-        </div>
-        <nav className="flex items-center gap-4">
-          <button onClick={logout} className="text-sm font-semibold text-gray-500 hover:text-red-500 transition">
-             Logout ({user?.username})
-          </button>
-          
-          {view !== 'landing' && (
-              <>
-                <button 
-                    onClick={() => handleGenerateCase("Physical Rehabilitation", "Medium")}
-                    className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-md transition border border-purple-200"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    New Case
-                </button>
-                <div className="hidden md:block h-6 w-px bg-gray-200"></div>
-                <button 
-                  onClick={() => setView('study')}
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition ${view === 'study' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  Study Mode
-                </button>
-                <button 
-                  onClick={() => setView('dashboard')}
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition ${view === 'dashboard' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  Analytics
-                </button>
-              </>
-          )}
-        </nav>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-hidden relative">
         {view === 'landing' && (
             <MainDashboard 
                 onStartCase={handleGenerateCase} 
@@ -713,6 +699,19 @@ const MainApp: React.FC = () => {
           </div>
         )}
 
+        {view === 'study' && !currentCase && (
+          <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+            <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mb-6">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No active case</h2>
+            <p className="text-gray-500 mb-8 max-w-sm">Generate an AI-crafted clinical case to start a study session.</p>
+            <button onClick={() => handleGenerateCase('Physical Rehabilitation', 'Medium')} className="px-6 py-3 bg-teal-500 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-400 transition">
+              Generate New Case
+            </button>
+          </div>
+        )}
+
         {view === 'dashboard' && (
           // Dashboard Analysis View
           <div className="h-full overflow-y-auto p-4 md:p-12 bg-gray-50">
@@ -797,8 +796,7 @@ const MainApp: React.FC = () => {
                 <button onClick={() => setView('landing')} className="px-8 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 transition">Return Home</button>
             </div>
         )}
-      </main>
-    </div>
+    </AppShell>
   );
 };
 

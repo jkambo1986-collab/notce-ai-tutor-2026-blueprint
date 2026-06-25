@@ -8,6 +8,14 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 5173,
         host: '0.0.0.0',
+        // Lets the dev server resolve same-origin '/api' calls to the Django
+        // backend, matching how the production (Django-served) build behaves.
+        proxy: {
+          '/api': {
+            target: 'http://localhost:8000',
+            changeOrigin: true,
+          },
+        },
       },
       plugins: [react()],
       define: {

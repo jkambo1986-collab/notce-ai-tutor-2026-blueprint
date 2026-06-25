@@ -304,7 +304,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                     </div>
                     <div>
                         <h4 className="font-bold text-indigo-800">2026 NOTCE Blueprint Aligned</h4>
-                        <p className="text-indigo-600 text-sm">All cases are generated according to the latest NBCOT exam specifications.</p>
+                        <p className="text-indigo-600 text-sm">All cases are generated according to the latest NOTCE (CAOT) exam specifications.</p>
                     </div>
                 </div>
             </div>

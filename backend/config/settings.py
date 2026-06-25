@@ -219,6 +219,14 @@ STORAGES = {
     },
 }
 
+# Serve the built React SPA (Vite `dist/` at the repo root) directly from
+# Django via WhiteNoise. `/` -> dist/index.html, `/assets/*` -> hashed bundles.
+# Django routes (/api/, /admin/, /health/) are matched first by config.urls.
+FRONTEND_DIST = BASE_DIR.parent / "dist"
+if FRONTEND_DIST.exists():
+    WHITENOISE_ROOT = FRONTEND_DIST
+    WHITENOISE_INDEX_FILE = True
+
 # Stripe Settings
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY')

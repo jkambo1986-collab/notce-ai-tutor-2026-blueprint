@@ -58,17 +58,25 @@ def generate_practice_question(domain: str, difficulty: str,
     avoid_topics = f"Avoid these specific topics already covered: {topics_covered}" if topics_covered else ""
     
     prompt = f"""
-    Generate a single Occupational Therapy practice question for NBCOT exam preparation.
-    
+    Generate a single Occupational Therapy practice question for the Canadian NOTCE (National
+    Occupational Therapy Certification Examination, administered by CAOT) under the September 2026
+    Blueprint, which is based on the Competencies for Occupational Therapists in Canada (COTC, 2021).
+
+    Use the CANADIAN practice context only: CAOT, provincial regulatory organizations, the Canadian
+    Code of Ethics, and Canadian terminology. Do NOT reference US bodies (NBCOT, AOTA, AOTA Practice
+    Framework) or US-specific regulations.
+
     DOMAIN: {domain_full}
     DIFFICULTY: {difficulty} - {diff_guidance}
-    
+
     This is question {question_number} of {total_questions} in a quick practice session.
     {avoid_topics}
-    
+
     REQUIREMENTS:
     - Create a standalone question (no extended vignette needed, but include brief clinical context if helpful)
-    - Provide 4 answer options (A, B, C, D)
+    - Provide 4 answer options (A, B, C, D) with ONE single BEST answer
+    - Where appropriate, emphasize the decision word in the stem in capitals (e.g. FIRST, BEST, MOST, NEXT)
+    - Use plain language
     - Include educational rationales for both correct and incorrect answers
     - Identify a topic tag for this question (e.g., "sensory processing", "ethics documentation")
     
