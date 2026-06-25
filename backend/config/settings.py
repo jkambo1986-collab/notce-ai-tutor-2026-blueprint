@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 import dj_database_url
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,13 +22,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ks^u!^98ntxpiqp06)l5x7z6d-_nx15fp6ij80cnf+(8s(veh$')
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True # Temporarily enable to debug 502/500
+# Defaults to False; set DEBUG=True in the environment for local debugging only.
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*']
+# SECURITY WARNING: keep the secret key used in production secret!
+# Must be provided via the environment in production. JWTs are signed with this
+# key, so a known/committed default would let anyone forge auth tokens.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-dev-only-key-do-not-use-in-production'
+    else:
+        raise ImproperlyConfigured(
+            "SECRET_KEY environment variable must be set when DEBUG is False."
+        )
+
+# Host header validation. Override via ALLOWED_HOSTS env (comma-separated).
+_allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
+if _allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.railway.app']
+    if DEBUG:
+        ALLOWED_HOSTS.append('*')
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
@@ -71,11 +89,21 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Update CORS settings
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS settings.
+# Never allow all origins together with credentials — that lets any website make
+# authenticated cross-origin requests. Scope to known frontends + env overrides.
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = []
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://notce-ai-tutor-2026-blueprint.vercel.app",
+]
+
+# Allow Vercel preview deploys and Railway domains without enumerating each one.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+    r"^https://.*\.railway\.app$",
+]
 
 CORS_ALLOWED_ORIGIN_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', os.environ.get('CORS_ALLOWED_ORIGIN', ''))
 if CORS_ALLOWED_ORIGIN_ENV:
@@ -127,11 +155,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'notce_db',
-        'USER': 'postgres',
-        'PASSWORD': 'Dexter1',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'notce_db'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 

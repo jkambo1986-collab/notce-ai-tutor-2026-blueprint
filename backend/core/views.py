@@ -25,7 +25,7 @@ class PingView(APIView):
         return Response({"status": "pong"})
 
 class DiagnosticView(APIView):
-    permission_classes = [permissions.AllowAny] # Temporary for debugging
+    permission_classes = [permissions.IsAdminUser]  # Exposes config; admin-only
 
     def get(self, request):
         def obfuscate(val):
@@ -48,7 +48,9 @@ class DiagnosticView(APIView):
         return Response(diag_data)
 
 class TestEmailView(APIView):
-    permission_classes = [permissions.AllowAny]  # Temporary for diagnostics
+    # Admin-only: AllowAny here was an open mail relay (sends to any ?email=)
+    # and leaked SMTP config / tracebacks.
+    permission_classes = [permissions.IsAdminUser]
 
     def get(self, request):
         import socket
@@ -262,7 +264,9 @@ from .gemini_service import get_evolving_rationale
 class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to allow creation
     queryset = CaseStudy.objects.all()
     serializer_class = CaseStudySerializer
-    permission_classes = [permissions.AllowAny]
+    # Require authentication: AllowAny exposed create/update/delete and the
+    # expensive AI generate/prefetch actions (Gemini quota) to anonymous users.
+    permission_classes = [permissions.IsAuthenticated]
 
     @action(detail=False, methods=['post'])
     def generate(self, request):
@@ -606,10 +610,10 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         """
         session_id = request.data.get('session_id')
         try:
-            session = MockStudySession.objects.get(id=session_id, is_active=True)
+            session = MockStudySession.objects.get(id=session_id, user=request.user, is_active=True)
         except MockStudySession.DoesNotExist:
             return Response({"error": "Session not found"}, status=404)
-        
+
         # Don't prefetch if we're at the end
         if session.current_question >= session.total_questions:
             return Response({"status": "no_more_questions"})
@@ -640,9 +644,9 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         """
         session_id = request.data.get('session_id')
         highlights = request.data.get('highlights', [])
-        
+
         try:
-            session = MockStudySession.objects.get(id=session_id, is_active=True)
+            session = MockStudySession.objects.get(id=session_id, user=request.user, is_active=True)
             session.highlights = highlights
             session.save()
             return Response({"status": "saved"})
@@ -694,8 +698,8 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         selected_label = request.data.get('selected_label', '').upper()
         
         try:
-            session = MockStudySession.objects.get(id=session_id)
-            # We don't check is_active here strictly to allow viewing results of completed, 
+            session = MockStudySession.objects.get(id=session_id, user=request.user)
+            # We don't check is_active here strictly to allow viewing results of completed,
             # but for submission it should be active.
             if not session.is_active:
                  return Response({"error": "Session is already completed"}, status=400)
@@ -772,10 +776,10 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         session_id = request.data.get('session_id')
         
         try:
-            session = MockStudySession.objects.get(id=session_id)
+            session = MockStudySession.objects.get(id=session_id, user=request.user)
         except MockStudySession.DoesNotExist:
             return Response({"error": "Session not found"}, status=404)
-            
+
         question_data = session.current_question_data
         if not question_data:
             return Response({"error": "No active question data to pivot"}, status=400)
@@ -803,7 +807,7 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         session_id = request.data.get('session_id')
         
         try:
-            session = MockStudySession.objects.get(id=session_id, is_active=True)
+            session = MockStudySession.objects.get(id=session_id, user=request.user, is_active=True)
         except MockStudySession.DoesNotExist:
             return Response({"error": "Session not found or expired"}, status=404)
         
