@@ -61,13 +61,13 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                             <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                             </div>
-                            <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
-                            <p className="text-gray-400 mb-6">We've sent a verification link to your email. Please click it to activate your account.</p>
-                            <button 
+                            <h2 className="text-2xl font-bold text-white mb-2">Account created!</h2>
+                            <p className="text-gray-400 mb-6">Your account is ready. Sign in to start your prep.</p>
+                            <button
                                 onClick={onSwitch}
-                                className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors"
+                                className="w-full bg-gradient-to-r from-emerald-500 to-cyan-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95"
                             >
-                                Pass to Login
+                                Continue to Login
                             </button>
                         </div>
                     ) : (
