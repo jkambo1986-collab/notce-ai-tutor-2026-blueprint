@@ -9,7 +9,7 @@ import os
 from google import genai
 from google.genai import types
 import json
-from .gemini_service import clean_json_text, get_client, MODEL_NAME
+from .gemini_service import clean_json_text, get_client, generate_content
 
 
 def generate_practice_question(domain: str, difficulty: str, 
@@ -95,8 +95,8 @@ def generate_practice_question(domain: str, difficulty: str,
     """
     
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
+        response = generate_content(
+            client,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
@@ -170,8 +170,8 @@ def generate_pivot_scenario(original_stem: str, original_correct_label: str, ori
     """
     
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
+        response = generate_content(
+            client,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'

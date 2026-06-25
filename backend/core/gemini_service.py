@@ -4,10 +4,12 @@ from google.genai import types
 import re
 import json
 
-# Model name. Vertex AI exposes gemini-2.5-flash (the legacy gemini-2.0-flash
-# is not available on the Vertex project); the Developer API supports it too.
-# Override with GEMINI_MODEL if needed.
-MODEL_NAME = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+# Model selection. Primary is the cheaper/faster gemini-2.5-flash-lite; if a
+# request to it fails (e.g. unavailable, quota, transient error) we fall back
+# to gemini-2.5-flash. Both are available on Vertex and the Developer API.
+# Override either via GEMINI_MODEL / GEMINI_FALLBACK_MODEL.
+MODEL_NAME = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
+FALLBACK_MODEL_NAME = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
 
 def clean_json_text(text):
     """
@@ -73,6 +75,25 @@ def get_client():
         return None
     return genai.Client(api_key=api_key)
 
+def generate_content(client, contents, config=None):
+    """
+    Calls generate_content with the primary model (MODEL_NAME) and transparently
+    falls back to FALLBACK_MODEL_NAME if the primary model errors. Raises the
+    last error only if every model fails.
+    """
+    models = [m for m in (MODEL_NAME, FALLBACK_MODEL_NAME) if m]
+    last_error = None
+    for model in models:
+        try:
+            if config is not None:
+                return client.models.generate_content(model=model, contents=contents, config=config)
+            return client.models.generate_content(model=model, contents=contents)
+        except Exception as e:
+            last_error = e
+            print(f"Model '{model}' failed: {e}. Falling back to next model if available.")
+    if last_error:
+        raise last_error
+
 def get_evolving_rationale(current_question_stem, current_correct_rationale, 
                            previous_answer_correct, previous_selected_label, 
                            all_previous_correct):
@@ -96,10 +117,7 @@ def get_evolving_rationale(current_question_stem, current_correct_rationale,
     """
 
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=prompt
-        )
+        response = generate_content(client, contents=prompt)
         return response.text
     except Exception as e:
         print(f"Gemini Error: {e}")
@@ -145,8 +163,8 @@ def generate_full_case_study(domain="OT Expertise", difficulty="Medium"):
     """
 
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
+        response = generate_content(
+            client,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
@@ -220,8 +238,8 @@ def analyze_evidence_link(vignette: str, question_stem: str, correct_answer: str
     """
 
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
+        response = generate_content(
+            client,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json'
