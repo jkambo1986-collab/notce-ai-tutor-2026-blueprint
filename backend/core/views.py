@@ -920,6 +920,15 @@ class CreateCheckoutSessionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        # Stripe flow kill-switch. Disabled by default until we flip
+        # PAYMENTS_ENABLED=true in the environment when prod is ready.
+        if os.environ.get('PAYMENTS_ENABLED', 'false').lower() != 'true':
+            return Response(
+                {'error': 'Payments are temporarily unavailable. Please check back soon.',
+                 'payments_disabled': True},
+                status=503,
+            )
+
         tier = request.data.get('tier')
         success_url = request.data.get('success_url', 'http://localhost:5173/?session_id={CHECKOUT_SESSION_ID}')
         cancel_url = request.data.get('cancel_url', 'http://localhost:5173/?cancel=true')

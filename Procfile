@@ -1,1 +1,1 @@
-web: cd backend && python manage.py migrate --noinput; python manage.py import_bank core/data/bank_seed.json || true; gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 --log-level debug
+web: cd backend 2>/dev/null; python manage.py migrate --noinput; python manage.py import_bank core/data/bank_seed.json || true; gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 --log-level debug
