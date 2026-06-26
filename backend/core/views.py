@@ -403,6 +403,13 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
         persists it, records it in agent memory, and returns the serialized case.
         Returns 503 if the AI returns nothing (likely an API key/quota issue).
         """
+        # AI minting is disabled — the app serves only vetted, pre-minted bank content.
+        return Response(
+            {"error": "AI case generation is disabled. Practice uses the vetted question bank.",
+             "minting_disabled": True},
+            status=403,
+        )
+
         domain = request.data.get('domain', 'OT Expertise')
         difficulty = request.data.get('difficulty', 'Medium')
 
@@ -477,16 +484,19 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
         Gemini-backed generation as ``generate`` but returns only a status/case_id
         (no full payload) so the frontend can warm the library ahead of demand.
         """
+        # AI minting is disabled — no background case generation.
+        return Response({"status": "disabled", "minting_disabled": True}, status=403)
+
         domain = request.data.get('domain', 'OT Expertise')
         difficulty = request.data.get('difficulty', 'Medium')
-        
+
         # We'll just reuse the generation logic
         try:
             from .gemini_service import generate_full_case_study
             import json
             import uuid
             from .models import CaseStudy, Question, Distractor
-            
+
             json_str = generate_full_case_study(domain, difficulty)
             if not json_str:
                 return Response({"status": "failed", "reason": "empty"}, status=503)
@@ -763,21 +773,12 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             timer_start=timezone.now() if mode == 'exam' else None
         )
         
-        # Serve a vetted bank question first; fall back to Gemini if the bank
-        # has no approved item for this domain/difficulty.
+        # Serve ONLY vetted, pre-minted bank questions (no live AI generation).
         question_data = serve_bank_question(domain, difficulty)
-        if not question_data:
-            question_data = generate_practice_question(
-                domain=domain,
-                difficulty=difficulty,
-                question_number=1,
-                total_questions=total_questions,
-                topics_covered=[]
-            )
 
         if not question_data:
             session.delete()
-            return Response({"error": "Failed to generate question"}, status=503)
+            return Response({"error": "No questions are available for this domain/difficulty yet."}, status=404)
 
         # Store current question data for answer validation
         session.current_question_data = question_data
@@ -812,21 +813,13 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         if session.current_question >= session.total_questions:
             return Response({"status": "no_more_questions"})
 
-        # Only generate if we don't already have one
+        # Only prefetch if we don't already have one (bank-only, no AI generation)
         if not session.next_question_data:
             next_num = session.current_question + 1
             question_data = serve_bank_question(
                 session.domain, session.difficulty,
                 exclude_ids=self._served_bank_ids(session)
             )
-            if not question_data:
-                question_data = generate_practice_question(
-                    domain=session.domain,
-                    difficulty=session.difficulty,
-                    question_number=next_num,
-                    total_questions=session.total_questions,
-                    topics_covered=session.topics_covered or []
-                )
             if question_data:
                 session.next_question_data = question_data
                 session.save()
@@ -1047,22 +1040,26 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             question_data = session.next_question_data
             session.next_question_data = None # Clear it
         else:
-            # Vetted bank question first, else fall back to Gemini.
+            # Bank-only: serve the next vetted question (no AI generation).
             question_data = serve_bank_question(
                 session.domain, session.difficulty,
                 exclude_ids=self._served_bank_ids(session)
             )
-            if not question_data:
-                question_data = generate_practice_question(
-                    domain=session.domain,
-                    difficulty=session.difficulty,
-                    question_number=session.current_question,
-                    total_questions=session.total_questions,
-                    topics_covered=session.topics_covered or []
-                )
 
         if not question_data:
-            return Response({"error": "Failed to generate question"}, status=503)
+            # Bank exhausted for this selection -> end the session gracefully.
+            session.is_active = False
+            session.completed_at = timezone.now()
+            session.current_question -= 1  # we didn't actually serve this index
+            session.save()
+            return Response({
+                "is_complete": True,
+                "final_score": {
+                    "correct": session.correct_count,
+                    "total": max(session.current_question, 1),
+                    "percentage": int((session.correct_count / max(session.current_question, 1)) * 100)
+                }
+            })
 
         session.current_question_data = question_data
         session.save()
