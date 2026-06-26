@@ -9,14 +9,32 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import HighlightableText from './HighlightableText';
 import { Highlight } from '../types';
+import { useToast } from './ui/Feedback';
+
+/** Score (%) at or above which a session is reported as a pass. */
+const PASS_THRESHOLD = 60;
 
 interface MockStudySessionProps {
+    /** Backend session identifier used for all answer/next/pivot/save calls. */
     sessionId: string;
+    /** First question + progress/highlights payload fetched before mounting. */
     initialData: any;
+    /** Called to leave the session (after save/exit or completion). */
     onExit: () => void;
 }
 
+/**
+ * MockStudySession Component
+ *
+ * Drives the untimed practice flow: submit an answer, show inline feedback +
+ * optional learning aids, then advance to the next question. Also supports the
+ * "Clinical Pivot" what-if scenario and Save & Exit for resuming later.
+ *
+ * @param {MockStudySessionProps} props - Component props
+ * @returns {JSX.Element} The question view, loading state, or completion screen
+ */
 const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialData, onExit }) => {
+    const toast = useToast();
     // Session State
     const [currentQuestion, setCurrentQuestion] = useState(initialData.question);
     const [progress, setProgress] = useState({
@@ -39,6 +57,8 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     const [learning, setLearning] = useState<any>(null);
     const [showConcept, setShowConcept] = useState(false);
     const [showDiff, setShowDiff] = useState(false);
+    // Consecutive-correct streak, used to surface encouragement toasts at milestones.
+    const [streak, setStreak] = useState(0);
 
     // Scroll to top upon new question & trigger prefetch
     useEffect(() => {
@@ -51,16 +71,18 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
         }
     }, [currentQuestion, isComplete, sessionId]);
 
-    // Simple timer logic if none exists (mocking it for UI parity with mockup)
-    const [secondsLeft, setSecondsLeft] = useState(841); // 14:01
+    // Honest stopwatch: time spent on this practice session, counting up from 0.
+    // (Practice mode is untimed; this is informational, not a countdown.)
+    const [elapsed, setElapsed] = useState(0);
     useEffect(() => {
         if (isComplete || finalScore) return;
         const timer = setInterval(() => {
-            setSecondsLeft(prev => (prev > 0 ? prev - 1 : 0));
+            setElapsed(prev => prev + 1);
         }, 1000);
         return () => clearInterval(timer);
     }, [isComplete, finalScore]);
 
+    /** Format elapsed seconds as M:SS for the stopwatch display. */
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
@@ -68,6 +90,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     };
 
 
+    /** Request an AI "what-if" pivot variant of the current scenario. */
     const handlePivot = async () => {
         setIsPivoting(true);
         try {
@@ -75,30 +98,38 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
             setPivotData(data);
         } catch (error) {
             console.error("Failed to generate pivot:", error);
-            alert("Failed to generate pivot scenario. Please try again.");
+            toast("Failed to generate pivot scenario. Please try again.", "error");
         } finally {
             setIsPivoting(false);
         }
     };
 
+    /** Persist progress (including highlights) so the session can be resumed, then exit. */
     const handleSaveAndExit = async () => {
         setIsLoading(true);
         try {
             await api.mockStudy.saveSession(sessionId, highlights);
+            toast('Progress saved — resume any time from where you left off.', 'success');
             onExit();
         } catch (error) {
             console.error("Failed to save session:", error);
-            alert("Failed to save progress. Please try again.");
+            toast("Failed to save progress. Please try again.", "error");
             setIsLoading(false);
         }
     };
 
+    /** Append a user-created highlight to local state. */
     const addHighlight = (h: Highlight) => setHighlights(prev => [...prev, h]);
+    /** Remove a user highlight by id (clicking an existing highlight). */
     const removeHighlight = (id: string) => setHighlights(prev => prev.filter(h => h.id !== id));
 
+    /**
+     * Submit the selected answer and reveal feedback + learning aids inline.
+     * Does NOT advance — the user reviews the reasoning, then taps Next.
+     */
     const handleSubmitAnswer = async () => {
         if (!selectedLabel) return;
-        
+
         setIsLoading(true);
         try {
             const data = await api.mockStudy.submitAnswer(sessionId, selectedLabel);
@@ -108,19 +139,35 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                 ...prev,
                 correct: data.progress.correct
             }));
-            
+
+            // Track a correct-answer streak and cheer the user on at milestones; a
+            // wrong answer quietly resets it (the feedback panel already explains why).
+            if (data.feedback?.is_correct) {
+                const next = streak + 1;
+                setStreak(next);
+                if (next === 3 || next === 5 || next === 10 || (next > 10 && next % 5 === 0)) {
+                    toast(`🔥 ${next} correct in a row — keep it up!`, 'success');
+                }
+            } else {
+                setStreak(0);
+            }
+
             if (data.is_complete) {
                 // If this was the last question, prepare for completion
                 setIsComplete(true);
             }
         } catch (error) {
             console.error("Failed to submit answer:", error);
-            alert("Failed to submit answer. Please try again.");
+            toast("Failed to submit answer. Please try again.", "error");
         } finally {
             setIsLoading(false);
         }
     };
 
+    /**
+     * Advance from the feedback view. If the session is finished, fetch the final
+     * score; otherwise reset per-question UI state and load the next question.
+     */
     const handleNextQuestion = async () => {
         if (isComplete) {
             // Fetch final results
@@ -129,9 +176,14 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                 const data = await api.mockStudy.nextQuestion(sessionId);
                 if (data.is_complete) {
                     setFinalScore(data.final_score);
+                    const pct = data.final_score?.percentage;
+                    if (typeof pct === 'number') {
+                        toast(`Session complete — you scored ${pct}%.`, pct >= PASS_THRESHOLD ? 'success' : 'info');
+                    }
                 }
             } catch (error) {
                 console.error("Failed to finish session:", error);
+                toast('Failed to load your results. Please try again.', 'error');
             } finally {
                 setIsLoading(false);
             }
@@ -155,7 +207,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
             }));
         } catch (error) {
             console.error("Failed to fetch next question:", error);
-            alert("Failed to generate next question. Please try again.");
+            toast("Failed to generate next question. Please try again.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -185,12 +237,17 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
 
     // --- RENDER: COMPLETION SCREEN ---
     if (finalScore) {
+        const passed = finalScore.percentage >= PASS_THRESHOLD;
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col">
                 {/* Gradient Header */}
-                <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-12 text-center text-white">
-                    <h2 className="text-4xl font-extrabold mb-2">Congratulations !</h2>
-                    <p className="text-emerald-50 text-xl">You Passed the test.</p>
+                <div className={`p-12 text-center text-white bg-gradient-to-r ${passed ? 'from-cyan-400 to-emerald-400' : 'from-amber-400 to-orange-500'}`}>
+                    <h2 className="text-4xl font-extrabold mb-2">{passed ? 'Well done!' : 'Keep going.'}</h2>
+                    <p className="text-white/90 text-xl">
+                        {passed
+                            ? `You scored ${finalScore.percentage}% — above the ${PASS_THRESHOLD}% pass line.`
+                            : `You scored ${finalScore.percentage}%. The pass line is ${PASS_THRESHOLD}% — review and try again.`}
+                    </p>
                 </div>
                 
                 <main className="flex-1 max-w-2xl mx-auto w-full p-6 space-y-6 -mt-8">
@@ -198,11 +255,15 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                     <div className="bg-white rounded-2xl shadow-sm p-8 space-y-8">
                         <h3 className="text-xl font-bold text-gray-800 text-center">Your Result</h3>
                         
-                        {/* Status Checkmark */}
+                        {/* Status Icon (reflects pass/fail) */}
                         <div className="flex justify-center">
-                            <div className="w-32 h-32 rounded-full bg-cyan-100 flex items-center justify-center relative">
-                                <div className="w-24 h-24 rounded-full bg-cyan-400 flex items-center justify-center text-white">
-                                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                            <div className={`w-32 h-32 rounded-full flex items-center justify-center relative ${passed ? 'bg-cyan-100' : 'bg-amber-100'}`}>
+                                <div className={`w-24 h-24 rounded-full flex items-center justify-center text-white ${passed ? 'bg-cyan-400' : 'bg-amber-400'}`}>
+                                    {passed ? (
+                                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                                    ) : (
+                                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -228,10 +289,6 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                                     <div className="w-10 h-3 bg-red-400 rounded" />
                                     <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Incorrect Answers</span>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-3 bg-amber-400 rounded" />
-                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Skipped Questions</span>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -255,24 +312,17 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                                 </div>
                                 <span className="font-mono text-xl">{finalScore.correct.toString().padStart(2, '0')}</span>
                             </div>
-                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
+                            <div className="bg-red-400/10 p-4 rounded-lg flex justify-between items-center text-red-800">
                                 <div className="flex items-center gap-3 font-bold">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     Wrong Answers
                                 </div>
                                 <span className="font-mono text-xl">{(finalScore.total - finalScore.correct).toString().padStart(2, '0')}</span>
                             </div>
-                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
-                                <div className="flex items-center gap-3 font-bold">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-                                    Skipped Questions
-                                </div>
-                                <span className="font-mono text-xl">00</span>
-                            </div>
                         </div>
 
                         <div className="flex gap-4 pt-4">
-                            <button 
+                            <button
                                 onClick={() => window.location.reload()}
                                 className="flex-1 py-4 bg-gray-200 text-gray-700 font-bold rounded-xl"
                             >
@@ -291,6 +341,18 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
         );
     }
 
+    // Robustly derive the correct option label from feedback instead of the old
+    // fragile character-offset scan of the explanation string. If the user was
+    // right, their selection is correct; otherwise pull the letter from the
+    // stable "The correct answer is X." message (falling back to the explanation).
+    const correctLabel: string | null = feedback
+        ? (feedback.is_correct
+            ? selectedLabel
+            : (feedback.feedback_message?.match(/correct answer is\s+([A-Z])/i)?.[1]
+                || feedback.explanation?.match(/Correct answer \(([A-Z])\)/i)?.[1]
+                || null))
+        : null;
+
     // --- RENDER: QUESTION VIEW ---
     return (
         <div className="min-h-screen bg-white flex flex-col">
@@ -303,7 +365,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="font-mono text-lg font-bold">Time left - {formatTime(secondsLeft)}</span>
+                            <span className="font-mono text-lg font-bold">Time - {formatTime(elapsed)}</span>
                         </div>
                     </div>
 
@@ -313,6 +375,8 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                         
                         <div className="flex justify-between w-full max-w-sm relative z-10">
                             {(() => {
+                                // Sliding window of up to 5 step bubbles centered on the current
+                                // question, clamped to [1, total] so the count stays constant.
                                 const maxVisible = 5;
                                 let start = Math.max(1, progress.current - Math.floor(maxVisible / 2));
                                 let end = Math.min(progress.total, start + maxVisible - 1);
@@ -347,13 +411,13 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
 
             {/* Sub-Header: Save/Exit & Context */}
             <div className="bg-white px-6 py-4 flex justify-between items-center border-b border-gray-100">
-                <button 
+                <button
                     onClick={handleSaveAndExit}
                     disabled={isLoading}
                     className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                    Previous
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v6h6M3 13a9 9 0 109-9" /></svg>
+                    Save &amp; Exit
                 </button>
                 <div className="text-gray-400 font-bold text-sm">
                     {progress.current}. Question
@@ -375,38 +439,55 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                      </p>
                 </div>
 
-                {/* Options List */}
-                <div className="space-y-3">
+                {/* Options List (single-select; radio semantics) */}
+                <div className="space-y-3" role="radiogroup" aria-label="Answer options">
                     {currentQuestion.options.map((option: any) => {
                         const isSelected = selectedLabel === option.label;
-                        const isCorrect = feedback && option.label === feedback.explanation.charAt(feedback.explanation.indexOf('Correct answer (') + 16);
-                        
-                        let cardClasses = "w-full p-4 flex items-center gap-4 transition-all rounded bg-gray-100/50 ";
-                        
+                        const isTheCorrect = !!feedback && correctLabel === option.label;
+                        const isWrongPick = !!feedback && isSelected && !feedback.is_correct;
+
+                        let cardClasses = "w-full text-left p-4 flex items-center gap-4 transition-all rounded-xl border-2 ";
+
                         if (feedback) {
-                            if (isSelected && feedback.is_correct) {
-                                cardClasses += "border border-emerald-500 bg-emerald-50";
-                            } else if (isSelected && !feedback.is_correct) {
-                                cardClasses += "border border-red-500 bg-red-50";
-                            } else if (!feedback.is_correct && feedback.explanation.includes(`Correct answer (${option.label})`)) {
-                                cardClasses += "border border-emerald-500 bg-emerald-50";
+                            if (isTheCorrect) {
+                                cardClasses += "border-emerald-500 bg-emerald-50";
+                            } else if (isWrongPick) {
+                                cardClasses += "border-red-500 bg-red-50";
+                            } else {
+                                cardClasses += "border-transparent bg-gray-100/50";
                             }
                         } else if (isSelected) {
-                            cardClasses += "ring-2 ring-emerald-400 bg-emerald-50";
+                            cardClasses += "border-emerald-400 bg-emerald-50";
+                        } else {
+                            cardClasses += "border-transparent bg-gray-100/50 hover:border-emerald-200";
                         }
 
                         return (
                             <button
                                 key={option.label}
+                                role="radio"
+                                aria-checked={isSelected}
+                                disabled={!!feedback}
                                 onClick={() => !feedback && setSelectedLabel(option.label)}
                                 className={cardClasses}
                             >
-                                <div className={`w-5 h-5 rounded-sm border flex items-center justify-center transition-colors ${
-                                    isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-gray-300'
+                                {/* Radio dot, or result icon after feedback (icon = non-color cue) */}
+                                <div className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                    feedback
+                                        ? (isTheCorrect ? 'bg-emerald-500 border-emerald-500 text-white'
+                                            : isWrongPick ? 'bg-red-500 border-red-500 text-white'
+                                            : 'border-gray-300')
+                                        : (isSelected ? 'border-emerald-500' : 'border-gray-300')
                                 }`}>
-                                    {isSelected && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>}
+                                    {feedback ? (
+                                        isTheCorrect ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                                            : isWrongPick ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            : null
+                                    ) : (
+                                        isSelected && <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                                    )}
                                 </div>
-                                <span className={`text-lg transition-colors ${isSelected ? 'text-emerald-900 font-medium' : 'text-gray-600'}`}>
+                                <span className={`text-lg ${isSelected || isTheCorrect ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
                                     {option.label}. {option.text}
                                 </span>
                             </button>

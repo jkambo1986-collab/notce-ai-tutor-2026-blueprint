@@ -254,7 +254,9 @@ const AppShell: React.FC<AppShellProps> = ({
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tierStyle.className}`}>{tierStyle.label}</span>
               {trialDays !== null && trialDays >= 0 && (
-                <span className="text-[10px] text-amber-300 font-semibold">Trial: {trialDays}d left</span>
+                <span className={`text-[10px] font-semibold ${trialDays <= 1 ? 'text-red-400' : trialDays <= 3 ? 'text-amber-300' : 'text-teal-300'}`}>
+                  {trialDays === 0 ? 'Trial: ends today' : `Trial: ${trialDays}d left`}
+                </span>
               )}
             </div>
           </div>
