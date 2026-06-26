@@ -6,6 +6,13 @@
 
 import React, { useState, useEffect } from 'react';
 
+/**
+ * Props for {@link CaseGeneratorModal}.
+ * @property isOpen     Controls visibility; renders nothing when false.
+ * @property onClose    Dismisses the modal (disabled while generation is in flight).
+ * @property onGenerate Async callback that performs the actual case generation given the
+ *                      chosen domain id and difficulty id; its promise gates the loading UI.
+ */
 interface CaseGeneratorModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -38,15 +45,30 @@ const LOADING_MESSAGES = [
   { text: 'Preparing your case study...', icon: '✨' },
 ];
 
+/**
+ * CaseGeneratorModal walks the user through a two-step wizard (pick domain, pick
+ * difficulty) and then drives an animated loading state while {@link CaseGeneratorModalProps.onGenerate}
+ * runs. All selection/loading state is local; the parent only learns the chosen values
+ * when generation is triggered.
+ *
+ * @param props See {@link CaseGeneratorModalProps}.
+ */
 const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose, onGenerate }) => {
+  // Chosen domain id (null until the user picks one; gates the Continue button).
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  // Chosen difficulty id; defaults to the middle "Medium" tier.
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('Medium');
+  // True while onGenerate is pending; swaps the UI to the loading view and locks dismissal.
   const [isGenerating, setIsGenerating] = useState(false);
+  // Wizard step: 1 = domain selection, 2 = difficulty selection.
   const [step, setStep] = useState<1 | 2>(1);
+  // Index into LOADING_MESSAGES for the rotating status text.
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  // Simulated progress percentage shown during generation (not tied to real progress).
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // Rotate loading messages every 2 seconds
+  // While generating, cycle the status message and creep the progress bar forward on
+  // separate intervals; both are cleared on cleanup to avoid leaks/overlap.
   useEffect(() => {
     if (!isGenerating) return;
     
@@ -65,6 +87,7 @@ const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose
   }, [isGenerating]);
 
   // Reset loading state when modal closes
+  // Restore the wizard to its initial state on close so the next open starts fresh.
   useEffect(() => {
     if (!isOpen) {
       setLoadingMessageIndex(0);
@@ -75,8 +98,14 @@ const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose
     }
   }, [isOpen]);
 
+  // Hooks above must run unconditionally, so this early-out lives after them.
   if (!isOpen) return null;
 
+  /**
+   * Runs the generation flow: enters the loading state, awaits the parent's onGenerate,
+   * snaps the bar to 100% and auto-closes on success. The finally block always clears the
+   * generating flag so a failure returns the user to the wizard.
+   */
   const handleGenerate = async () => {
     if (!selectedDomain) return;
     setIsGenerating(true);
@@ -84,6 +113,7 @@ const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose
     try {
       await onGenerate(selectedDomain, selectedDifficulty);
       setLoadingProgress(100);
+      // Brief pause lets the user see the completed bar before the modal dismisses.
       setTimeout(() => onClose(), 500);
     } catch (err) {
       console.error('Generation failed:', err);
@@ -92,6 +122,7 @@ const CaseGeneratorModal: React.FC<CaseGeneratorModalProps> = ({ isOpen, onClose
     }
   };
 
+  /** Builds the Tailwind classes for a domain card, branching on its color + selected state. */
   const getColorClasses = (color: string, isSelected: boolean) => {
     const colors: Record<string, { bg: string; border: string; text: string }> = {
       blue: { bg: 'bg-blue-50', border: 'border-blue-400', text: 'text-blue-700' },

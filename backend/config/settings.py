@@ -47,6 +47,9 @@ else:
     if DEBUG:
         ALLOWED_HOSTS.append('*')
 
+# Proxy/HTTPS awareness: behind Railway's load balancer the app is reached over
+# HTTPS but receives plain HTTP, so trust the X-Forwarded-* headers it sets to
+# correctly detect the original scheme/host/port (needed for secure cookies, etc.).
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
@@ -54,6 +57,10 @@ USE_X_FORWARDED_PORT = True
 
 # Application definition
 
+# Installed apps: Django contrib apps plus third-party (whitenoise for static
+# serving, DRF + SimpleJWT for the API/auth, corsheaders for CORS) and the
+# project's own `core` app. whitenoise.runserver_nostatic is listed first so it
+# overrides runserver's static handling during local development.
 INSTALLED_APPS = [
     'whitenoise.runserver_nostatic',
     'django.contrib.admin',
@@ -68,6 +75,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
 ]
 
+# Django REST Framework: authenticate every request via JWT bearer tokens
+# (issued by SimpleJWT) and require authentication by default; views that should
+# be public must opt out explicitly with their own permission_classes.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -77,6 +87,10 @@ REST_FRAMEWORK = {
     ],
 }
 
+# Middleware order matters and is processed top-down on requests. CorsMiddleware
+# must come first so CORS headers are applied even to responses from later
+# middleware; WhiteNoise sits right after SecurityMiddleware so it can serve
+# static files efficiently. The remainder is Django's standard stack.
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -112,7 +126,9 @@ if CORS_ALLOWED_ORIGIN_ENV:
     CORS_ALLOWED_ORIGINS.extend(extra_origins)
 
 
-# Also trust these origins for CSRF if needed
+# CSRF trusted origins: which cross-site origins may submit state-changing
+# requests. Mirrors the CORS allow-list (local dev, the Vercel frontend, and
+# wildcard Vercel/Railway domains) and is likewise extendable via env.
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "https://notce-ai-tutor-2026-blueprint.vercel.app",
@@ -123,6 +139,8 @@ if CORS_ALLOWED_ORIGIN_ENV:
     extra_csrf = [o.strip().rstrip('/') for o in CORS_ALLOWED_ORIGIN_ENV.split(',') if o.strip() and o.startswith('https://')]
     CSRF_TRUSTED_ORIGINS.extend(extra_csrf)
 
+# Cookies are sent across sites (frontend and API live on different domains), so
+# SameSite=None is required; that in turn mandates Secure=True (HTTPS only).
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SAMESITE = 'None'
@@ -152,6 +170,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Default to a locally-configured PostgreSQL database, with each connection
+# parameter overridable via individual DB_* env vars for local development.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -163,7 +183,9 @@ DATABASES = {
     }
 }
 
-# Update database configuration from $DATABASE_URL.
+# In production (e.g. Railway), DATABASE_URL is provided as a single connection
+# string; when present it fully overrides the block above, with persistent
+# connections (conn_max_age), health checks, and required SSL.
 if os.environ.get('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.config(
         conn_max_age=600,
@@ -207,6 +229,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
+# Static files are collected into STATIC_ROOT and served by WhiteNoise using a
+# compressed storage backend (no separate web server / CDN required).
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
@@ -228,14 +252,22 @@ if FRONTEND_DIST.exists():
     WHITENOISE_INDEX_FILE = True
 
 # Stripe Settings
+# Payment keys loaded from the environment: the secret key for server-side API
+# calls, the public key for the frontend checkout, and the webhook signing
+# secret used to verify incoming Stripe webhook events.
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 
 # URL Settings
+# Public base URL of the frontend, used when building links inside emails
+# (e.g. password reset / verification) that point users back to the SPA.
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # Email Settings
+# SMTP transactional email (defaults to Gmail's SMTP over TLS). Credentials and
+# the from-address come from the environment; DEFAULT_FROM_EMAIL falls back to
+# the SMTP user, then a placeholder address.
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 try:

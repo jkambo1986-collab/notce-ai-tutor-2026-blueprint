@@ -1,8 +1,18 @@
+"""Seed the database with the sample TBI case study and its demo questions.
+
+Populates the legacy CaseStudy / Question / Distractor models with one worked
+example (the "Community Integration Post-TBI" case and three multiple-choice
+questions) that mirrors the frontend's constants.tsx. Idempotent: uses
+get_or_create, so re-running it will not create duplicates.
+
+Run as a standalone script from the backend directory:
+    python seed.py
+"""
 
 import os
 import django
 
-# Setup Django environment
+# Bootstrap Django so the ORM/models are usable in this standalone script.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
