@@ -71,6 +71,32 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
         }
     }, [currentQuestion, isComplete, sessionId]);
 
+    // Keyboard support: A–D / 1–4 select an option, Enter submits, then Enter
+    // again advances. Mirrors the shortcuts already in Study mode so power users
+    // can run a drill without the mouse. Ignored while loading or typing in a field.
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (isLoading || isComplete || finalScore) return;
+            const tag = (e.target as HTMLElement)?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+            const options = currentQuestion?.options || [];
+            if (!feedback) {
+                const byLetter = options.find((o: any) => o.label?.toUpperCase() === e.key.toUpperCase());
+                const num = parseInt(e.key, 10);
+                if (byLetter) { setSelectedLabel(byLetter.label); e.preventDefault(); return; }
+                if (!Number.isNaN(num) && num >= 1 && num <= options.length) {
+                    setSelectedLabel(options[num - 1].label); e.preventDefault(); return;
+                }
+                if (e.key === 'Enter' && selectedLabel) { e.preventDefault(); handleSubmitAnswer(); }
+            } else if (e.key === 'Enter') {
+                e.preventDefault(); handleNextQuestion();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentQuestion, feedback, selectedLabel, isLoading, isComplete, finalScore]);
+
     // Honest stopwatch: time spent on this practice session, counting up from 0.
     // (Practice mode is untimed; this is informational, not a countdown.)
     const [elapsed, setElapsed] = useState(0);
@@ -134,7 +160,15 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
         try {
             const data = await api.mockStudy.submitAnswer(sessionId, selectedLabel);
             setFeedback(data.feedback);
-            setLearning(data.learning || null);
+            const lrn = data.learning || null;
+            setLearning(lrn);
+            // On a wrong answer, auto-expand the learning aids — that's exactly when
+            // the learner needs the reframing/core concept, instead of hiding them
+            // behind a toggle they might not notice.
+            if (lrn && !data.feedback?.is_correct) {
+                setShowDiff(!!lrn.explain_differently);
+                setShowConcept(!!lrn.core_concept);
+            }
             setProgress(prev => ({
                 ...prev,
                 correct: data.progress.correct
@@ -321,19 +355,14 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                             </div>
                         </div>
 
-                        <div className="flex gap-4 pt-4">
+                        <div className="pt-4">
                             <button
-                                onClick={() => window.location.reload()}
-                                className="flex-1 py-4 bg-gray-200 text-gray-700 font-bold rounded-xl"
-                            >
-                                Restart
-                            </button>
-                            <button 
                                 onClick={onExit}
-                                className="flex-1 py-4 bg-cyan-500 text-white font-bold rounded-xl"
+                                className="w-full py-4 bg-cyan-500 hover:bg-cyan-600 text-white font-bold rounded-xl transition-colors"
                             >
-                                Exit
+                                Back to Dashboard
                             </button>
+                            <p className="text-center text-xs text-gray-400 mt-3">Start a fresh drill any time from your dashboard.</p>
                         </div>
                     </div>
                 </main>
