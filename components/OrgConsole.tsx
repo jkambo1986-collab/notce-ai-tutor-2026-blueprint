@@ -51,6 +51,19 @@ const OrgConsole: React.FC = () => {
   );
   const canManage = myRole === 'owner' || myRole === 'admin';
 
+  // At-risk learners (F5): students who've practised but are below the pass line.
+  // Surfaced so instructors can intervene early instead of reading the whole table.
+  const atRiskIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const s of analytics?.students || []) {
+      if (s.role === 'member' && s.answered > 0 && s.accuracy != null && s.accuracy < 60) {
+        ids.add(s.user_id);
+      }
+    }
+    return ids;
+  }, [analytics]);
+  const inactiveCount = (analytics?.students || []).filter(s => s.role === 'member' && s.answered === 0).length;
+
   // Default to the first manageable org once memberships load.
   useEffect(() => {
     if (orgId === null && managerOrgs.length > 0) setOrgId(managerOrgs[0].org_id);
@@ -211,6 +224,18 @@ const OrgConsole: React.FC = () => {
             </div>
           </div>
 
+          {/* At-risk strip: early-warning so instructors can intervene. */}
+          {(atRiskIds.size > 0 || inactiveCount > 0) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-sm text-amber-800 flex flex-wrap gap-x-6 gap-y-1">
+              {atRiskIds.size > 0 && (
+                <span><span className="font-bold">{atRiskIds.size}</span> student{atRiskIds.size === 1 ? '' : 's'} below the 60% pass line</span>
+              )}
+              {inactiveCount > 0 && (
+                <span><span className="font-bold">{inactiveCount}</span> ha{inactiveCount === 1 ? "sn't" : "ven't"} started practising yet</span>
+              )}
+            </div>
+          )}
+
           {/* Admin: invite + seats */}
           {canManage && (
             <div className={card}>
@@ -293,7 +318,12 @@ const OrgConsole: React.FC = () => {
                     return (
                       <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50">
                         <td className="py-2 pr-4">
-                          <div className="font-semibold text-gray-800">{m.user.username}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-800">{m.user.username}</span>
+                            {atRiskIds.has(m.user.id) && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700" title="Below the 60% pass line">At risk</span>
+                            )}
+                          </div>
                           <div className="text-xs text-gray-400">{m.user.email}</div>
                         </td>
                         <td className="py-2 pr-4">
