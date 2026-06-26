@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /$
+Allow: /signup
+Allow: /signin
+# Authenticated app + flow routes are not useful to crawlers.
+Disallow: /home
+Disallow: /study
+Disallow: /dashboard
+Disallow: /mock-study
+Disallow: /exam
+Disallow: /payment/
+Disallow: /verify
+
+Sitemap: https://notce-ai-tutor-2026-blueprint.vercel.app/sitemap.xml
