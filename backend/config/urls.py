@@ -41,14 +41,18 @@ def spa_index(request):
         )
 
 
+# Root URL configuration. Order matters: more specific prefixes are matched first,
+# and the SPA catch-all at the end handles everything else.
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('core.urls')),
-    path('health/', lambda r: HttpResponse("Backend is healthy")),
+    path('admin/', admin.site.urls),                  # Django admin site
+    path('api/', include('core.urls')),               # all REST API endpoints (delegated to core/urls.py)
+    path('health/', lambda r: HttpResponse("Backend is healthy")),  # plain-text health check
     # Unknown /api/ paths 404 as JSON instead of falling through to the SPA shell.
     re_path(r'^api/', lambda r: JsonResponse({"detail": "Not found."}, status=404)),
     # SPA catch-all: anything not handled above returns the React app shell.
-    # (admin/, api/, health/, static/ are excluded so they keep their behaviour.)
-    re_path(r'^(?!admin/|api/|health/|static/).*$', spa_index),
+    # The negative lookahead excludes the backend prefixes as WHOLE segments
+    # (with or without a trailing slash) so e.g. `/admin` still gets Django's
+    # APPEND_SLASH redirect to `/admin/` instead of being swallowed as an SPA route.
+    re_path(r'^(?!(?:admin|api|health|static|media)(?:/|$)).*$', spa_index),
 ]
 
