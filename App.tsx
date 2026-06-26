@@ -474,11 +474,10 @@ const MainApp: React.FC = () => {
      * Starts the Mock Study Setup process.
      */
     const handleStartMockStudySetup = () => {
-        if (!user?.userprofile?.is_paid) {
-            toast(premiumGateMessage('Adaptive Mock Study'), 'info');
-            navigate(HOME_PATH);
-            return;
-        }
+        // Open the setup picker for everyone — clicking the nav item must always
+        // produce a visible screen change. The premium gate lives at the actual
+        // "Start" action (handleLaunchMockStudy), so free/trial users still see
+        // what they're getting before being prompted to upgrade.
         setIsMockSetupOpen(true);
     };
 
@@ -576,10 +575,8 @@ const MainApp: React.FC = () => {
      * Launches a full Exam Simulation.
      */
     const handleLaunchExam = async () => {
-        if (!user?.userprofile?.is_paid) {
-            toast(premiumGateMessage('the Full Exam Simulation'), 'info');
-            return;
-        }
+        // Show the intro/confirm for everyone so the nav click always changes the
+        // screen; gate the actual start below for free/trial users.
         const ok = await confirm({
             title: "Start Full Exam Simulation?",
             message: "This starts a timed 4-hour, 200-question simulation with no feedback until the end. Make sure you can finish in one sitting.",
@@ -588,6 +585,10 @@ const MainApp: React.FC = () => {
             tone: "danger",
         });
         if (!ok) return;
+        if (!user?.userprofile?.is_paid) {
+            toast(premiumGateMessage('the Full Exam Simulation'), 'info');
+            return;
+        }
         try {
             setIsGenerating(true);
             // Default: Exam Mode = 'exam', 200 questions (although backend default covers it)
