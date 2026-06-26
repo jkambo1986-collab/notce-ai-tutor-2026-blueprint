@@ -443,6 +443,31 @@ const MainApp: React.FC = () => {
     };
 
     /**
+     * Smart Drill: one tap starts a focused mock session targeting the user's
+     * weakest domain (from the Performance Hub recommendation), with no manual
+     * domain/difficulty/length setup.
+     */
+    const handleSmartDrill = async () => {
+        if (!user?.userprofile?.is_paid) {
+            toast(premiumGateMessage('Smart Drill'), 'info');
+            return;
+        }
+        try {
+            setIsGenerating(true);
+            const perf = await api.getPerformance();
+            const domain = perf.recommended_drill?.domain || 'OT_EXP';
+            const label = (DOMAIN_INFO as Record<string, { label: string }>)[domain]?.label || domain;
+            toast(`Smart Drill: targeting ${label}.`, 'info');
+            await handleLaunchMockStudy(domain, 'Medium', 10);
+        } catch (err) {
+            console.error('Smart Drill failed:', err);
+            toast('Could not start Smart Drill. Please try again.', 'error');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    /**
      * Resumes the user's previously-saved (still active) mock study session by
      * rehydrating its id/data into state and navigating to the mock view.
      */
@@ -590,6 +615,7 @@ const MainApp: React.FC = () => {
                 onResumeMockStudy={activeMockSession ? handleResumeMockStudy : undefined}
                 activeMockSession={activeMockSession}
                 onStartExam={handleLaunchExam}
+                onSmartDrill={handleSmartDrill}
                 openGeneratorSignal={generatorNonce}
             />
         )}

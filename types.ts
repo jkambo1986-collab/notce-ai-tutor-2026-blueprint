@@ -267,4 +267,6 @@ export interface Performance {
     };
     exam_date: string | null;
     days_to_exam: number | null;
+    /** One-tap "Smart Drill" target: the domain to practice next. */
+    recommended_drill: { domain: string; reason: string; accuracy: number; answered: number };
 }

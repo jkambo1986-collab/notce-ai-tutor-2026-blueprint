@@ -160,6 +160,25 @@ def compute_performance(user):
     except UserProfile.DoesNotExist:
         pass
 
+    # --- Smart Drill recommendation ---
+    # Pick the domain to drill next: the lowest-accuracy domain among those with
+    # enough attempts to be meaningful; if none qualify yet, steer the user to the
+    # least-practiced domain to broaden coverage.
+    ATTEMPT_FLOOR = 3
+    practiced = [d for d in by_domain if d["answered"] >= ATTEMPT_FLOOR]
+    if practiced:
+        target = min(practiced, key=lambda d: d["accuracy"])
+        reason = f"Your weakest area — {target['accuracy']}% so far."
+    else:
+        target = min(by_domain, key=lambda d: d["answered"])
+        reason = "You've practiced this the least."
+    recommended_drill = {
+        "domain": target["domain"],
+        "reason": reason,
+        "accuracy": target["accuracy"],
+        "answered": target["answered"],
+    }
+
     return {
         "overall": {
             "answered": total,
@@ -184,4 +203,5 @@ def compute_performance(user):
         },
         "exam_date": exam_date,
         "days_to_exam": days_to_exam,
+        "recommended_drill": recommended_drill,
     }

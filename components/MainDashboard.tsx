@@ -40,6 +40,8 @@ interface MainDashboardProps {
     onStartMockStudy?: () => void;
     onResumeMockStudy?: () => void;
     onStartExam?: () => void;
+    /** One-tap Smart Drill: starts a mock targeting the user's weakest domain. */
+    onSmartDrill?: () => void;
     /** Bumping this number opens the Case Generator (used by sidebar "New Case"). */
     openGeneratorSignal?: number;
 }
@@ -61,6 +63,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     onStartMockStudy,
     onResumeMockStudy,
     onStartExam,
+    onSmartDrill,
     openGeneratorSignal = 0
 }) => {
     // Auth gives us the user (for greeting/tier gating) and a way to refetch the profile
@@ -298,14 +301,27 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                      </div>
                      
                      <div className="z-10 flex flex-col gap-3">
-                        <button 
-                            onClick={() => isPaid && onStartMockStudy?.()} 
+                        <button
+                            onClick={() => isPaid && onStartMockStudy?.()}
                             disabled={!isPaid}
                             className="px-8 py-4 bg-teal-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-teal-200 hover:bg-teal-700 hover:scale-105 transition-all flex items-center gap-3 whitespace-nowrap justify-center w-48 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span>Start Drill</span>
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         </button>
+
+                        {/* Smart Drill: one-tap, auto-targets the weakest domain */}
+                        {onSmartDrill && (
+                            <button
+                                onClick={() => isPaid && onSmartDrill()}
+                                disabled={!isPaid}
+                                title="Auto-target your weakest domain"
+                                className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold text-base hover:bg-gray-800 hover:scale-105 transition-all flex items-center gap-2 whitespace-nowrap justify-center w-48 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <svg className="w-4 h-4 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                                <span>Smart Drill</span>
+                            </button>
+                        )}
 
                         {/* Resume Button */}
                         {onResumeMockStudy && (
