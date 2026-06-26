@@ -52,6 +52,10 @@ const MainApp: React.FC = () => {
   // "New Case"). Incrementing the nonce triggers MainDashboard to open it, so
   // both "New Case" entry points behave identically (open the picker).
   const [generatorNonce, setGeneratorNonce] = useState(0);
+  // Nonces that let global nav (sidebar) open the Review / Notebook modals, which
+  // live on the home dashboard — bumping these opens them after navigating home.
+  const [reviewNonce, setReviewNonce] = useState(0);
+  const [notebookNonce, setNotebookNonce] = useState(0);
 
   // Items the user flags for later review during a study case (local to the
   // current case bundle). A real cross-session queue is a backend feature.
@@ -568,6 +572,11 @@ const MainApp: React.FC = () => {
     /** Upgrade chip routes to Home, where plan/pricing options live. */
     const handleUpgrade = () => navigate(HOME_PATH);
 
+    /** Global-nav openers: Review / Notebook live on the home dashboard, so go
+     *  home and bump the nonce that opens the modal there. */
+    const handleOpenReview = () => { navigate(HOME_PATH); setReviewNonce(n => n + 1); };
+    const handleOpenNotebook = () => { navigate(HOME_PATH); setNotebookNonce(n => n + 1); };
+
 
   // --- COMPUTED VALUES ---
 
@@ -625,6 +634,8 @@ const MainApp: React.FC = () => {
       onNewCase={handleNewCase}
       onResumeMock={activeMockSession ? handleResumeMockStudy : undefined}
       onUpgrade={handleUpgrade}
+      onOpenReview={handleOpenReview}
+      onOpenNotebook={handleOpenNotebook}
     >
         {/* Generating overlay (sits over content; sidebar stays visible) */}
         {isGenerating && (
@@ -652,7 +663,10 @@ const MainApp: React.FC = () => {
                 activeMockSession={activeMockSession}
                 onStartExam={handleLaunchExam}
                 onSmartDrill={handleSmartDrill}
+                onOpenAnalytics={() => navigate('/dashboard')}
                 openGeneratorSignal={generatorNonce}
+                openReviewSignal={reviewNonce}
+                openNotebookSignal={notebookNonce}
             />
         )}
         

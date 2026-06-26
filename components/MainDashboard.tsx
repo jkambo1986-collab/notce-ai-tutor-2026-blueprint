@@ -11,7 +11,6 @@ import { useAuth } from '../components/AuthContext';
 import { api } from '../services/api';
 import { DomainStats } from '../types';
 import CaseGeneratorModal from './CaseGeneratorModal';
-import AnalyticsModal from './AnalyticsModal';
 import SavedProgressModal from './SavedProgressModal';
 import ReviewQueueModal from './ReviewQueueModal';
 import NotebookModal from './NotebookModal';
@@ -45,8 +44,13 @@ interface MainDashboardProps {
     onStartExam?: () => void;
     /** One-tap Smart Drill: starts a mock targeting the user's weakest domain. */
     onSmartDrill?: () => void;
+    /** Opens the full cross-session Analytics page (canonical analytics view). */
+    onOpenAnalytics?: () => void;
     /** Bumping this number opens the Case Generator (used by sidebar "New Case"). */
     openGeneratorSignal?: number;
+    /** Bumping these opens the Daily Review / Notebook modals from global nav. */
+    openReviewSignal?: number;
+    openNotebookSignal?: number;
 }
 
 /**
@@ -67,7 +71,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     onResumeMockStudy,
     onStartExam,
     onSmartDrill,
-    openGeneratorSignal = 0
+    onOpenAnalytics,
+    openGeneratorSignal = 0,
+    openReviewSignal = 0,
+    openNotebookSignal = 0
 }) => {
     // Auth gives us the user (for greeting/tier gating) and a way to refetch the profile
     // after a payment so paid features unlock without a manual reload.
@@ -75,7 +82,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     const toast = useToast();
     // Visibility flags for the three modals owned by this screen.
     const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
-    const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
     const [isProgressOpen, setIsProgressOpen] = useState(false);
     const [isReviewOpen, setIsReviewOpen] = useState(false);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
@@ -96,6 +102,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     useEffect(() => {
         if (openGeneratorSignal > 0) setIsGeneratorOpen(true);
     }, [openGeneratorSignal]);
+
+    // Global-nav entry points: the sidebar can open Review / Notebook from any
+    // screen by navigating home and bumping these signals.
+    useEffect(() => { if (openReviewSignal > 0) setIsReviewOpen(true); }, [openReviewSignal]);
+    useEffect(() => { if (openNotebookSignal > 0) setIsNotebookOpen(true); }, [openNotebookSignal]);
 
     // On return from Stripe checkout the URL carries ?success=true. Detect it, confirm the
     // payment server-side, refresh the profile to reflect the new tier, then strip the query
@@ -253,9 +264,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                         </div>
                     </button>
                     
-                    {/* Performance Analytics Card */}
-                    <button 
-                        onClick={() => setIsAnalyticsOpen(true)}
+                    {/* Performance Analytics Card → canonical Analytics page */}
+                    <button
+                        onClick={() => onOpenAnalytics?.()}
                         className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-left hover:shadow-lg hover:border-blue-200 transition-all group cursor-pointer"
                     >
                         <div className="h-12 w-12 bg-gradient-to-br from-blue-100 to-cyan-100 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -488,14 +499,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 isOpen={isGeneratorOpen}
                 onClose={() => setIsGeneratorOpen(false)}
                 onGenerate={onStartCase}
-            />
-            
-            <AnalyticsModal
-                isOpen={isAnalyticsOpen}
-                onClose={() => setIsAnalyticsOpen(false)}
-                domainStats={domainStats}
-                totalAnswered={totalAnswered}
-                totalCorrect={totalCorrect}
             />
             
             <SavedProgressModal

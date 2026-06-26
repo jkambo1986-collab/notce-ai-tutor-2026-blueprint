@@ -46,6 +46,9 @@ interface AppShellProps {
   onNewCase: () => void;
   onResumeMock?: () => void;
   onUpgrade?: () => void;
+  /** Open the Daily Review queue / Notebook from anywhere (they live on Home). */
+  onOpenReview?: () => void;
+  onOpenNotebook?: () => void;
   children: React.ReactNode;
 }
 
@@ -75,6 +78,8 @@ const ICONS = {
   calendar: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
   users: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 0a4 4 0 10-3-7.75',
   cog: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z',
+  review: 'M4 6h16M4 12h16M4 18h7M19 16l2 2-2 2m2-2h-4',
+  notebook: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
 };
 
 // Org-manager roles that unlock the Organization console nav entry.
@@ -134,6 +139,8 @@ const AppShell: React.FC<AppShellProps> = ({
   onNewCase,
   onResumeMock,
   onUpgrade,
+  onOpenReview,
+  onOpenNotebook,
   children,
 }) => {
   // Desktop collapse state, lazily initialized from localStorage so the layout
@@ -243,6 +250,32 @@ const AppShell: React.FC<AppShellProps> = ({
             </button>
           );
         })}
+
+        {/* Tools: reachable from any screen (they open modals on the home hub). */}
+        {(onOpenReview || onOpenNotebook) && (
+          <div className="pt-3 mt-2 border-t border-slate-800 space-y-1">
+            {onOpenReview && (
+              <button
+                onClick={() => { onOpenReview(); setMobileOpen(false); }}
+                title="Daily Review"
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+              >
+                <span className="flex-shrink-0"><Icon path={ICONS.review} /></span>
+                <span className={collapsed ? 'md:hidden' : ''}>Daily Review</span>
+              </button>
+            )}
+            {onOpenNotebook && (
+              <button
+                onClick={() => { onOpenNotebook(); setMobileOpen(false); }}
+                title="My Notebook"
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+              >
+                <span className="flex-shrink-0"><Icon path={ICONS.notebook} /></span>
+                <span className={collapsed ? 'md:hidden' : ''}>Notebook</span>
+              </button>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Exam countdown */}
