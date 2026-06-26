@@ -374,27 +374,12 @@ const MainApp: React.FC = () => {
   /**
    * Triggers generation of a new AI case with specific domain and difficulty.
    */
-    const handleGenerateCase = async (domain: string, difficulty: string) => {
-        try {
-            setIsGenerating(true);
-            setError(null);
-            const newCase = await api.generateCase(domain, difficulty);
-            setCurrentCase(newCase);
-            resetCase();
-            // Announce the freshly generated case is ready to work on.
-            toast('New case ready — good luck!', 'success');
-        } catch (err) {
-            console.error(err);
-            setError("Failed to generate case. Please try again.");
-            setIsGenerating(false);
-            // Surface an actionable error with a one-tap retry (graceful AI degradation).
-            toast("Couldn't generate a case. The AI tutor may be busy.", 'error', {
-                duration: 8000,
-                action: { label: 'Try again', onClick: () => handleGenerateCase(domain, difficulty) },
-            });
-        } finally {
-            setIsGenerating(false);
-        }
+    const handleGenerateCase = async (_domain?: string, _difficulty?: string) => {
+        // AI minting is disabled — the app serves only vetted, pre-minted bank
+        // questions. Route any "new case / generate" entry point into the bank-backed
+        // Mock Study flow instead of calling the (now 403) generation endpoint.
+        toast('Practice now uses our vetted question bank.', 'info');
+        handleStartMockStudySetup();
     };
 
     /**
@@ -429,8 +414,8 @@ const MainApp: React.FC = () => {
      * silently generating a hardcoded Physical Rehab / Medium case).
      */
     const handleNewCase = () => {
-        navigate(HOME_PATH);
-        setGeneratorNonce(n => n + 1);
+        // AI minting disabled — "New Case" now opens bank-backed practice.
+        handleStartMockStudySetup();
     };
 
     /**

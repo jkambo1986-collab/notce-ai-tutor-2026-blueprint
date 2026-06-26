@@ -114,23 +114,9 @@ export const api = {
    * Sends { domain, difficulty }. Returns the freshly generated, normalized CaseStudy.
    * Throws on a non-OK response.
    */
-  async generateCase(domain: string, difficulty: string): Promise<CaseStudy> {
-    // Attach the JWT from localStorage as a Bearer token when present.
-    const token = localStorage.getItem('auth_token');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const response = await fetch(`${API_BASE_URL}/cases/generate/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ domain, difficulty })
-    });
-    
-    if (!response.ok) {
-        throw new Error(`Generation failed: ${response.statusText}`);
-    }
-    const data = await response.json();
-    return transformCaseStudy(data);
+  async generateCase(_domain: string, _difficulty: string): Promise<CaseStudy> {
+    // AI minting is disabled — the app serves only vetted, pre-minted bank content.
+    throw new Error('AI case generation is disabled. Practice uses the vetted question bank.');
   },
   
   /**
@@ -138,18 +124,9 @@ export const api = {
    * POST /cases/prefetch/ with optional Bearer auth. Sends { domain, difficulty }.
    * Fire-and-forget: returns immediately without awaiting the response; errors are only logged.
    */
-  async prefetchCase(domain: string, difficulty: string): Promise<void> {
-    // Attach the JWT from localStorage as a Bearer token when present.
-    const token = localStorage.getItem('auth_token');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    // Intentionally not awaited (fire-and-forget); swallow/log any error so it never breaks the UI.
-    fetch(`${API_BASE_URL}/cases/prefetch/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ domain, difficulty })
-    }).catch(err => console.warn('Case prefetch failed:', err));
+  async prefetchCase(_domain: string, _difficulty: string): Promise<void> {
+    // AI minting is disabled — no background case generation. No-op.
+    return;
   },
 
   /**
