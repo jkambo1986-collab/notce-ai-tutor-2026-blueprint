@@ -159,11 +159,25 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const audio = new Audio(url);
       audioRef.current = audio;
       audioUrlRef.current = url;
-      audio.onplay = () => { if (token === reqToken.current) { setSpeaking(true); setSpeakingId(id); } };
+      // Once the neural voice has actually begun, never re-speak via the browser
+      // fallback — otherwise a transient media error/late play()-reject would play
+      // the same line again in a different (browser) voice ("female, then male").
+      let neuralStarted = false;
+      audio.onplay = () => { neuralStarted = true; if (token === reqToken.current) { setSpeaking(true); setSpeakingId(id); } };
       audio.onended = () => { if (token === reqToken.current) { stopAudio(); setSpeaking(false); setSpeakingId(null); } };
-      audio.onerror = () => { if (token === reqToken.current) { stopAudio(); browserSpeak(text, id); } };
-      // play() can reject under autoplay policy (e.g. auto-read with no gesture) → fall back.
-      audio.play().catch(() => { if (token === reqToken.current) { stopAudio(); browserSpeak(text, id); } });
+      audio.onerror = () => {
+        if (token !== reqToken.current) return;
+        stopAudio();
+        if (neuralStarted) { setSpeaking(false); setSpeakingId(null); }  // already heard it; don't repeat
+        else browserSpeak(text, id);
+      };
+      // play() can reject under autoplay policy (e.g. auto-read with no gesture) → fall back,
+      // but only if the neural audio never started (so we never double-speak).
+      audio.play().catch(() => {
+        if (token !== reqToken.current || neuralStarted) return;
+        stopAudio();
+        browserSpeak(text, id);
+      });
     }).catch(() => { if (token === reqToken.current) browserSpeak(text, id); });
   }, [settings.enabled, settings.voiceURI, settings.rate, browserSpeak, browserTts]);
 
