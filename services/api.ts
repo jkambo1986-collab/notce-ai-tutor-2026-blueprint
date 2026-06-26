@@ -12,7 +12,7 @@
  * retrying once. Raw payloads are normalized via the transformers at the bottom.
  */
 
-import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, ExamState, Organization, OrgMember, OrgAnalytics, OrgRole, CohortAssignment, ErrorAnalysis, ReasoningScenario, ReasoningResult, CatQuestion, CatResult, EncounterPersona, EncounterResult } from '../types';
+import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, ExamState, Organization, OrgMember, OrgAnalytics, OrgRole, CohortAssignment, ErrorAnalysis, ReasoningScenario, ReasoningResult, CatQuestion, CatResult, EncounterPersona, EncounterResult, ScoredConvoResult, TeachbackPersona, HandoverPersona, BriefingResponse, DrillQuestion } from '../types';
 
 // Base URL for all API requests. Prefers the Vite-injected env var (set per
 // deployment), and falls back to the local dev backend when it's not defined.
@@ -292,6 +292,58 @@ export const api = {
       if (!response.ok) throw new Error(`Failed to score encounter: ${response.statusText}`);
       return response.json();
     },
+  },
+
+  /** Teach-It-Back: explain a concept to an AI junior student who probes you. */
+  teachback: {
+    async start(domain?: string): Promise<{ session_id: string; persona: TeachbackPersona; opening_line: string }> {
+      const response = await request('/teachback/start/', { method: 'POST', body: body({ domain }) });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Failed to start teach-back');
+      return response.json();
+    },
+    async message(sessionId: string, message: string): Promise<{ reply: string }> {
+      const response = await request('/teachback/message/', { method: 'POST', body: body({ session_id: sessionId, message }) });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "The student didn't respond");
+      return response.json();
+    },
+    async finish(sessionId: string): Promise<{ result: ScoredConvoResult }> {
+      const response = await request('/teachback/finish/', { method: 'POST', body: body({ session_id: sessionId }) });
+      if (!response.ok) throw new Error('Failed to score teach-back');
+      return response.json();
+    },
+  },
+
+  /** SBAR Handover: deliver a spoken handover to an AI colleague who probes gaps. */
+  handover: {
+    async start(domain?: string): Promise<{ session_id: string; persona: HandoverPersona; opening_line: string }> {
+      const response = await request('/handover/start/', { method: 'POST', body: body({ domain }) });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Failed to start handover');
+      return response.json();
+    },
+    async message(sessionId: string, message: string): Promise<{ reply: string }> {
+      const response = await request('/handover/message/', { method: 'POST', body: body({ session_id: sessionId, message }) });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "The colleague didn't respond");
+      return response.json();
+    },
+    async finish(sessionId: string): Promise<{ result: ScoredConvoResult }> {
+      const response = await request('/handover/finish/', { method: 'POST', body: body({ session_id: sessionId }) });
+      if (!response.ok) throw new Error('Failed to score handover');
+      return response.json();
+    },
+  },
+
+  /** Personalized daily audio briefing (spoken segments). GET /briefing/. */
+  async getBriefing(): Promise<BriefingResponse> {
+    const response = await request('/briefing/');
+    if (!response.ok) throw new Error('Failed to load your briefing');
+    return response.json();
+  },
+
+  /** One vetted question (with answer) for the eyes-free voice drill. */
+  async drillNext(opts: { domain?: string; difficulty?: string; exclude?: string[] } = {}): Promise<DrillQuestion> {
+    const response = await request('/drill/next/', { method: 'POST', body: body(opts) });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'No drill question available');
+    return response.json();
   },
 
   /** Returns the user's saved rationale notebook. GET /notebook/. */

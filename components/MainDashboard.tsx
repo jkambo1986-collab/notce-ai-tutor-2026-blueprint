@@ -18,6 +18,9 @@ import ErrorInsightsModal from './ErrorInsightsModal';
 import ReasoningCoachModal from './ReasoningCoachModal';
 import AdaptiveAssessmentModal from './AdaptiveAssessmentModal';
 import EncounterModal from './EncounterModal';
+import { TeachBackModal, HandoverModal } from './VoiceConvo';
+import DailyBriefingModal from './DailyBriefingModal';
+import CommuteDrillModal from './CommuteDrillModal';
 import TodayPanel from './TodayPanel';
 import { useToast } from './ui/Feedback';
 import { Button, Card, Badge } from './ui';
@@ -95,6 +98,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     const [isReasoningOpen, setIsReasoningOpen] = useState(false);
     const [isAdaptiveOpen, setIsAdaptiveOpen] = useState(false);
     const [isEncounterOpen, setIsEncounterOpen] = useState(false);
+    // Voice-driven feature suite
+    const [isTeachBackOpen, setIsTeachBackOpen] = useState(false);
+    const [isHandoverOpen, setIsHandoverOpen] = useState(false);
+    const [isBriefingOpen, setIsBriefingOpen] = useState(false);
+    const [isDrillOpen, setIsDrillOpen] = useState(false);
     // Number of weak items due for review (badge on the Daily Review card).
     const [reviewCount, setReviewCount] = useState<number | null>(null);
     // True while the post-checkout payment sync request is in flight.
@@ -391,6 +399,39 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                     );
                 })()}
 
+                {/* --- Voice Practice (AI voice-driven suite, built on read-aloud + dictation) --- */}
+                {(() => {
+                    const canUseAI = !!(isPaid || isTrial);
+                    const gate = (setter: (v: boolean) => void) => () => (canUseAI ? setter(true) : handleUpgrade());
+                    const cards = [
+                        { onClick: () => setIsBriefingOpen(true), free: true, title: 'Daily Briefing', desc: 'A 2-minute personalized spoken digest: your readiness, weak spot, and what to review today.', grad: 'from-slate-600 to-slate-800', hover: 'group-hover:text-slate-700', icon: 'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z' },
+                        { onClick: gate(setIsDrillOpen), free: false, title: 'Eyes-Free Drill', desc: 'Hands-free: questions read aloud, answer by voice, hear the rationale. Perfect for the commute.', grad: 'from-teal-500 to-cyan-600', hover: 'group-hover:text-teal-700', icon: 'M15.536 8.464a5 5 0 010 7.072M12 6a9 9 0 010 12M5 9v6a1 1 0 001 1h2l3 3V5L8 8H6a1 1 0 00-1 1z' },
+                        { onClick: gate(setIsTeachBackOpen), free: false, title: 'Teach-It-Back', desc: 'Explain a concept aloud to a curious AI student who probes your gaps — the deepest way to learn.', grad: 'from-violet-500 to-indigo-600', hover: 'group-hover:text-violet-700', icon: 'M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12 12 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12 12 0 01.665-6.479L12 14z' },
+                        { onClick: gate(setIsHandoverOpen), free: false, title: 'SBAR Handover', desc: 'Give a spoken handover to an AI colleague; scored on SBAR structure & prioritization.', grad: 'from-cyan-600 to-blue-600', hover: 'group-hover:text-cyan-700', icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 0a4 4 0 10-3-7.75' },
+                    ];
+                    return (
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <h2 className="text-xl font-black text-ink">Voice Practice</h2>
+                                <Badge tone="brand">Hands-free</Badge>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {cards.map((c, i) => (
+                                    <Card key={c.title} as="button" interactive padding="sm" onClick={c.onClick} className="animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                                        <div className={`h-11 w-11 bg-gradient-to-br ${c.grad} text-white shadow-soft rounded-xl flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3`}>
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={c.icon} /></svg>
+                                        </div>
+                                        <h3 className={`font-bold text-ink transition-colors ${c.hover}`}>{c.title}</h3>
+                                        <p className="text-slate-500 text-xs mt-1.5 leading-relaxed">{c.desc}</p>
+                                        {!c.free && !canUseAI && <span className="inline-flex items-center gap-1 mt-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>Upgrade to unlock</span>}
+                                        {c.free && <span className="inline-flex items-center gap-1 mt-2.5 text-[10px] font-bold text-emerald-500 uppercase tracking-wide">Free</span>}
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 <div className={`bg-gradient-to-br from-brand-50 via-white to-emerald-50 rounded-4xl p-6 sm:p-8 ring-1 ring-brand-100 shadow-card flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group ${!isPaid && !isTrial ? 'cursor-not-allowed' : ''}`}>
                      {/* Decorative Elements */}
                      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-brand-200 rounded-full blur-3xl opacity-25 pointer-events-none"></div>
@@ -582,6 +623,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             {isReasoningOpen && <ReasoningCoachModal isOpen={isReasoningOpen} onClose={() => setIsReasoningOpen(false)} />}
             {isAdaptiveOpen && <AdaptiveAssessmentModal isOpen={isAdaptiveOpen} onClose={() => setIsAdaptiveOpen(false)} />}
             {isEncounterOpen && <EncounterModal isOpen={isEncounterOpen} onClose={() => setIsEncounterOpen(false)} />}
+            {isTeachBackOpen && <TeachBackModal isOpen={isTeachBackOpen} onClose={() => setIsTeachBackOpen(false)} />}
+            {isHandoverOpen && <HandoverModal isOpen={isHandoverOpen} onClose={() => setIsHandoverOpen(false)} />}
+            {isBriefingOpen && <DailyBriefingModal isOpen={isBriefingOpen} onClose={() => setIsBriefingOpen(false)} />}
+            {isDrillOpen && <CommuteDrillModal isOpen={isDrillOpen} onClose={() => setIsDrillOpen(false)} />}
 
             {/* Mock Study Components will be lifted to App.tsx for session state, but entry point is here */}
         </div>

@@ -416,3 +416,50 @@ export interface EncounterResult {
     missed: string[];
     coaching: string;
 }
+
+/**
+ * --- AI VOICE-DRIVEN FEATURE SUITE ---
+ */
+
+/** Generic scored-conversation result (teach-back, SBAR handover). */
+export interface ScoredConvoResult {
+    overall_score: number;
+    verdict: string;
+    rubric: Record<string, number>;
+    did_well: string[];
+    missed?: string[];           // handover: omitted facts/risks
+    misconceptions?: string[];   // teach-back: things taught incorrectly
+    coaching: string;
+}
+
+/** Teach-It-Back persona: the concept the candidate must teach. */
+export interface TeachbackPersona { concept: string; blueprint_domain: string; }
+
+/** SBAR Handover persona: the case to hand over to the incoming colleague. */
+export interface HandoverPersona { title: string; setting: string; brief: string; colleague_name: string; }
+
+/** One spoken segment of the daily audio briefing. */
+export interface BriefingSegment { title: string; text: string; }
+
+export interface BriefingResponse {
+    segments: BriefingSegment[];
+    summary: {
+        answered: number;
+        projected: number | null;
+        band: string | null;
+        days_to_exam: number | null;
+        review_due: number;
+        weakest_domain: string | null;
+    };
+}
+
+/** A single vetted question for the eyes-free voice drill (includes the answer). */
+export interface DrillQuestion {
+    bank_id: string;
+    domain: string;
+    stem: string;
+    options: { label: string; text: string }[];
+    correct_label: string;
+    correct_text: string;
+    rationale: string;
+}
