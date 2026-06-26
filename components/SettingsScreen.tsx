@@ -27,6 +27,27 @@ const SettingsScreen: React.FC = () => {
   const [goals, setGoals] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
+  // Join-an-org by invite code (G4): an in-app path that doesn't rely on the
+  // emailed link working.
+  const [inviteCode, setInviteCode] = useState('');
+  const [joining, setJoining] = useState(false);
+
+  const handleJoin = async () => {
+    const token = inviteCode.trim();
+    if (!token) return;
+    setJoining(true);
+    try {
+      await api.organizations.acceptInvite(token);
+      await refreshProfile();
+      setInviteCode('');
+      toast('Invitation accepted — welcome to your organization!', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'That invite code is invalid or expired.', 'error');
+    } finally {
+      setJoining(false);
+    }
+  };
+
   const today = new Date().toISOString().slice(0, 10);
 
   const toggleGoal = (id: string) => {
@@ -107,6 +128,27 @@ const SettingsScreen: React.FC = () => {
         >
           {saving ? 'Saving…' : 'Save changes'}
         </button>
+
+        {/* Join an organization by invite code (G4). */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-1">Join an organization</h2>
+          <p className="text-sm text-gray-500 mb-4">Have an invite code from your school or program? Enter it here.</p>
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={inviteCode}
+              onChange={e => setInviteCode(e.target.value)}
+              placeholder="Invite code"
+              className="border border-gray-300 rounded-xl px-4 py-3 text-gray-800 flex-1 min-w-[220px] outline-none focus:border-teal-500"
+            />
+            <button
+              onClick={handleJoin}
+              disabled={joining || !inviteCode.trim()}
+              className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition disabled:opacity-50"
+            >
+              {joining ? 'Joining…' : 'Join'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
