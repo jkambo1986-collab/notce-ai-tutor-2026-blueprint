@@ -465,6 +465,25 @@ export const api = {
   },
 
   /**
+   * Updates onboarding/profile preferences for the current user.
+   * PATCH /auth/me/ with Bearer auth. Sends { target_exam_date?, goal_domains? }.
+   * Returns the refreshed User. Throws on a non-OK response.
+   */
+  async updateProfile(data: { target_exam_date?: string | null; goal_domains?: string[] }): Promise<User> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/auth/me/`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to update profile');
+    return response.json();
+  },
+
+  /**
    * Reconciles the user's payment/subscription status with Stripe.
    * POST /sync-payment/ with Bearer auth. Sends nothing.
    * Returns { success, updated, is_paid, tier } reflecting the refreshed status. Throws on failure.

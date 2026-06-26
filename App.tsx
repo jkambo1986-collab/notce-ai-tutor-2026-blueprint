@@ -29,6 +29,7 @@ import AppShell, { ShellView } from './components/AppShell';
 import OrgConsole from './components/OrgConsole';
 import AcceptInvite, { PENDING_INVITE_KEY } from './components/AcceptInvite';
 import { FeedbackProvider, useToast, useConfirm } from './components/ui/Feedback';
+import OnboardingModal, { ONBOARDING_DISMISSED_KEY } from './components/OnboardingModal';
 
 /**
  * MainApp
@@ -54,6 +55,9 @@ const MainApp: React.FC = () => {
   // Items the user flags for later review during a study case (local to the
   // current case bundle). A real cross-session queue is a backend feature.
   const [flaggedItems, setFlaggedItems] = useState<Set<string>>(new Set());
+
+  // First-run onboarding: shown until the user sets a target exam date (or skips).
+  const [onboardingClosed, setOnboardingClosed] = useState(false);
 
   // Current case study being worked on
   const [currentCase, setCurrentCase] = useState<CaseStudy | null>(null);
@@ -620,10 +624,23 @@ const MainApp: React.FC = () => {
             />
         )}
         
-        <MockStudySetupModal 
+        <MockStudySetupModal
             isOpen={isMockSetupOpen}
             onClose={() => setIsMockSetupOpen(false)}
             onStart={handleLaunchMockStudy}
+        />
+
+        {/* First-run onboarding: capture exam date + goal domains. Shown until the
+            user sets a target exam date or skips (skip remembered locally). */}
+        <OnboardingModal
+            isOpen={
+                !!user?.userprofile &&
+                !user.userprofile.target_exam_date &&
+                !onboardingClosed &&
+                (() => { try { return localStorage.getItem(ONBOARDING_DISMISSED_KEY) !== 'true'; } catch { return true; } })()
+            }
+            onClose={() => setOnboardingClosed(true)}
+            onComplete={() => { setOnboardingClosed(true); refreshProfile(); }}
         />
 
         {/* Study Mode: two-pane layout (vignette + question flow) when a case is loaded */}

@@ -302,6 +302,30 @@ class MeView(APIView):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
 
+    def patch(self, request):
+        """Update onboarding/profile preferences for the current user.
+
+        Accepts ``target_exam_date`` ('YYYY-MM-DD' or null to clear) and an
+        optional ``goal_domains`` list (a soft preference stashed in AgentMemory,
+        not a hard model field). Returns the refreshed user payload.
+        """
+        from django.utils.dateparse import parse_date
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+        if 'target_exam_date' in request.data:
+            raw = request.data.get('target_exam_date')
+            profile.target_exam_date = parse_date(raw) if raw else None
+            profile.save(update_fields=['target_exam_date'])
+
+        if 'goal_domains' in request.data:
+            from .models import AgentMemory
+            AgentMemory.objects.update_or_create(
+                user=request.user, key='goal_domains',
+                defaults={'value': request.data.get('goal_domains') or [], 'category': 'onboarding'},
+            )
+
+        return Response(UserSerializer(request.user).data)
+
 class VerifyEmailView(APIView):
     """Confirms a user's email from a verification token.
 
