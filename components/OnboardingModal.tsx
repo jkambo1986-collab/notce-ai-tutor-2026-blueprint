@@ -11,6 +11,7 @@ import { api } from '../services/api';
 import { DomainTag } from '../types';
 import { DOMAIN_INFO } from '../constants';
 import { useToast } from './ui/Feedback';
+import { Button } from './ui';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -66,36 +67,37 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, onCo
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />
-      <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+      <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm animate-in fade-in duration-200" />
+      <div className="relative w-full max-w-lg overflow-hidden rounded-4xl bg-white shadow-soft-lg ring-1 ring-slate-900/5 animate-in zoom-in-95 fade-in duration-300">
         {/* Header */}
-        <div className="bg-gradient-to-r from-teal-500 to-cyan-600 p-7 text-white">
-          <p className="text-xs font-bold uppercase tracking-widest text-white/80 mb-1">Welcome aboard</p>
+        <div className="relative overflow-hidden bg-gradient-to-br from-brand-500 to-brand-700 p-7 text-white">
+          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80 mb-1">Welcome aboard</p>
           <h2 className="text-2xl font-extrabold">Let's personalize your prep</h2>
           <div className="mt-4 flex gap-2">
-            <span className={`h-1.5 flex-1 rounded-full ${step >= 1 ? 'bg-white' : 'bg-white/30'}`} />
-            <span className={`h-1.5 flex-1 rounded-full ${step >= 2 ? 'bg-white' : 'bg-white/30'}`} />
+            <span className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${step >= 1 ? 'bg-white' : 'bg-white/30'}`} />
+            <span className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${step >= 2 ? 'bg-white' : 'bg-white/30'}`} />
           </div>
         </div>
 
         <div className="p-7">
           {step === 1 ? (
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-1">When's your exam?</h3>
-              <p className="text-sm text-gray-500 mb-5">We'll show a live countdown and pace your study plan.</p>
+            <div className="animate-fade-in">
+              <h3 className="text-lg font-bold text-ink mb-1">When's your exam?</h3>
+              <p className="text-sm text-slate-500 mb-5">We'll show a live countdown and pace your study plan.</p>
               <input
                 type="date"
                 value={examDate}
                 min={new Date().toISOString().slice(0, 10)}
                 onChange={e => setExamDate(e.target.value)}
-                className="w-full border-2 border-gray-200 focus:border-teal-500 rounded-xl p-4 text-gray-800 outline-none transition"
+                className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-ink shadow-inner-soft outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15"
               />
-              <p className="text-xs text-gray-400 mt-2">You can change this anytime. Leave blank to skip.</p>
+              <p className="text-xs text-slate-400 mt-2">You can change this anytime. Leave blank to skip.</p>
             </div>
           ) : (
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-1">Where do you want to focus?</h3>
-              <p className="text-sm text-gray-500 mb-5">Pick the domains you most want to strengthen (optional).</p>
+            <div className="animate-fade-in">
+              <h3 className="text-lg font-bold text-ink mb-1">Where do you want to focus?</h3>
+              <p className="text-sm text-slate-500 mb-5">Pick the domains you most want to strengthen (optional).</p>
               <div className="grid grid-cols-2 gap-3">
                 {DOMAINS.map(d => {
                   const on = goals.has(d.id);
@@ -103,7 +105,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, onCo
                     <button
                       key={d.id}
                       onClick={() => toggleGoal(d.id)}
-                      className={`text-left p-3 rounded-xl border-2 text-sm font-semibold transition ${on ? 'border-teal-500 bg-teal-50 text-teal-800' : 'border-gray-200 text-gray-600 hover:border-teal-200'}`}
+                      className={`text-left p-3.5 rounded-2xl border text-sm font-semibold transition-all duration-200 active:scale-[.98] ${on ? 'border-brand-400 bg-brand-50 text-brand-700 shadow-soft ring-1 ring-brand-200' : 'border-slate-200 text-slate-600 hover:border-brand-200 hover:bg-slate-50'}`}
                     >
                       {d.label}
                     </button>
@@ -115,18 +117,18 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, onCo
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 p-6 bg-gray-50 border-t border-gray-100">
-          <button onClick={dismiss} className="text-sm font-bold text-gray-400 hover:text-gray-600 transition">Skip for now</button>
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 p-6">
+          <Button variant="ghost" size="sm" onClick={dismiss}>Skip for now</Button>
           <div className="flex gap-3">
             {step === 2 && (
-              <button onClick={() => setStep(1)} className="px-5 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition">Back</button>
+              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
             )}
             {step === 1 ? (
-              <button onClick={() => setStep(2)} className="px-6 py-3 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-200 transition">Continue</button>
+              <Button onClick={() => setStep(2)}>Continue</Button>
             ) : (
-              <button onClick={handleSave} disabled={saving} className="px-6 py-3 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-200 transition disabled:opacity-60">
+              <Button onClick={handleSave} loading={saving}>
                 {saving ? 'Saving…' : 'Finish'}
-              </button>
+              </Button>
             )}
           </div>
         </div>

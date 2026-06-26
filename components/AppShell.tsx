@@ -8,6 +8,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { User } from '../types';
 import { getCachedPreference, loadPreference, savePreference } from '../services/preferences';
+import { Button } from './ui';
 
 /** Union of every top-level view the shell can host; doubles as the nav/page-title key. */
 export type ShellView =
@@ -207,11 +208,11 @@ const AppShell: React.FC<AppShellProps> = ({
   const sidebarBody = (
     <div className="flex flex-col h-full">
       {/* Brand */}
-      <div className={`flex items-center gap-3 px-4 h-16 border-b border-slate-800 ${collapsed ? 'md:justify-center md:px-0' : ''}`}>
-        <div className="bg-teal-500 text-white p-2 rounded-lg font-bold text-xl leading-none shadow-lg shadow-teal-500/20">N</div>
+      <div className={`flex items-center gap-3 px-4 h-16 border-b border-slate-800/70 ${collapsed ? 'md:justify-center md:px-0' : ''}`}>
+        <div className="grid place-items-center h-10 w-10 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white font-black text-xl leading-none shadow-glow-teal ring-1 ring-white/10 flex-shrink-0">N</div>
         <div className={collapsed ? 'md:hidden' : ''}>
           <h1 className="text-base font-bold text-white leading-none">NOTCE AI-Tutor</h1>
-          <p className="text-[10px] text-teal-400 font-semibold tracking-wider mt-1">2026 BLUEPRINT</p>
+          <p className="text-[10px] text-brand-300 font-semibold tracking-[0.2em] mt-1">2026 BLUEPRINT</p>
         </div>
       </div>
 
@@ -220,9 +221,9 @@ const AppShell: React.FC<AppShellProps> = ({
         <button
           onClick={() => { onNewCase(); setMobileOpen(false); }}
           title="Start practice from the vetted question bank"
-          className={`w-full flex items-center gap-3 bg-teal-500 hover:bg-teal-400 text-white font-bold rounded-xl transition shadow-lg shadow-teal-500/20 ${collapsed ? 'md:justify-center md:px-0 px-4 py-3' : 'px-4 py-3'}`}
+          className={`group w-full flex items-center gap-3 bg-gradient-to-b from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-600 text-white font-bold rounded-2xl transition-all duration-200 shadow-glow-teal hover:-translate-y-0.5 active:translate-y-0 active:scale-[.98] ${collapsed ? 'md:justify-center md:px-0 px-4 py-3' : 'px-4 py-3'}`}
         >
-          <Icon path={ICONS.bolt} className="h-5 w-5 flex-shrink-0" />
+          <Icon path={ICONS.bolt} className="h-5 w-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
           <span className={collapsed ? 'md:hidden' : ''}>Start Practice</span>
         </button>
       </div>
@@ -233,7 +234,7 @@ const AppShell: React.FC<AppShellProps> = ({
           <button
             onClick={() => { onResumeMock(); setMobileOpen(false); }}
             title="Resume active session"
-            className={`w-full flex items-center gap-3 bg-slate-800 hover:bg-slate-700 text-teal-300 font-semibold rounded-xl transition px-4 py-2.5 ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+            className={`w-full flex items-center gap-3 bg-slate-800/70 hover:bg-slate-800 text-brand-300 hover:text-brand-200 font-semibold rounded-2xl ring-1 ring-slate-700/60 transition-all duration-200 px-4 py-2.5 ${collapsed ? 'md:justify-center md:px-0' : ''}`}
           >
             <Icon path={ICONS.play} className="h-5 w-5 flex-shrink-0" />
             <span className={`text-sm ${collapsed ? 'md:hidden' : ''}`}>Resume Session</span>
@@ -250,12 +251,12 @@ const AppShell: React.FC<AppShellProps> = ({
               key={item.key}
               onClick={() => handleNavClick(item.key)}
               title={item.label}
-              className={`relative w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition group ${
-                active ? 'bg-teal-500/10 text-teal-300' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              className={`relative w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 group ${
+                active ? 'bg-brand-500/10 text-brand-200 ring-1 ring-inset ring-brand-500/20' : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
               } ${collapsed ? 'md:justify-center md:px-0' : ''}`}
             >
-              {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-teal-400" />}
-              <span className="flex-shrink-0">{item.icon}</span>
+              {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-gradient-to-b from-brand-300 to-brand-500" />}
+              <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">{item.icon}</span>
               <span className={collapsed ? 'md:hidden' : ''}>{item.label}</span>
             </button>
           );
@@ -263,14 +264,14 @@ const AppShell: React.FC<AppShellProps> = ({
 
         {/* Tools: reachable from any screen (they open modals on the home hub). */}
         {(onOpenReview || onOpenNotebook) && (
-          <div className="pt-3 mt-2 border-t border-slate-800 space-y-1">
+          <div className="pt-3 mt-2 border-t border-slate-800/70 space-y-1">
             {onOpenReview && (
               <button
                 onClick={() => { onOpenReview(); setMobileOpen(false); }}
                 title="Daily Review"
-                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800/70 hover:text-white transition-all duration-200 group ${collapsed ? 'md:justify-center md:px-0' : ''}`}
               >
-                <span className="flex-shrink-0"><Icon path={ICONS.review} /></span>
+                <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110"><Icon path={ICONS.review} /></span>
                 <span className={collapsed ? 'md:hidden' : ''}>Daily Review</span>
               </button>
             )}
@@ -278,9 +279,9 @@ const AppShell: React.FC<AppShellProps> = ({
               <button
                 onClick={() => { onOpenNotebook(); setMobileOpen(false); }}
                 title="My Notebook"
-                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800/70 hover:text-white transition-all duration-200 group ${collapsed ? 'md:justify-center md:px-0' : ''}`}
               >
-                <span className="flex-shrink-0"><Icon path={ICONS.notebook} /></span>
+                <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110"><Icon path={ICONS.notebook} /></span>
                 <span className={collapsed ? 'md:hidden' : ''}>Notebook</span>
               </button>
             )}
@@ -291,8 +292,10 @@ const AppShell: React.FC<AppShellProps> = ({
       {/* Exam countdown */}
       {examDays !== null && examDays >= 0 && (
         <div className={`px-3 pb-2 ${collapsed ? 'md:hidden' : ''}`}>
-          <div className="flex items-center gap-2 bg-slate-800/70 rounded-xl px-3 py-2.5 border border-slate-700">
-            <Icon path={ICONS.calendar} className="h-5 w-5 text-teal-400 flex-shrink-0" />
+          <div className="flex items-center gap-2.5 bg-slate-800/60 rounded-2xl px-3 py-2.5 ring-1 ring-slate-700/60">
+            <span className="grid place-items-center h-9 w-9 rounded-xl bg-brand-500/15 text-brand-300 flex-shrink-0">
+              <Icon path={ICONS.calendar} className="h-5 w-5" />
+            </span>
             <div className="leading-tight">
               <p className="text-white font-bold text-sm">{examDays} {examDays === 1 ? 'day' : 'days'}</p>
               <p className="text-[10px] text-slate-400 uppercase tracking-wide">to your exam</p>
@@ -302,17 +305,17 @@ const AppShell: React.FC<AppShellProps> = ({
       )}
 
       {/* Account footer */}
-      <div className="border-t border-slate-800 p-3">
+      <div className="border-t border-slate-800/70 p-3">
         <div className={`flex items-center gap-3 ${collapsed ? 'md:justify-center' : ''}`}>
-          <div className="w-9 h-9 rounded-full bg-slate-700 text-teal-300 flex items-center justify-center font-bold uppercase flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 text-brand-300 ring-1 ring-slate-600/60 flex items-center justify-center font-bold uppercase flex-shrink-0">
             {user?.username?.[0] || '?'}
           </div>
           <div className={`min-w-0 flex-1 ${collapsed ? 'md:hidden' : ''}`}>
             <p className="text-sm font-semibold text-white truncate">{user?.username || 'Account'}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tierStyle.className}`}>{tierStyle.label}</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${tierStyle.className}`}>{tierStyle.label}</span>
               {trialDays !== null && trialDays >= 0 && (
-                <span className={`text-[10px] font-semibold ${trialDays <= 1 ? 'text-red-400' : trialDays <= 3 ? 'text-amber-300' : 'text-teal-300'}`}>
+                <span className={`text-[10px] font-semibold ${trialDays <= 1 ? 'text-red-400' : trialDays <= 3 ? 'text-amber-300' : 'text-brand-300'}`}>
                   {trialDays === 0 ? 'Trial: ends today' : `Trial: ${trialDays}d left`}
                 </span>
               )}
@@ -323,7 +326,7 @@ const AppShell: React.FC<AppShellProps> = ({
         {showUpgrade && onUpgrade && (
           <button
             onClick={() => { onUpgrade(); setMobileOpen(false); }}
-            className={`mt-3 w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white text-sm font-bold rounded-lg py-2 hover:opacity-90 transition ${collapsed ? 'md:hidden' : ''}`}
+            className={`mt-3 w-full bg-gradient-to-r from-brand-500 to-brand-400 text-white text-sm font-bold rounded-xl py-2.5 shadow-glow-teal hover:-translate-y-0.5 active:translate-y-0 active:scale-[.98] transition-all duration-200 ${collapsed ? 'md:hidden' : ''}`}
           >
             Upgrade
           </button>
@@ -332,7 +335,7 @@ const AppShell: React.FC<AppShellProps> = ({
         <button
           onClick={() => handleNavClick('settings')}
           title="Settings"
-          className={`mt-3 w-full flex items-center gap-3 text-slate-400 hover:text-teal-300 text-sm font-semibold rounded-lg px-3 py-2 hover:bg-slate-800 transition ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+          className={`mt-3 w-full flex items-center gap-3 text-slate-400 hover:text-brand-300 text-sm font-semibold rounded-xl px-3 py-2 hover:bg-slate-800/70 transition-all duration-200 ${collapsed ? 'md:justify-center md:px-0' : ''}`}
         >
           <Icon path={ICONS.cog} className="h-5 w-5 flex-shrink-0" />
           <span className={collapsed ? 'md:hidden' : ''}>Settings</span>
@@ -341,7 +344,7 @@ const AppShell: React.FC<AppShellProps> = ({
         <button
           onClick={onLogout}
           title="Logout"
-          className={`mt-1 w-full flex items-center gap-3 text-slate-400 hover:text-red-400 text-sm font-semibold rounded-lg px-3 py-2 hover:bg-slate-800 transition ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+          className={`mt-1 w-full flex items-center gap-3 text-slate-400 hover:text-red-400 text-sm font-semibold rounded-xl px-3 py-2 hover:bg-slate-800/70 transition-all duration-200 ${collapsed ? 'md:justify-center md:px-0' : ''}`}
         >
           <Icon path={ICONS.logout} className="h-5 w-5 flex-shrink-0" />
           <span className={collapsed ? 'md:hidden' : ''}>Logout</span>
@@ -350,30 +353,30 @@ const AppShell: React.FC<AppShellProps> = ({
         {/* Collapse toggle (desktop only) */}
         <button
           onClick={() => setCollapsed(c => !c)}
-          className="hidden md:flex mt-2 w-full items-center justify-center text-slate-500 hover:text-teal-300 py-2 transition"
+          className="hidden md:flex mt-2 w-full items-center justify-center text-slate-500 hover:text-brand-300 py-2 transition-colors duration-200"
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <Icon path={ICONS.chevronLeft} className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
+          <Icon path={ICONS.chevronLeft} className={`h-4 w-4 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="h-screen flex bg-gray-50 overflow-hidden">
+    <div className="h-screen flex bg-canvas overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col bg-slate-900 transition-[width] duration-300 flex-shrink-0 ${collapsed ? 'w-20' : 'w-64'}`}>
+      <aside className={`hidden md:flex flex-col bg-slate-900 border-r border-slate-800/60 transition-[width] duration-300 ease-out flex-shrink-0 ${collapsed ? 'w-20' : 'w-64'}`}>
         {sidebarBody}
       </aside>
 
       {/* Mobile drawer + overlay */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <aside className="relative w-64 bg-slate-900 h-full shadow-2xl animate-in slide-in-from-left duration-200">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setMobileOpen(false)} />
+          <aside className="relative w-64 bg-slate-900 h-full shadow-2xl ring-1 ring-slate-800/60 animate-in slide-in-from-left duration-300">
             <button
               onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-3 text-slate-400 hover:text-white z-10"
+              className="absolute top-4 right-3 text-slate-400 hover:text-white transition-colors z-10"
               aria-label="Close menu"
             >
               <Icon path={ICONS.close} />
@@ -386,22 +389,24 @@ const AppShell: React.FC<AppShellProps> = ({
       {/* Content column */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center gap-3 px-4 flex-shrink-0 z-20">
+        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/70 flex items-center gap-3 px-4 md:px-6 flex-shrink-0 z-20">
           <button
             onClick={() => setMobileOpen(true)}
-            className="md:hidden text-gray-600 hover:text-gray-900"
+            className="md:hidden text-slate-600 hover:text-ink transition-colors"
             aria-label="Open menu"
           >
             <Icon path={ICONS.menu} className="h-6 w-6" />
           </button>
-          <h2 className="text-lg font-bold text-gray-800">{PAGE_TITLES[activeView]}</h2>
-          <button
+          <h2 className="text-lg font-bold text-ink">{PAGE_TITLES[activeView]}</h2>
+          <Button
             onClick={onNewCase}
-            className="ml-auto hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition border border-teal-200"
+            variant="subtle"
+            size="sm"
+            className="ml-auto hidden md:inline-flex"
+            leftIcon={<Icon path={ICONS.bolt} className="h-4 w-4" />}
           >
-            <Icon path={ICONS.bolt} className="h-4 w-4" />
             Start Practice
-          </button>
+          </Button>
         </header>
 
         {/* View content */}
