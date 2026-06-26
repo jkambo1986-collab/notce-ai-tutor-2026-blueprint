@@ -35,3 +35,4 @@ whitenoise
 dj-database-url
 django-cors-headers
 stripe
+edge-tts

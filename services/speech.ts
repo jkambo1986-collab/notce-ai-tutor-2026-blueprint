@@ -7,7 +7,26 @@
  * voices), falling back gracefully to whatever local voice is available.
  */
 
-/** True when the browser can synthesize speech. */
+/**
+ * Curated free Microsoft "neural" voices (served by the backend /tts/ endpoint via
+ * edge-tts — no API key). These sound genuinely natural in EVERY browser, unlike
+ * the robotic browser-native voices. Canadian first for the NOTCE context.
+ */
+export interface NeuralVoice { id: string; label: string }
+export const NEURAL_VOICES: NeuralVoice[] = [
+  { id: 'en-CA-ClaraNeural', label: 'Clara — Canadian 🇨🇦 (warm female)' },
+  { id: 'en-CA-LiamNeural', label: 'Liam — Canadian 🇨🇦 (male)' },
+  { id: 'en-US-AriaNeural', label: 'Aria — US (female)' },
+  { id: 'en-US-JennyNeural', label: 'Jenny — US (friendly female)' },
+  { id: 'en-US-GuyNeural', label: 'Guy — US (male)' },
+  { id: 'en-US-MichelleNeural', label: 'Michelle — US (female)' },
+  { id: 'en-GB-SoniaNeural', label: 'Sonia — British (female)' },
+  { id: 'en-GB-RyanNeural', label: 'Ryan — British (male)' },
+  { id: 'en-AU-NatashaNeural', label: 'Natasha — Australian (female)' },
+];
+export const DEFAULT_NEURAL_VOICE = 'en-CA-ClaraNeural';
+
+/** True when the browser can synthesize speech (used as the offline fallback). */
 export function ttsSupported(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }

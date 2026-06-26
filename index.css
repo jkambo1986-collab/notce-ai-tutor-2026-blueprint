@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Base element styling + custom classes formerly inlined in index.html's <style>
+  (when Tailwind ran from the Play CDN). Now compiled by PostCSS for production.
+*/
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background-color: #FAFAF7;
+}
+/* Tighter tracking on large headings reads more confident/editorial. */
+h1, h2, h3 { letter-spacing: -0.018em; }
+
+/* On-brand text selection. */
+::selection { background: #99f6e4; color: #0f172a; }
+
+/* Quiet, modern scrollbars. */
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; border: 3px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+
+/*
+  Minimal re-implementation of tailwindcss-animate's enter utilities so the app's
+  existing `animate-in / fade-in / slide-in-from-* / zoom-in-*` classes animate.
+*/
+@keyframes tw-enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
+               scale(var(--tw-enter-scale, 1));
+  }
+}
+.animate-in { animation: tw-enter .35s cubic-bezier(.16,1,.3,1) both; }
+.fade-in, .fade-in-0 { --tw-enter-opacity: 0; }
+.zoom-in-95 { --tw-enter-scale: .95; }
+.zoom-in-90 { --tw-enter-scale: .90; }
+.slide-in-from-bottom-2 { --tw-enter-translate-y: .5rem; }
+.slide-in-from-bottom-4 { --tw-enter-translate-y: 1rem; }
+.slide-in-from-bottom-8 { --tw-enter-translate-y: 2rem; }
+.slide-in-from-top-2 { --tw-enter-translate-y: -.5rem; }
+.slide-in-from-top-4 { --tw-enter-translate-y: -1rem; }
+.slide-in-from-left { --tw-enter-translate-x: -100%; }
+.slide-in-from-left-4 { --tw-enter-translate-x: -1rem; }
+.slide-in-from-right { --tw-enter-translate-x: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Vignette highlighting (Evidence-Link). */
+.vignette-highlight {
+  background: linear-gradient(180deg, transparent 55%, #fde68a 55%);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.vignette-highlight:hover { background: linear-gradient(180deg, transparent 0%, #fcd34d 0%); }
+.expert-highlight {
+  background: linear-gradient(180deg, transparent 55%, #c7d2fe 55%);
+  border-radius: 2px;
+  border-bottom: 2px solid #6366f1;
+  cursor: help;
+}
+.expert-highlight.critical {
+  background: linear-gradient(180deg, transparent 55%, #a5b4fc 55%);
+  border-bottom: 2px dashed #4f46e5;
+}
