@@ -49,7 +49,7 @@ const MainApp: React.FC = () => {
     const { logout, user, refreshProfile } = useAuth();
     const toast = useToast();
     const confirm = useConfirm();
-    const { speak, settings: voiceSettings } = useVoice();
+    const { speak, cancel: cancelVoice, settings: voiceSettings } = useVoice();
 
   // --- STATE MANAGEMENT ---
 
@@ -115,7 +115,14 @@ const MainApp: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const view = PATH_TO_VIEW[location.pathname] ?? 'landing';
-  
+
+  // Stop any in-progress narration when the user navigates to another view.
+  // The audio element lives in the top-level VoiceProvider, so it would keep
+  // playing after the originating screen unmounts. Using the cleanup so the
+  // cancel runs on view *change* (before the new view's effects, e.g. study
+  // auto-read, re-run) rather than cancelling a freshly-started narration.
+  useEffect(() => () => cancelVoice(), [view, cancelVoice]);
+
   // Mock Study State
   const [isMockSetupOpen, setIsMockSetupOpen] = useState(false);
   const [mockSessionId, setMockSessionId] = useState<string | null>(null);
