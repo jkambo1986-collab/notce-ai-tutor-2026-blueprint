@@ -47,6 +47,11 @@ urlpatterns = [
     path('admin/', admin.site.urls),                  # Django admin site
     path('api/', include('core.urls')),               # all REST API endpoints (delegated to core/urls.py)
     path('health/', lambda r: HttpResponse("Backend is healthy")),  # plain-text health check
+    # Root health check: this backend is API-only (the SPA is served by Vercel), so
+    # `/` would otherwise fall through to spa_index and 404 because no dist/ is built
+    # on Railway. A platform health check on the default path `/` then fails and the
+    # deploy never promotes. Return 200 here so `/` is always healthy.
+    path('', lambda r: HttpResponse("OK"), name='root_health'),
     # Unknown /api/ paths 404 as JSON instead of falling through to the SPA shell.
     re_path(r'^api/', lambda r: JsonResponse({"detail": "Not found."}, status=404)),
     # SPA catch-all: anything not handled above returns the React app shell.
