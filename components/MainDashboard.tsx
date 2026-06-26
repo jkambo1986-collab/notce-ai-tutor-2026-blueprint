@@ -15,6 +15,7 @@ import AnalyticsModal from './AnalyticsModal';
 import SavedProgressModal from './SavedProgressModal';
 import ReviewQueueModal from './ReviewQueueModal';
 import NotebookModal from './NotebookModal';
+import TodayPanel from './TodayPanel';
 import { useToast } from './ui/Feedback';
 
 /**
@@ -224,6 +225,15 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                         </button>
                     </div>
                 </div>
+
+                {/* Today's focus hero: synthesizes exam countdown + readiness +
+                    the single best next action (review / weakest-domain drill). */}
+                <TodayPanel
+                    reviewCount={reviewCount}
+                    onSmartDrill={onSmartDrill}
+                    onStartPractice={onStartMockStudy}
+                    onOpenReview={() => setIsReviewOpen(true)}
+                />
 
                 {/* Quick Stats / Info Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

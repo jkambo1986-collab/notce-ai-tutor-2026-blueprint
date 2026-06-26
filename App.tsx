@@ -1099,7 +1099,12 @@ const App: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const toast = useToast();
-    const [pendingPlan, setPendingPlan] = useState<string | null>(null);
+    // Chosen tier for a deferred (post-signup) checkout. Persisted to localStorage
+    // so the purchase intent survives a reload or tab-close mid-signup instead of
+    // being lost with in-memory state.
+    const [pendingPlan, setPendingPlan] = useState<string | null>(() => {
+        try { return localStorage.getItem('pending_plan'); } catch { return null; }
+    });
 
     // Back-compat: legacy entrypoints that used to live on "/" as query strings
     // (?token, ?session_id, ?cancel) are now real routes. Redirect old links so
@@ -1135,16 +1140,18 @@ const App: React.FC = () => {
         } else {
             // Send unauthenticated buyers through onboarding, then resume checkout.
             setPendingPlan(tier);
+            try { localStorage.setItem('pending_plan', tier); } catch { /* ignore */ }
             navigate('/signup');
         }
     };
 
     // Resume a deferred checkout: once a previously-anonymous buyer authenticates
-    // (post-signup), pick up the stashed plan and continue to checkout.
+    // (post-signup, even after a reload), pick up the stashed plan and continue.
     useEffect(() => {
         if (isAuthenticated && pendingPlan) {
             const tier = pendingPlan;
             setPendingPlan(null);
+            try { localStorage.removeItem('pending_plan'); } catch { /* ignore */ }
             handleSelectPlan(tier);
         }
     }, [isAuthenticated, pendingPlan]);
