@@ -69,7 +69,11 @@ def compute_performance(user):
             "ts": a.timestamp,
         })
 
-    sessions = list(MockStudySession.objects.filter(user=user))
+    # Only sessions whose session_history holds ANSWER events. Encounter sessions
+    # store chat turns there instead, which would otherwise be miscounted as wrong
+    # answers and pollute accuracy/domain/trend stats.
+    sessions = list(MockStudySession.objects.filter(
+        user=user, mode__in=['practice', 'exam', 'adaptive']))
     for s in sessions:
         for item in (s.session_history or []):
             ts = item.get("timestamp")

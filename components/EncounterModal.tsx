@@ -60,6 +60,10 @@ const EncounterModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const d = await api.encounter.message(sessionId, msg);
       setTurns(prev => [...prev, { role: 'client', text: d.reply }]);
     } catch (err: any) {
+      // Roll back the optimistic OT turn (the server didn't record it) and
+      // restore the text so the user can retry cleanly.
+      setTurns(prev => prev.slice(0, -1));
+      setInput(msg);
       toast(err?.message || 'The client didn\'t respond. Try again.', 'error');
     } finally {
       setSending(false);

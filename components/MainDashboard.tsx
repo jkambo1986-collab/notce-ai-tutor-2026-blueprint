@@ -559,8 +559,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 onClose={() => setIsNotebookOpen(false)}
             />
 
-            <ErrorInsightsModal isOpen={isInsightsOpen} onClose={() => setIsInsightsOpen(false)} />
-            <ReasoningCoachModal isOpen={isReasoningOpen} onClose={() => setIsReasoningOpen(false)} />
+            {isInsightsOpen && <ErrorInsightsModal isOpen={isInsightsOpen} onClose={() => setIsInsightsOpen(false)} />}
+            {isReasoningOpen && <ReasoningCoachModal isOpen={isReasoningOpen} onClose={() => setIsReasoningOpen(false)} />}
             {isAdaptiveOpen && <AdaptiveAssessmentModal isOpen={isAdaptiveOpen} onClose={() => setIsAdaptiveOpen(false)} />}
             {isEncounterOpen && <EncounterModal isOpen={isEncounterOpen} onClose={() => setIsEncounterOpen(false)} />}
 

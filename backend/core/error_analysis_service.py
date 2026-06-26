@@ -30,7 +30,9 @@ def _iter_wrong(user):
             "confidence": (a.confidence or "").upper(),
             "source": "case",
         }
-    for s in MockStudySession.objects.filter(user=user):
+    # Encounter sessions keep chat turns in session_history (not answer events),
+    # so exclude them or their turns would be miscounted as wrong answers.
+    for s in MockStudySession.objects.filter(user=user, mode__in=['practice', 'exam', 'adaptive']):
         for h in (s.session_history or []):
             if h.get("is_correct"):
                 continue

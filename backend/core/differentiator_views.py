@@ -27,7 +27,8 @@ class ErrorAnalysisView(APIView):
     live from their wrong-answer history. Read-only, deterministic.
     See `error_analysis_service.analyze_errors`.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    # Premium, to match the other "Advanced AI Practice" cards on the dashboard.
+    permission_classes = [IsPaidOrTrialUser]
 
     def get(self, request):
         from .error_analysis_service import analyze_errors
@@ -104,6 +105,8 @@ class CatStartView(APIView):
         if not bq:
             return Response({"error": "No questions are available for an assessment yet."}, status=404)
         item = item_payload(bq)
+        # Retire any abandoned adaptive session so they don't pile up active.
+        MockStudySession.objects.filter(user=request.user, mode="adaptive", is_active=True).update(is_active=False)
         session = MockStudySession.objects.create(
             user=request.user, domain="MIXED", difficulty="Adaptive",
             total_questions=length, current_question=1, mode="adaptive", is_active=True,
@@ -215,6 +218,8 @@ class EncounterStartView(APIView):
         if not profile:
             return Response({"error": "Couldn't start an encounter right now. Please try again."}, status=503)
         opening = profile.get("opening_line", "Hello.")
+        # Retire any abandoned encounter so they don't pile up active.
+        MockStudySession.objects.filter(user=request.user, mode="encounter", is_active=True).update(is_active=False)
         session = MockStudySession.objects.create(
             user=request.user, domain="MIXED", difficulty="Encounter",
             total_questions=0, current_question=0, mode="encounter", is_active=True,
@@ -242,12 +247,13 @@ class EncounterMessageView(APIView):
             return Response({"error": "Encounter not found"}, status=404)
         profile = session.current_question_data or {}
         transcript = session.session_history or []
-        transcript.append({"role": "ot", "text": message})
+        # client_reply appends the new OT line itself, so pass the PRIOR transcript
+        # (avoids duplicating the message in the prompt). Persist only on success,
+        # so a failed turn doesn't leave an orphaned OT line in the history.
         reply = client_reply(profile, transcript, message)
         if reply is None:
-            session.session_history = transcript
-            session.save()
             return Response({"error": "The client didn't respond. Please try again."}, status=503)
+        transcript.append({"role": "ot", "text": message})
         transcript.append({"role": "client", "text": reply})
         session.session_history = transcript
         session.save()

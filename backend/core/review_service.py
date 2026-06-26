@@ -54,7 +54,10 @@ def _discover_weak(user):
         seen.add(key)
         yield key, 'case', a.question.domain
 
-    for s in MockStudySession.objects.filter(user=user).order_by('-started_at'):
+    # Exclude encounter sessions explicitly (their session_history holds chat
+    # turns, not answer events). Adaptive/practice/exam answers are real.
+    for s in MockStudySession.objects.filter(
+            user=user, mode__in=['practice', 'exam', 'adaptive']).order_by('-started_at'):
         for h in (s.session_history or []):
             if h.get('is_correct'):
                 continue
