@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button, Card, Badge } from '../ui';
 
 /**
  * Props for LandingPage.
@@ -42,13 +43,13 @@ const ICONS = {
 
 /** A reusable feature card for the features grid. */
 const Feature: React.FC<{ icon: string; title: string; body: string }> = ({ icon, title, body }) => (
-    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-cyan-500/40 hover:bg-white/[0.07] transition-all">
-        <div className="w-11 h-11 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center mb-4">
-            <Icon path={icon} className="w-6 h-6" />
+    <Card interactive padding="md" className="h-full">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-soft transition-transform duration-300 group-hover:scale-110">
+            <Icon path={icon} className="h-6 w-6" />
         </div>
-        <h3 className="font-bold text-lg text-white mb-1.5">{title}</h3>
-        <p className="text-sm text-gray-400 leading-relaxed">{body}</p>
-    </div>
+        <h3 className="mb-1.5 text-lg font-bold text-ink">{title}</h3>
+        <p className="text-sm leading-relaxed text-slate-500">{body}</p>
+    </Card>
 );
 
 /**
@@ -63,114 +64,121 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
     const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
     return (
-        <div className="min-h-screen bg-[#0F172A] text-white selection:bg-cyan-500/30">
-            {/* Animated Background Blobs */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="min-h-screen bg-canvas text-ink">
+            {/* Soft brand ambience */}
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                <div className="absolute -left-[10%] top-[-10%] h-[42%] w-[42%] rounded-full bg-brand-200/30 blur-[130px]" />
+                <div className="absolute -right-[10%] top-[30%] h-[42%] w-[42%] rounded-full bg-indigo-200/25 blur-[130px]" />
             </div>
 
             {/* Navbar */}
-            <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0F172A]/80 backdrop-blur-md border-b border-white/5">
-                <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <nav className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/70 bg-canvas/80 backdrop-blur-md">
+                <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-indigo-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-cyan-500/20">N</div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-xl font-black text-white shadow-glow-teal">N</div>
                         <div>
-                            <span className="font-bold text-xl tracking-tight">NOTCE <span className="text-cyan-400">AI-Tutor</span></span>
-                            <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">2026 Blueprint</div>
+                            <span className="text-xl font-bold tracking-tight text-ink">NOTCE <span className="text-brand-600">AI-Tutor</span></span>
+                            <div className="text-[10px] font-bold uppercase leading-none tracking-widest text-slate-400">2026 Blueprint</div>
                         </div>
                     </div>
 
-                    <div className="hidden md:flex items-center gap-8">
-                        <button onClick={() => scrollTo('features')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Features</button>
-                        <button onClick={() => scrollTo('how')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">How it works</button>
-                        <button onClick={() => scrollTo('schools')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">For schools</button>
-                        <button onClick={() => scrollTo('faq')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">FAQ</button>
-                        <div className="h-4 w-px bg-white/10" />
-                        <button onClick={onLogin} className="text-sm font-bold text-gray-300 hover:text-white transition-colors">Login</button>
-                        <button onClick={onRegister} className="px-6 py-2.5 bg-cyan-500 text-[#0F172A] rounded-full font-bold text-sm hover:bg-cyan-400 transition-all active:scale-95 shadow-lg shadow-cyan-500/20">Start free</button>
+                    <div className="hidden items-center gap-7 md:flex">
+                        <button onClick={() => scrollTo('features')} className="text-sm font-medium text-slate-500 transition-colors hover:text-ink">Features</button>
+                        <button onClick={() => scrollTo('how')} className="text-sm font-medium text-slate-500 transition-colors hover:text-ink">How it works</button>
+                        <button onClick={() => scrollTo('schools')} className="text-sm font-medium text-slate-500 transition-colors hover:text-ink">For schools</button>
+                        <button onClick={() => scrollTo('faq')} className="text-sm font-medium text-slate-500 transition-colors hover:text-ink">FAQ</button>
+                        <div className="h-4 w-px bg-slate-200" />
+                        <Button variant="ghost" size="sm" onClick={onLogin}>Login</Button>
+                        <Button size="sm" onClick={onRegister}>Start free</Button>
                     </div>
                 </div>
             </nav>
 
             {/* Hero — product-led */}
-            <section className="relative pt-40 pb-20 px-6">
-                <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-cyan-400 mb-8">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
-                        </span>
-                        Built for the Canadian NOTCE · 2026 Blueprint
+            <section className="relative px-6 pb-20 pt-36">
+                <div className="mx-auto flex max-w-7xl flex-col items-center text-center">
+                    <div className="animate-fade-in-up">
+                        <Badge tone="brand" className="mb-8 px-4 py-2 text-xs" icon={
+                            <span className="relative flex h-2 w-2">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
+                            </span>
+                        }>
+                            Built for the Canadian NOTCE · 2026 Blueprint
+                        </Badge>
                     </div>
 
-                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight mb-8 leading-[1.05]">
+                    <h1 className="mb-8 animate-fade-in-up text-5xl font-black leading-[1.05] tracking-tight md:text-7xl lg:text-[5.5rem]" style={{ animationDelay: '60ms' }}>
                         Walk into the NOTCE<br />
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400">actually ready.</span>
+                        <span className="bg-gradient-to-r from-brand-600 via-brand-500 to-emerald-500 bg-clip-text text-transparent">actually ready.</span>
                     </h1>
 
-                    <p className="max-w-2xl text-lg md:text-xl text-gray-400 leading-relaxed mb-10">
+                    <p className="mb-10 max-w-2xl animate-fade-in-up text-lg leading-relaxed text-slate-600 md:text-xl" style={{ animationDelay: '120ms' }}>
                         AI-powered prep for the Canadian occupational therapy licensing exam: an
-                        <span className="text-white font-semibold"> independently-vetted question bank</span>, full exam simulations,
-                        spaced-repetition review, and a <span className="text-white font-semibold">readiness score</span> that tells you
+                        <span className="font-semibold text-ink"> independently-vetted question bank</span>, full exam simulations,
+                        spaced-repetition review, and a <span className="font-semibold text-ink">readiness score</span> that tells you
                         exactly where you stand — aligned to the 2026 Blueprint (Competencies for Occupational Therapists in Canada, 2021).
                     </p>
 
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <button onClick={onRegister} className="px-10 py-5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl font-extrabold text-lg hover:shadow-[0_0_40px_rgba(6,182,212,0.3)] transition-all active:scale-95">
+                    <div className="flex animate-fade-in-up flex-col gap-4 sm:flex-row" style={{ animationDelay: '180ms' }}>
+                        <Button size="lg" onClick={onRegister} rightIcon={<Icon path="M13 7l5 5m0 0l-5 5m5-5H6" className="h-5 w-5" />} className="group">
                             Start studying free
-                        </button>
-                        <button onClick={() => scrollTo('how')} className="px-10 py-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-extrabold text-lg transition-all">
-                            See how it works
-                        </button>
+                        </Button>
+                        <Button size="lg" variant="outline" onClick={() => scrollTo('how')}>See how it works</Button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-4">Free 7-day trial · No card required</p>
+                    <p className="mt-4 animate-fade-in text-xs text-slate-400" style={{ animationDelay: '240ms' }}>Free 7-day trial · No card required</p>
+
+                    {/* Trust strip */}
+                    <div className="mt-8 flex animate-fade-in flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-semibold text-slate-500" style={{ animationDelay: '300ms' }}>
+                        {['2026 Blueprint aligned', 'Independently vetted question bank', 'Any device, no LockLizard'].map(t => (
+                            <span key={t} className="inline-flex items-center gap-1.5"><Icon path={ICONS.check} className="h-4 w-4 text-brand-500" /> {t}</span>
+                        ))}
+                    </div>
 
                     {/* Dashboard Preview Mockup */}
-                    <div className="mt-20 relative w-full max-w-5xl group">
-                        <div className="absolute inset-0 bg-cyan-500/30 blur-[120px] group-hover:bg-cyan-500/40 transition-all" />
-                        <div className="relative bg-[#1E293B] rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden aspect-video">
-                            <div className="h-10 bg-black/40 flex items-center px-6 gap-2 border-b border-white/5 relative z-10">
-                                <div className="w-3 h-3 rounded-full bg-red-500/30" />
-                                <div className="w-3 h-3 rounded-full bg-amber-500/30" />
-                                <div className="w-3 h-3 rounded-full bg-green-500/30" />
-                                <div className="ml-4 h-5 w-48 bg-white/5 rounded-full flex items-center px-3">
-                                    <div className="w-2 h-2 rounded-full bg-cyan-500/50 mr-2" />
-                                    <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">notce-ai.app/dashboard</div>
+                    <div className="group relative mt-16 w-full max-w-5xl animate-fade-in-up" style={{ animationDelay: '360ms' }}>
+                        <div className="absolute inset-x-8 -bottom-6 top-10 rounded-[2.5rem] bg-brand-400/25 blur-[90px]" />
+                        <div className="relative overflow-hidden rounded-4xl bg-white shadow-soft-lg ring-1 ring-slate-200/70">
+                            <div className="relative z-10 flex h-11 items-center gap-2 border-b border-slate-100 bg-slate-50 px-6">
+                                <div className="h-3 w-3 rounded-full bg-red-300" />
+                                <div className="h-3 w-3 rounded-full bg-amber-300" />
+                                <div className="h-3 w-3 rounded-full bg-emerald-300" />
+                                <div className="ml-4 flex h-5 w-56 items-center rounded-full bg-white px-3 ring-1 ring-slate-200">
+                                    <div className="mr-2 h-2 w-2 rounded-full bg-brand-400" />
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">notce-ai.app/dashboard</div>
                                 </div>
                             </div>
-                            <img src="/dashboard-preview.png" alt="NOTCE AI-Tutor dashboard" className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-700" />
-                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-[#0F172A]/40 to-transparent" />
+                            <img src="/dashboard-preview.png" alt="NOTCE AI-Tutor dashboard" className="aspect-video w-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.03]" />
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* Stat strip */}
-            <section className="px-6 pb-8">
-                <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
+            <section className="px-6 pb-8 pt-4">
+                <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 md:grid-cols-4">
                     {[
                         { n: '500+', l: 'Vetted questions' },
                         { n: '6', l: 'Competency domains' },
                         { n: '200', l: 'Question exam sim' },
                         { n: '2026', l: 'Blueprint aligned' },
-                    ].map(s => (
-                        <div key={s.l} className="bg-white/5 border border-white/10 rounded-2xl py-6 text-center">
-                            <div className="text-3xl md:text-4xl font-black text-white">{s.n}</div>
-                            <div className="text-xs text-gray-400 mt-1 font-medium">{s.l}</div>
-                        </div>
+                    ].map((s, i) => (
+                        <Card key={s.l} padding="none" className="animate-fade-in-up py-6 text-center" style={{ animationDelay: `${i * 60}ms` } as React.CSSProperties}>
+                            <div className="text-3xl font-black text-ink md:text-4xl">{s.n}</div>
+                            <div className="mt-1 text-xs font-medium text-slate-500">{s.l}</div>
+                        </Card>
                     ))}
                 </div>
             </section>
 
             {/* Feature grid */}
-            <section id="features" className="py-24 px-6">
-                <div className="max-w-7xl mx-auto">
-                    <div className="text-center mb-14">
-                        <h2 className="text-4xl md:text-5xl font-black mb-4">Everything you need to pass</h2>
-                        <p className="text-gray-400 max-w-2xl mx-auto">One platform for focused practice, realistic simulation, and the feedback that turns weak spots into strengths.</p>
+            <section id="features" className="px-6 py-24">
+                <div className="mx-auto max-w-7xl">
+                    <div className="mb-14 text-center">
+                        <h2 className="mb-4 text-4xl font-black md:text-5xl">Everything you need to pass</h2>
+                        <p className="mx-auto max-w-2xl text-slate-500">One platform for focused practice, realistic simulation, and the feedback that turns weak spots into strengths.</p>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
                         <Feature icon={ICONS.bank} title="Vetted question bank" body="Hundreds of independently solved-and-reviewed questions across all six NOTCE competency domains — with deep, exam-style rationales for every option." />
                         <Feature icon={ICONS.target} title="Adaptive mock drills" body="Target a specific domain and difficulty, or let Smart Drill auto-pick your weakest area. Instant feedback and an 'explain it differently' analogy on every answer." />
                         <Feature icon={ICONS.clock} title="Full exam simulation" body="A timed 200-question, 4-hour simulation that mirrors the real exam — free navigation, flagging, and no feedback until you submit." />
@@ -182,23 +190,23 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
             </section>
 
             {/* How it works */}
-            <section id="how" className="py-24 px-6 bg-[#0B1120]">
-                <div className="max-w-6xl mx-auto">
-                    <div className="text-center mb-14">
-                        <h2 className="text-4xl md:text-5xl font-black mb-4">How it works</h2>
-                        <p className="text-gray-400 max-w-2xl mx-auto">From "where do I even start?" to a clear daily plan in minutes.</p>
+            <section id="how" className="border-y border-slate-200/70 bg-white px-6 py-24">
+                <div className="mx-auto max-w-6xl">
+                    <div className="mb-16 text-center">
+                        <h2 className="mb-4 text-4xl font-black md:text-5xl">How it works</h2>
+                        <p className="mx-auto max-w-2xl text-slate-500">From "where do I even start?" to a clear daily plan in minutes.</p>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                         {[
                             { icon: ICONS.calendar, step: '1', title: 'Set your exam date', body: 'Get a live countdown and a "Today" focus that tells you exactly what to study next.' },
                             { icon: ICONS.target, step: '2', title: 'Practice with purpose', body: 'Run vetted drills, target weak domains, and sit full simulations under real exam conditions.' },
                             { icon: ICONS.chart, step: '3', title: 'Track and improve', body: 'Watch your readiness score climb, review what you missed, and close gaps before exam day.' },
-                        ].map(s => (
-                            <div key={s.step} className="relative bg-white/5 border border-white/10 rounded-2xl p-7">
-                                <div className="absolute -top-4 left-7 w-9 h-9 rounded-full bg-cyan-500 text-[#0F172A] font-black flex items-center justify-center">{s.step}</div>
-                                <div className="mt-3 w-11 h-11 rounded-xl bg-white/5 text-cyan-400 flex items-center justify-center mb-4"><Icon path={s.icon} /></div>
-                                <h3 className="font-bold text-lg mb-1.5">{s.title}</h3>
-                                <p className="text-sm text-gray-400 leading-relaxed">{s.body}</p>
+                        ].map((s, i) => (
+                            <div key={s.step} className="relative animate-fade-in-up rounded-3xl bg-canvas p-7 ring-1 ring-slate-200/70" style={{ animationDelay: `${i * 80}ms` }}>
+                                <div className="absolute -top-4 left-7 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 font-black text-white shadow-glow-teal">{s.step}</div>
+                                <div className="mb-4 mt-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100"><Icon path={s.icon} /></div>
+                                <h3 className="mb-1.5 text-lg font-bold text-ink">{s.title}</h3>
+                                <p className="text-sm leading-relaxed text-slate-500">{s.body}</p>
                             </div>
                         ))}
                     </div>
@@ -206,11 +214,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
             </section>
 
             {/* Differentiators */}
-            <section className="py-24 px-6">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16">
+            <section className="px-6 py-24">
+                <div className="mx-auto flex max-w-7xl flex-col items-center gap-16 md:flex-row">
                     <div className="flex-1">
-                        <h2 className="text-4xl font-black mb-6 leading-tight">Study anywhere.<br /><span className="text-cyan-400">No LockLizard. No limits.</span></h2>
-                        <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+                        <h2 className="mb-6 text-4xl font-black leading-tight">Study anywhere.<br /><span className="text-brand-600">No LockLizard. No limits.</span></h2>
+                        <p className="mb-8 text-lg leading-relaxed text-slate-600">
                             The official CAOT guide locks you to a single device. NOTCE AI-Tutor runs in any browser, on any device —
                             study on the bus, in the clinic, or on your phone in bed.
                         </p>
@@ -222,24 +230,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
                                 { icon: ICONS.bolt, t: 'Auto-saved progress', d: 'Pick up exactly where you left off — drills, exams, and highlights are saved for you.' },
                             ].map(item => (
                                 <li key={item.t} className="flex items-start gap-3">
-                                    <div className="w-8 h-8 flex-shrink-0 bg-cyan-500/15 text-cyan-400 rounded-lg flex items-center justify-center"><Icon path={item.icon} className="w-4 h-4" /></div>
+                                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-brand-100"><Icon path={item.icon} className="h-4 w-4" /></div>
                                     <div>
-                                        <p className="font-semibold text-white">{item.t}</p>
-                                        <p className="text-sm text-gray-400">{item.d}</p>
+                                        <p className="font-semibold text-ink">{item.t}</p>
+                                        <p className="text-sm text-slate-500">{item.d}</p>
                                     </div>
                                 </li>
                             ))}
                         </ul>
                     </div>
-                    <div className="flex-1 relative">
-                        <div className="absolute inset-0 bg-blue-600/20 blur-[100px]" />
-                        <div className="relative bg-white/5 border border-white/10 p-4 rounded-[2.5rem] shadow-2xl rotate-3">
-                            <div className="bg-[#0F172A] rounded-[2rem] p-6 space-y-4 border border-white/5">
-                                <div className="h-4 w-1/2 bg-white/10 rounded" />
-                                <div className="h-32 w-full bg-cyan-500/10 rounded-xl" />
+                    <div className="relative flex-1">
+                        <div className="absolute inset-0 bg-brand-300/20 blur-[100px]" />
+                        <div className="relative rotate-2 rounded-4xl bg-white p-4 shadow-soft-lg ring-1 ring-slate-200/70">
+                            <div className="space-y-4 rounded-3xl bg-canvas p-6 ring-1 ring-slate-100">
+                                <div className="h-4 w-1/2 rounded bg-slate-200" />
+                                <div className="h-32 w-full rounded-xl bg-gradient-to-br from-brand-100 to-emerald-100" />
                                 <div className="space-y-2">
-                                    <div className="h-3 w-full bg-white/5 rounded" />
-                                    <div className="h-3 w-4/5 bg-white/5 rounded" />
+                                    <div className="h-3 w-full rounded bg-slate-100" />
+                                    <div className="h-3 w-4/5 rounded bg-slate-100" />
                                 </div>
                             </div>
                         </div>
@@ -248,39 +256,37 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
             </section>
 
             {/* For schools & programs (B2B) */}
-            <section id="schools" className="py-24 px-6 bg-[#0B1120]">
-                <div className="max-w-6xl mx-auto">
-                    <div className="bg-gradient-to-br from-indigo-600/15 to-cyan-600/10 border border-white/10 rounded-3xl p-8 md:p-12 flex flex-col lg:flex-row gap-10 items-center">
+            <section id="schools" className="border-y border-slate-200/70 bg-white px-6 py-24">
+                <div className="mx-auto max-w-6xl">
+                    <div className="flex flex-col items-center gap-10 rounded-4xl bg-gradient-to-br from-brand-50 to-indigo-50 p-8 ring-1 ring-brand-100 md:p-12 lg:flex-row">
                         <div className="flex-1">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs font-bold text-cyan-300 mb-4">
-                                <Icon path={ICONS.users} className="w-4 h-4" /> For schools & programs
-                            </div>
-                            <h2 className="text-3xl md:text-4xl font-black mb-4">Bring NOTCE AI-Tutor to your cohort</h2>
-                            <p className="text-gray-300 leading-relaxed mb-6">
+                            <Badge tone="brand" icon={<Icon path={ICONS.users} className="h-4 w-4" />} className="mb-4">For schools & programs</Badge>
+                            <h2 className="mb-4 text-3xl font-black md:text-4xl">Bring NOTCE AI-Tutor to your cohort</h2>
+                            <p className="mb-6 leading-relaxed text-slate-600">
                                 Equip your OT students with exam-ready practice and give your instructors the visibility to intervene early.
                                 Seat licensing, cohort dashboards, and at-risk alerts — built in.
                             </p>
-                            <ul className="grid sm:grid-cols-2 gap-3 mb-8">
+                            <ul className="mb-8 grid gap-3 sm:grid-cols-2">
                                 {[
                                     'Seat-based licensing for your cohort',
                                     'Instructor & admin dashboards',
                                     'Assign drills and study targets',
                                     'At-risk alerts to catch struggling students',
                                 ].map(t => (
-                                    <li key={t} className="flex items-center gap-2 text-sm text-gray-200">
-                                        <Icon path={ICONS.check} className="w-4 h-4 text-cyan-400 flex-shrink-0" /> {t}
+                                    <li key={t} className="flex items-center gap-2 text-sm text-slate-700">
+                                        <Icon path={ICONS.check} className="h-4 w-4 flex-shrink-0 text-brand-500" /> {t}
                                     </li>
                                 ))}
                             </ul>
-                            <a href="/contact" className="inline-flex px-7 py-3.5 bg-cyan-500 text-[#0F172A] rounded-xl font-bold hover:bg-cyan-400 transition-all">Talk to us about your program</a>
+                            <a href="/contact"><Button>Talk to us about your program</Button></a>
                         </div>
-                        <div className="flex-shrink-0 w-full lg:w-72 bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3">
-                            <div className="flex items-center justify-between"><span className="text-xs text-gray-400 font-bold uppercase tracking-wide">Cohort readiness</span><span className="text-xs font-bold text-cyan-400">72%</span></div>
-                            <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full w-[72%] bg-cyan-500 rounded-full" /></div>
+                        <div className="w-full flex-shrink-0 space-y-3 rounded-3xl bg-white p-5 shadow-card ring-1 ring-slate-200/70 lg:w-72">
+                            <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-slate-400">Cohort readiness</span><span className="text-xs font-bold text-brand-600">72%</span></div>
+                            <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-[72%] rounded-full bg-gradient-to-r from-brand-500 to-emerald-500" /></div>
                             {[['A. Okafor', '88%'], ['J. Tremblay', '64%'], ['S. Patel', '41%']].map(([n, p]) => (
                                 <div key={n} className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-300">{n}</span>
-                                    <span className={`font-semibold ${Number(String(p).replace('%','')) < 60 ? 'text-red-400' : 'text-gray-200'}`}>{p}</span>
+                                    <span className="text-slate-600">{n}</span>
+                                    <span className={`font-semibold ${Number(String(p).replace('%','')) < 60 ? 'text-red-500' : 'text-slate-700'}`}>{p}</span>
                                 </div>
                             ))}
                         </div>
@@ -289,10 +295,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
             </section>
 
             {/* FAQ */}
-            <section id="faq" className="py-24 px-6">
-                <div className="max-w-3xl mx-auto">
-                    <h2 className="text-4xl md:text-5xl font-black mb-12 text-center">Questions, answered</h2>
-                    <div className="space-y-4">
+            <section id="faq" className="px-6 py-24">
+                <div className="mx-auto max-w-3xl">
+                    <h2 className="mb-12 text-center text-4xl font-black md:text-5xl">Questions, answered</h2>
+                    <div className="space-y-3">
                         {[
                             { q: 'Is this for the Canadian NOTCE?', a: 'Yes. NOTCE AI-Tutor is built specifically for the National Occupational Therapy Certification Examination administered by CAOT — not the US NBCOT. Content follows the 2026 Blueprint (Competencies for Occupational Therapists in Canada, 2021).' },
                             { q: 'Is this the official exam?', a: 'No. We are an independent study tool and are not affiliated with CAOT. Our questions are written and reviewed to mirror the style and competencies of the real exam as a preparation aid.' },
@@ -301,43 +307,44 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
                             { q: 'Do you offer group or school licensing?', a: 'Yes. We support seat-based licensing with instructor dashboards, cohort assignments, and at-risk alerts. Reach out via the “For schools” section above.' },
                             { q: 'Is there a free trial?', a: 'Yes — start with a free 7-day trial, no card required.' },
                         ].map(item => (
-                            <details key={item.q} className="group bg-white/5 border border-white/10 rounded-2xl p-5 open:bg-white/[0.07]">
-                                <summary className="flex items-center justify-between cursor-pointer list-none font-bold text-white">
+                            <details key={item.q} className="group rounded-3xl bg-white p-5 shadow-soft ring-1 ring-slate-200/70 transition open:ring-brand-200">
+                                <summary className="flex cursor-pointer list-none items-center justify-between font-bold text-ink">
                                     {item.q}
-                                    <span className="text-cyan-400 group-open:rotate-45 transition-transform text-xl leading-none">+</span>
+                                    <span className="text-xl leading-none text-brand-500 transition-transform group-open:rotate-45">+</span>
                                 </summary>
-                                <p className="text-sm text-gray-400 mt-3 leading-relaxed">{item.a}</p>
+                                <p className="mt-3 text-sm leading-relaxed text-slate-500">{item.a}</p>
                             </details>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* Closing CTA */}
-            <section className="py-24 px-6">
-                <div className="max-w-4xl mx-auto text-center bg-gradient-to-br from-cyan-500/10 to-indigo-600/10 border border-white/10 rounded-3xl p-12">
-                    <h2 className="text-4xl md:text-5xl font-black mb-4">Ready to feel exam-ready?</h2>
-                    <p className="text-gray-400 max-w-xl mx-auto mb-8">Start your free 7-day trial and see your readiness score build from your very first session.</p>
-                    <button onClick={onRegister} className="px-10 py-5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl font-extrabold text-lg hover:shadow-[0_0_40px_rgba(6,182,212,0.3)] transition-all active:scale-95">
-                        Start studying free
-                    </button>
-                    <p className="text-xs text-gray-500 mt-4">No card required · Cancel anytime</p>
+            {/* Closing CTA — dark panel for contrast on a light page */}
+            <section className="px-6 py-24">
+                <div className="relative mx-auto max-w-4xl overflow-hidden rounded-4xl bg-gradient-to-br from-ink to-slate-800 p-12 text-center shadow-soft-lg">
+                    <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 animate-float rounded-full bg-brand-500/25 blur-3xl" />
+                    <div className="relative">
+                        <h2 className="mb-4 text-4xl font-black text-white md:text-5xl">Ready to feel exam-ready?</h2>
+                        <p className="mx-auto mb-8 max-w-xl text-slate-300">Start your free 7-day trial and see your readiness score build from your very first session.</p>
+                        <Button size="lg" onClick={onRegister}>Start studying free</Button>
+                        <p className="mt-4 text-xs text-slate-400">No card required · Cancel anytime</p>
+                    </div>
                 </div>
             </section>
 
             {/* Footer */}
-            <footer className="py-16 px-6 border-t border-white/5">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <footer className="border-t border-slate-200/70 px-6 py-16">
+                <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 md:flex-row">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center font-black text-sm">N</div>
-                        <span className="font-bold text-gray-400 tracking-tight">NOTCE AI-Tutor</span>
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 text-sm font-black text-white">N</div>
+                        <span className="font-bold tracking-tight text-slate-600">NOTCE AI-Tutor</span>
                     </div>
-                    <div className="flex gap-8 text-sm text-gray-500 font-medium">
-                        <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
-                        <a href="/terms" className="hover:text-white transition-colors">Terms</a>
-                        <a href="/contact" className="hover:text-white transition-colors">Contact</a>
+                    <div className="flex gap-8 text-sm font-medium text-slate-500">
+                        <a href="/privacy" className="transition-colors hover:text-ink">Privacy</a>
+                        <a href="/terms" className="transition-colors hover:text-ink">Terms</a>
+                        <a href="/contact" className="transition-colors hover:text-ink">Contact</a>
                     </div>
-                    <p className="text-gray-600 text-xs">© 2026 Advanced OT Education. All rights reserved.</p>
+                    <p className="text-xs text-slate-400">© 2026 Advanced OT Education. All rights reserved.</p>
                 </div>
             </footer>
         </div>
