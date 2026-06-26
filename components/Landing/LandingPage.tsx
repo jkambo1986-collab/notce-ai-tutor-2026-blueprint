@@ -266,9 +266,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister,
                         <span className="font-bold text-gray-400 tracking-tight">NOTCE AI-Tutor</span>
                     </div>
                     <div className="flex gap-8 text-sm text-gray-500 font-medium">
-                        <a href="#" className="hover:text-white transition-colors">Privacy</a>
-                        <a href="#" className="hover:text-white transition-colors">Terms</a>
-                        <a href="#" className="hover:text-white transition-colors">Contact</a>
+                        <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
+                        <a href="/terms" className="hover:text-white transition-colors">Terms</a>
+                        <a href="/contact" className="hover:text-white transition-colors">Contact</a>
                     </div>
                     <p className="text-gray-600 text-xs">© 2026 Advanced OT Education. All rights reserved.</p>
                 </div>

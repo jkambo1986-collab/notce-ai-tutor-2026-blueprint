@@ -29,6 +29,7 @@ import AppShell, { ShellView } from './components/AppShell';
 import OrgConsole from './components/OrgConsole';
 import SettingsScreen from './components/SettingsScreen';
 import AcceptInvite, { PENDING_INVITE_KEY } from './components/AcceptInvite';
+import LegalPage from './components/Legal/LegalPage';
 import { FeedbackProvider, useToast, useConfirm } from './components/ui/Feedback';
 import OnboardingModal, { ONBOARDING_DISMISSED_KEY } from './components/OnboardingModal';
 
@@ -1229,6 +1230,10 @@ const App: React.FC = () => {
             <Route path="/verify" element={<VerifyEmailPage />} />
             {/* Org invite links work in any auth state (redeems or defers to signup). */}
             <Route path="/accept-invite" element={<AcceptInvite />} />
+            {/* Legal pages: public, linkable from the landing footer. */}
+            <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+            <Route path="/terms" element={<LegalPage doc="terms" />} />
+            <Route path="/contact" element={<LegalPage doc="contact" />} />
 
             {!isAuthenticated && (
                 <>
