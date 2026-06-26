@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useToast } from '../ui/Feedback';
 
@@ -16,6 +17,7 @@ import { useToast } from '../ui/Feedback';
  */
 export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
     const toast = useToast();
+    const navigate = useNavigate();
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -34,8 +36,9 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
             await api.register(username, email, password);
             // Don't auto-login; show the success state so the user proceeds to login deliberately.
             setSuccess(true);
-            // Tell the user a verification email is on its way (and where).
-            toast(`Verification email sent to ${email}. Check your inbox.`, 'success', { duration: 6000 });
+            // Accounts are active immediately (email verification is currently auto-completed
+            // server-side), so confirm readiness rather than promising a verification email.
+            toast('Account created! You can sign in now.', 'success', { duration: 5000 });
         } catch (err: any) {
             console.error('Registration error:', err);
             // Treat connectivity issues differently from validation errors (e.g. taken username).
@@ -56,13 +59,13 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#0F172A] relative overflow-hidden px-6">
              {/* Background Accents */}
-             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-emerald-600/20 rounded-full blur-[120px]" />
+             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-cyan-600/20 rounded-full blur-[120px]" />
             <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[120px]" />
 
             <div className="w-full max-w-md relative z-10">
                 {/* Logo Area */}
                 <div className="flex flex-col items-center mb-10">
-                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-cyan-600 rounded-2xl flex items-center justify-center font-black text-3xl shadow-2xl shadow-emerald-500/20 mb-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-cyan-400 to-indigo-600 rounded-2xl flex items-center justify-center font-black text-3xl shadow-2xl shadow-cyan-500/20 mb-4">
                         N
                     </div>
                     <h1 className="text-3xl font-black text-white tracking-tight">Join NOTCE Prep</h1>
@@ -79,17 +82,17 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                     
                     {success ? (
                         <div className="text-center py-8">
-                            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                            <div className="w-16 h-16 bg-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                             </div>
                             <h2 className="text-2xl font-bold text-white mb-2">Account created!</h2>
                             <p className="text-gray-400 mb-6">
-                                We sent a verification link to <span className="text-white font-semibold">{email}</span>.
-                                Confirm your email, then sign in to start your prep.
+                                Welcome, <span className="text-white font-semibold">{username}</span> — your account is
+                                ready. Sign in to start your prep.
                             </p>
                             <button
                                 onClick={onSwitch}
-                                className="w-full bg-gradient-to-r from-emerald-500 to-cyan-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95"
+                                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-cyan-500/20 transition-all active:scale-95"
                             >
                                 Continue to Login
                             </button>
@@ -102,7 +105,7 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                                 value={username} 
                                 onChange={e => setUsername(e.target.value)}
                                 placeholder="Future OT Expert"
-                                className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 p-4 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
+                                className="w-full bg-white/5 border border-white/10 focus:border-cyan-500/50 p-4 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
                                 required
                             />
                         </div>
@@ -113,7 +116,7 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                                 value={email} 
                                 onChange={e => setEmail(e.target.value)}
                                 placeholder="you@example.com"
-                                className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 p-4 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
+                                className="w-full bg-white/5 border border-white/10 focus:border-cyan-500/50 p-4 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
                                 required
                             />
                         </div>
@@ -125,7 +128,7 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 p-4 pr-12 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
+                                    className="w-full bg-white/5 border border-white/10 focus:border-cyan-500/50 p-4 pr-12 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
                                     required
                                     minLength={8}
                                 />
@@ -147,7 +150,7 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                         <button 
                             type="submit" 
                             disabled={loading}
-                            className="w-full bg-gradient-to-r from-emerald-500 to-cyan-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 mt-4"
+                            className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-cyan-500/20 transition-all active:scale-95 disabled:opacity-50 mt-4"
                         >
                             {loading ? 'Creating Account...' : 'Create Account'}
                         </button>
@@ -157,14 +160,14 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                     
                     <div className="mt-8 text-center">
                         <span className="text-gray-400 text-sm">Already a member?</span>
-                        <button onClick={onSwitch} className="text-white font-bold ml-2 hover:text-emerald-400 transition-colors text-sm">
+                        <button onClick={onSwitch} className="text-white font-bold ml-2 hover:text-cyan-400 transition-colors text-sm">
                             Sign In
                         </button>
                     </div>
                 </div>
 
-                <button 
-                    onClick={() => window.location.reload()}
+                <button
+                    onClick={() => navigate('/')}
                     className="mt-8 w-full text-center text-gray-500 hover:text-gray-300 text-sm font-medium transition-colors"
                 >
                     ← Back to Home

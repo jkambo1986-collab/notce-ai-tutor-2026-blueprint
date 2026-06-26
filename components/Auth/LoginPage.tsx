@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../AuthContext';
 import { useToast } from '../ui/Feedback';
@@ -21,6 +22,7 @@ export const LoginPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
     const [error, setError] = useState('');
     const { login } = useAuth();
     const toast = useToast();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
 
     // Form submit handler: authenticate the user against the backend.
@@ -130,8 +132,8 @@ export const LoginPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
                     </div>
                 </div>
 
-                <button 
-                    onClick={() => window.location.reload()}
+                <button
+                    onClick={() => navigate('/')}
                     className="mt-8 w-full text-center text-gray-500 hover:text-gray-300 text-sm font-medium transition-colors"
                 >
                     ← Back to Home

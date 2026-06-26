@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useToast } from '../ui/Feedback';
 
@@ -11,6 +12,7 @@ import { useToast } from '../ui/Feedback';
  */
 export const VerifyEmailPage: React.FC = () => {
     const toast = useToast();
+    const navigate = useNavigate();
     const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
     const [message, setMessage] = useState('');
     // Seconds until we auto-redirect to login after a successful verification.
@@ -57,14 +59,14 @@ export const VerifyEmailPage: React.FC = () => {
             setRedirectIn((s) => {
                 if (s <= 1) {
                     clearInterval(timer);
-                    window.location.href = '/';
+                    navigate('/signin');
                     return 0;
                 }
                 return s - 1;
             });
         }, 1000);
         return () => clearInterval(timer);
-    }, [status, toast]);
+    }, [status, toast, navigate]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#0F172A] px-6">
@@ -87,7 +89,7 @@ export const VerifyEmailPage: React.FC = () => {
                             Your account is now fully active. Redirecting you to login in {redirectIn}s…
                         </p>
                         <button
-                            onClick={() => window.location.href = '/'}
+                            onClick={() => navigate('/signin')}
                             className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-600 transition-colors w-full"
                         >
                             Continue to Login Now
@@ -102,11 +104,11 @@ export const VerifyEmailPage: React.FC = () => {
                         </div>
                         <h2 className="text-2xl font-bold text-white mb-2">Verification Failed</h2>
                         <p className="text-gray-400 mb-6">{message}</p>
-                        <button 
-                            onClick={() => window.location.href = '/'}
+                        <button
+                            onClick={() => navigate('/signin')}
                             className="bg-white/10 text-white px-6 py-3 rounded-xl font-bold hover:bg-white/20 transition-colors w-full"
                         >
-                            Back to Home
+                            Back to Sign In
                         </button>
                     </>
                 )}
