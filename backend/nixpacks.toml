@@ -2,13 +2,13 @@
 # the repo-root nixpacks.toml) is the one Railway uses. cwd at build/runtime is
 # /app, which is the backend/ directory.
 #
-# collectstatic MUST run at build time so STATIC_ROOT (/app/staticfiles) exists
-# in the image before gunicorn boots — WhiteNoise indexes static files at
-# startup with DEBUG=False, so generating them later (or on a live container)
-# would not be served. This is what restores the Django admin CSS/theme.
-
-[phases.build]
-cmds = ["python manage.py collectstatic --noinput"]
+# collectstatic is run in the START command (not the build phase) because:
+#   - the start command is observed to run reliably on this service, and
+#   - it runs with all runtime env vars present (SECRET_KEY etc.), and
+#   - it runs BEFORE gunicorn, so STATIC_ROOT (/app/staticfiles) exists when
+#     WhiteNoise indexes static files at startup (DEBUG=False).
+# This is what restores the Django admin CSS/theme (admin static was 404ing
+# because /app/staticfiles did not exist).
 
 [start]
-cmd = "python manage.py migrate --noinput && gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120"
+cmd = "python manage.py collectstatic --noinput && python manage.py migrate --noinput && gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120"
