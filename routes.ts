@@ -16,6 +16,7 @@ export const VIEW_TO_PATH: Record<ShellView, string> = {
   'dashboard': '/dashboard',   // analytics
   'mock-study': '/mock-study',
   'exam-mode': '/exam',
+  'org': '/org',             // B2B org console (admin/instructor)
   'payment-success': '/payment/success',
   'payment-cancel': '/payment/cancel',
 };

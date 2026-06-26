@@ -1,3 +1,21 @@
+"""
+Gemini AI service.
+
+Central wrapper around Google's Gen AI SDK (``google-genai``) used throughout the
+app. It is responsible for:
+  * choosing the right client (Vertex AI in production vs. the Gemini Developer
+    API for local dev) -- see ``get_client``;
+  * issuing generation calls with automatic primary -> fallback model retry --
+    see ``generate_content``;
+  * a handful of OT-exam-specific generation helpers (evolving rationales, full
+    case studies, evidence-link analysis) that build prompts and parse the JSON
+    the model returns.
+
+All helpers are defensive: when no client can be constructed (missing
+credentials/keys) or a call fails, they return ``None`` / a safe default instead
+of raising, so callers can degrade gracefully.
+"""
+
 import os
 from google import genai
 from google.genai import types
@@ -14,6 +32,17 @@ FALLBACK_MODEL_NAME = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash"
 def clean_json_text(text):
     """
     Strips markdown code blocks from the text to ensure valid JSON parsing.
+
+    Models often wrap JSON in ```json ... ``` fences even when asked not to;
+    this unwraps that so the inner payload can be fed straight to ``json.loads``.
+
+    Args:
+        text: Raw model output (may be ``None`` or empty).
+
+    Returns:
+        The fenced content if a code block is present, otherwise the original
+        text, always stripped of surrounding whitespace. Returns "" for falsy
+        input.
     """
     if not text:
         return ""
@@ -41,9 +70,29 @@ def clean_json_text(text):
 #   GEMINI_API_KEY            = <dev api key>              (fallback only)
 
 def _truthy(val):
+    """Return True for common truthy string forms ("1", "true", "yes", "on")."""
     return str(val).strip().lower() in ("1", "true", "yes", "on")
 
 def get_client():
+    """
+    Construct and return a configured ``genai.Client``, or ``None`` if no usable
+    credentials are available.
+
+    Selection logic (see module/env docs above):
+      * If Vertex AI is requested (``GOOGLE_GENAI_USE_VERTEXAI`` truthy) or a
+        service-account JSON is supplied, attempt to build a Vertex client.
+      * Otherwise (or if Vertex init fails) fall back to the Gemini Developer
+        API using ``GEMINI_API_KEY``.
+
+    Returns:
+        A ``genai.Client`` instance, or ``None`` when neither Vertex nor an API
+        key can be used.
+
+    Side effects:
+        Prints a diagnostic line if Vertex client initialization raises.
+    """
+    # Prefer Vertex AI when explicitly enabled OR when a service-account JSON is
+    # present (the JSON alone is enough to authenticate against Vertex).
     use_vertex = _truthy(os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", ""))
     sa_json = os.environ.get("GCP_SERVICE_ACCOUNT_JSON")
 
@@ -54,6 +103,8 @@ def get_client():
             location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 
             if sa_json:
+                # Build explicit service-account credentials from the inline JSON
+                # blob; if no project was set via env, take it from the JSON.
                 from google.oauth2 import service_account
                 info = json.loads(sa_json)
                 credentials = service_account.Credentials.from_service_account_info(
@@ -68,8 +119,10 @@ def get_client():
                 credentials=credentials,
             )
         except Exception as e:
+            # Don't hard-fail: log and drop through to the API-key path below.
             print(f"Vertex AI client init failed, falling back to API key: {e}")
 
+    # Developer-API fallback: requires GEMINI_API_KEY, else there is no client.
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return None
@@ -80,17 +133,36 @@ def generate_content(client, contents, config=None):
     Calls generate_content with the primary model (MODEL_NAME) and transparently
     falls back to FALLBACK_MODEL_NAME if the primary model errors. Raises the
     last error only if every model fails.
+
+    Args:
+        client: A ``genai.Client`` from ``get_client``.
+        contents: The prompt/content payload to send to the model.
+        config: Optional ``GenerateContentConfig`` (e.g. to force JSON output).
+
+    Returns:
+        The model's response object from the first model that succeeds.
+
+    Raises:
+        Exception: The last error encountered if every candidate model failed.
+
+    Side effects:
+        Prints a diagnostic line for each model that fails before retrying.
     """
+    # Try the primary model first, then the fallback; skip any that are empty.
     models = [m for m in (MODEL_NAME, FALLBACK_MODEL_NAME) if m]
     last_error = None
     for model in models:
         try:
+            # config is optional; only pass it through when supplied so we don't
+            # override SDK defaults with None.
             if config is not None:
                 return client.models.generate_content(model=model, contents=contents, config=config)
             return client.models.generate_content(model=model, contents=contents)
         except Exception as e:
+            # Remember the error and move on to the next model in the list.
             last_error = e
             print(f"Model '{model}' failed: {e}. Falling back to next model if available.")
+    # All models failed: surface the most recent error to the caller.
     if last_error:
         raise last_error
 
@@ -99,11 +171,31 @@ def get_evolving_rationale(current_question_stem, current_correct_rationale,
                            all_previous_correct):
     """
     Generates an 'Evolutionary Tip' using Google Gemini.
+
+    Produces a short, encouraging tip that ties the student's running performance
+    on a linked case-study series to the reasoning required for the current
+    question.
+
+    Args:
+        current_question_stem: Text of the question now being attempted.
+        current_correct_rationale: Why the current question's answer is correct.
+        previous_answer_correct: Whether the immediately prior answer was right.
+        previous_selected_label: The option label the student picked previously.
+        all_previous_correct: Whether every earlier answer in the case was right.
+
+    Returns:
+        The generated tip text, or ``None`` if no client is available or the
+        call fails.
+
+    Side effects:
+        Prints a diagnostic line on error.
     """
     client = get_client()
     if not client:
         return None
 
+    # Prompt interpolates the running performance so the tip can acknowledge the
+    # student's path (struggling vs. on-track) and reinforce current reasoning.
     prompt = f"""
     You are an OT exam tutor. The student is answering a series of linked case-study questions.
     Current Question Stem: "{current_question_stem}"
@@ -130,16 +222,33 @@ def generate_full_case_study(domain="OT Expertise", difficulty="Medium", num_que
     num_questions: how many linked questions to produce. The NOTCE Blueprint pairs
     each case with "approximately three to six" questions, so when not specified we
     pick a random count in that range rather than always emitting the maximum.
+
+    Args:
+        domain: OT competency domain to centre the case on.
+        difficulty: Target difficulty label (e.g. "Easy"/"Medium"/"Hard").
+        num_questions: Desired number of linked questions; ``None`` -> random 3-6.
+
+    Returns:
+        A JSON string (markdown-stripped) describing the case study, or ``None``
+        if no client is available or generation fails.
+
+    Side effects:
+        Prints diagnostic info (including a masked API key) on error.
     """
     client = get_client()
     if not client:
         return None
 
+    # Default to a Blueprint-realistic random count, then clamp to the 3-6 range
+    # so an out-of-range caller value can never escape the allowed band.
     if num_questions is None:
         import random
         num_questions = random.randint(3, 6)
     num_questions = max(3, min(6, int(num_questions)))
 
+    # Prompt pins the model to the Canadian NOTCE context and dictates the exact
+    # JSON schema (title/vignette/setting/questions[...]) the caller expects,
+    # plus the mandatory CEJ_JUSTICE question requirement.
     prompt = f"""
     Generate a comprehensive Occupational Therapy case study for an exam prep application.
 
@@ -189,6 +298,7 @@ def generate_full_case_study(domain="OT Expertise", difficulty="Medium", num_que
     """
 
     try:
+        # Force JSON output via response_mime_type, then strip any stray fences.
         response = generate_content(
             client,
             contents=prompt,
@@ -198,6 +308,8 @@ def generate_full_case_study(domain="OT Expertise", difficulty="Medium", num_que
         )
         return clean_json_text(response.text)
     except Exception as e:
+        # On failure log the error plus a masked API key for debugging without
+        # leaking the full secret.
         key = os.environ.get("GEMINI_API_KEY", "MISSING")
         masked = f"{key[:5]}...{key[-3:]}" if key and len(key) > 8 else key
         print(f"Gemini Generation Error: {e}")
@@ -231,8 +343,13 @@ def analyze_evidence_link(vignette: str, question_stem: str, correct_answer: str
         return {"expert_highlights": [], "matched_count": 0, "missed_indicators": [], 
                 "perceptual_tip": "AI analysis unavailable.", "score": 0}
 
+    # Extract just the text spans the user highlighted to feed the model as
+    # context for the comparison.
     user_highlighted_texts = [h.get("text", "") for h in user_highlights]
-    
+
+    # Prompt asks the model for the expert "key clinical indicators" (as exact
+    # vignette substrings, classified critical/supporting) plus a coaching tip,
+    # returned as strict JSON.
     prompt = f"""
     You are an expert Occupational Therapy clinical reasoning analyzer.
     

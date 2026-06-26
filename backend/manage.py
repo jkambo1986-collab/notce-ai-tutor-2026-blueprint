@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
+"""Django's command-line utility for administrative tasks.
+
+CLI entry point for management commands (runserver, migrate, createsuperuser,
+import_bank, etc.). Loads variables from a local .env file so those commands run
+with the same configuration as the deployed app.
+"""
 import os
 import sys
 

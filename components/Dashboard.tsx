@@ -35,7 +35,23 @@ const Dashboard: React.FC<Props> = ({ stats }) => {
     fullMark: 100,
   }));
 
+  // Per-domain bar colors, cycled by index so each progress bar is visually distinct.
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+  // Empty state: a radar over all-zero data is meaningless, so prompt the user
+  // to answer some questions first.
+  const answeredTotal = stats.reduce((sum, s) => sum + s.total, 0);
+  if (answeredTotal === 0) {
+    return (
+      <div className="bg-white p-10 rounded-xl shadow-sm border border-gray-100 text-center">
+        <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Your Competency Profile</h2>
+        <p className="text-gray-500 max-w-md mx-auto">Answer a few questions in a case study or mock session and your strengths across the six NOTCE domains will appear here.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-8">

@@ -7,8 +7,11 @@
 import React, { useState } from 'react';
 
 interface MockStudySetupModalProps {
+    /** Controls modal visibility; renders nothing when false. */
     isOpen: boolean;
+    /** Dismiss the modal without starting. */
     onClose: () => void;
+    /** Begin a session with the chosen domain, difficulty, and question count. */
     onStart: (domain: string, difficulty: string, length: number) => void;
 }
 
@@ -28,8 +31,18 @@ const DIFFICULTIES = [
   { id: 'Hard', label: 'Expert', description: 'Complex scenarios', icon: '🎯' },
 ];
 
+/** Selectable session lengths (number of questions). */
 const LENGTHS = [10, 25, 50];
 
+/**
+ * MockStudySetupModal Component
+ *
+ * Configuration dialog shown before a practice session. Lets the user pick a
+ * domain, difficulty, and question count, then hands the choices to `onStart`.
+ *
+ * @param {MockStudySetupModalProps} props - Component props
+ * @returns {JSX.Element | null} The modal, or null when closed
+ */
 const MockStudySetupModal: React.FC<MockStudySetupModalProps> = ({ isOpen, onClose, onStart }) => {
     const [selectedDomain, setSelectedDomain] = useState<string>('OT_EXP');
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>('Medium');
@@ -38,15 +51,21 @@ const MockStudySetupModal: React.FC<MockStudySetupModalProps> = ({ isOpen, onClo
 
     if (!isOpen) return null;
 
+    /** Show a brief spinner, then fire onStart with the current selections and close. */
     const handleStart = async () => {
         setIsStarting(true);
         // Add small artificial delay for UX feel
-        await new Promise(resolve => setTimeout(resolve, 600)); 
+        await new Promise(resolve => setTimeout(resolve, 600));
         onStart(selectedDomain, selectedDifficulty, selectedLength);
         setIsStarting(false);
         onClose();
     };
 
+    /**
+     * Build the Tailwind class string for a domain card. The color is interpolated
+     * per-domain, so these classes must be present in the safelist/JIT scan to
+     * survive purging.
+     */
     const getColorClasses = (color: string, isSelected: boolean) => {
         const base = `cursor-pointer rounded-xl p-4 border-2 transition-all duration-200 flex flex-col gap-2 relative overflow-hidden`;
         if (isSelected) {

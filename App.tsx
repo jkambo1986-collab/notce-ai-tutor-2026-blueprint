@@ -26,6 +26,8 @@ import ExamSession from './components/ExamSession';
 import LandingPage from './components/Landing/LandingPage';
 import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
 import AppShell, { ShellView } from './components/AppShell';
+import OrgConsole from './components/OrgConsole';
+import AcceptInvite, { PENDING_INVITE_KEY } from './components/AcceptInvite';
 import { FeedbackProvider, useToast, useConfirm } from './components/ui/Feedback';
 
 /**
@@ -988,6 +990,10 @@ const MainApp: React.FC = () => {
             />
         )}
 
+        {/* B2B organization console (admin/instructor): seats, members, cohort
+            analytics. OrgConsole self-gates by the caller's membership role. */}
+        {view === 'org' && <OrgConsole />}
+
         {/* Full timed exam simulation (premium); also requires a live session */}
         {view === 'exam-mode' && mockSessionId && mockSessionData && (
             <ExamSession
@@ -1033,7 +1039,7 @@ const MainApp: React.FC = () => {
  * @returns The route table for the current auth state.
  */
 const App: React.FC = () => {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated, loading, refreshProfile } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const toast = useToast();
@@ -1087,6 +1093,28 @@ const App: React.FC = () => {
         }
     }, [isAuthenticated, pendingPlan]);
 
+    // Redeem a deferred org invite: a user who clicked an invite link while logged
+    // out is sent through signup with the token stashed; once authenticated, redeem
+    // it and drop them in the org console.
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        let token: string | null = null;
+        try { token = localStorage.getItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
+        if (!token) return;
+        (async () => {
+            try {
+                await api.organizations.acceptInvite(token!);
+                await refreshProfile(); // pull new membership + inherited premium
+                toast('Invitation accepted — welcome to your organization!', 'success');
+                navigate('/org', { replace: true });
+            } catch (err) {
+                console.warn('Pending invite redemption failed:', err);
+            } finally {
+                try { localStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
+            }
+        })();
+    }, [isAuthenticated]);
+
     // Wait for the token check before resolving routes; otherwise a logged-in
     // user refreshing a deep link (e.g. /dashboard) would flash as logged-out
     // and get bounced to /signin before auth resolves.
@@ -1102,6 +1130,8 @@ const App: React.FC = () => {
         <Routes>
             {/* Email verification works in any auth state (clicked from an email). */}
             <Route path="/verify" element={<VerifyEmailPage />} />
+            {/* Org invite links work in any auth state (redeems or defers to signup). */}
+            <Route path="/accept-invite" element={<AcceptInvite />} />
 
             {!isAuthenticated && (
                 <>

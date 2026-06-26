@@ -154,17 +154,117 @@ export interface MockFeedback {
     feedback_message: string;
 }
 
+/**
+ * Subscription and trial metadata attached to a User.
+ * Drives access-gating (free vs. paid) and exam-countdown features.
+ */
 export interface UserProfile {
-    subscription_tier: string;
-    is_paid: boolean;
-    target_exam_date: string | null;
-    is_trial_active: boolean;
-    trial_end_date: string | null;
+    subscription_tier: string;      // Plan name returned by the backend (e.g., "free", "pro")
+    is_paid: boolean;               // True when the user has an active paid subscription
+    target_exam_date: string | null; // User's chosen exam date (ISO string) or null if unset
+    is_trial_active: boolean;       // True while the free trial period is still valid
+    trial_end_date: string | null; // When the trial expires (ISO string) or null if no trial
 }
 
+/**
+ * RBAC role a user holds within a B2B organization (tenant).
+ * Mirrors the backend `OrgRole` choices.
+ */
+export type OrgRole = 'owner' | 'admin' | 'instructor' | 'member';
+
+/**
+ * One of the organizations a user belongs to, plus their role in it.
+ * Returned (flattened) by /auth/me/ so the frontend can render role-gated UI.
+ */
+export interface OrgMembership {
+    org_id: number;
+    org_slug: string;
+    org_name: string;
+    role: OrgRole;
+}
+
+/**
+ * The authenticated user as returned by the Django backend.
+ * Wraps the related UserProfile for subscription/trial state.
+ */
 export interface User {
     id: number;
     username: string;
     email: string;
-    userprofile: UserProfile;
+    userprofile: UserProfile; // Nested profile holding subscription/trial details
+    memberships?: OrgMembership[]; // B2B org memberships + roles (empty for pure B2C users)
+}
+
+/**
+ * An organization (tenant) as returned by /organizations/ — seat/license state
+ * plus the caller's own role.
+ */
+export interface Organization {
+    id: number;
+    name: string;
+    slug: string;
+    seats_total: number;
+    seats_used: number;
+    seats_available: number;
+    license_tier: string;
+    license_active: boolean;
+    license_expires_at: string | null;
+    has_active_license: boolean;
+    my_role: OrgRole | null;
+}
+
+/** A member row in an org roster (/organizations/{id}/members/). */
+export interface OrgMember {
+    id: number;
+    user: { id: number; username: string; email: string };
+    role: OrgRole;
+    status: string;
+    joined_at: string;
+}
+
+/** Per-student + rollup analytics (/organizations/{id}/analytics/). */
+export interface OrgAnalytics {
+    organization: { id: number; name: string; slug: string };
+    summary: {
+        members: number;
+        active_learners: number;
+        answered: number;
+        correct: number;
+        accuracy: number | null;
+    };
+    students: {
+        user_id: number;
+        username: string;
+        email: string;
+        role: OrgRole;
+        answered: number;
+        correct: number;
+        accuracy: number | null;
+    }[];
+}
+
+/**
+ * --- PERFORMANCE HUB ---
+ * Cross-session analytics payload returned by GET /api/performance/.
+ * Mirrors backend/core/performance_service.compute_performance().
+ */
+export interface Performance {
+    overall: { answered: number; correct: number; accuracy: number; enough_data: boolean };
+    pass_projection: {
+        projected_accuracy: number;
+        band: string;
+        enough_data: boolean;
+        sample_size: number;
+    };
+    by_domain: { domain: string; answered: number; correct: number; accuracy: number }[];
+    confidence: { level: 'HIGH' | 'MED' | 'LOW'; answered: number; correct: number; accuracy: number }[];
+    trend: { date: string; answered: number; correct: number; accuracy: number }[];
+    activity: {
+        study_days: number;
+        sessions_completed: number;
+        total_sessions: number;
+        answers_last_7_days: number;
+    };
+    exam_date: string | null;
+    days_to_exam: number | null;
 }

@@ -15,6 +15,7 @@ export type ShellView =
   | 'dashboard'
   | 'mock-study'
   | 'exam-mode'
+  | 'org'
   | 'payment-success'
   | 'payment-cancel';
 
@@ -71,7 +72,11 @@ const ICONS = {
   chevronLeft: 'M15 19l-7-7 7-7',
   play: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z',
   calendar: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+  users: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 0a4 4 0 10-3-7.75',
 };
+
+// Org-manager roles that unlock the Organization console nav entry.
+const ORG_MANAGER_ROLES = ['owner', 'admin', 'instructor'];
 
 // Ordered list of primary nav destinations shown in the sidebar.
 const NAV: NavItem[] = [
@@ -89,6 +94,7 @@ const PAGE_TITLES: Record<ShellView, string> = {
   'dashboard': 'Analytics',
   'mock-study': 'Mock Study',
   'exam-mode': 'Exam Simulation',
+  'org': 'Organization',
   'payment-success': 'Payment',
   'payment-cancel': 'Payment',
 };
@@ -163,6 +169,12 @@ const AppShell: React.FC<AppShellProps> = ({
   // Only nudge users who are neither paying nor mid-trial toward upgrading.
   const showUpgrade = !profile?.is_paid && !profile?.is_trial_active;
 
+  // B2B: surface the Organization console only to org admins/instructors/owners.
+  const isOrgManager = (user?.memberships || []).some(m => ORG_MANAGER_ROLES.includes(m.role));
+  const navItems: NavItem[] = isOrgManager
+    ? [...NAV, { key: 'org', label: 'Organization', icon: <Icon path={ICONS.users} /> }]
+    : NAV;
+
   /** Navigate and also close the mobile drawer so the new view is visible. */
   const handleNavClick = (key: ShellView) => {
     onNavigate(key);
@@ -211,7 +223,7 @@ const AppShell: React.FC<AppShellProps> = ({
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {NAV.map(item => {
+        {navItems.map(item => {
           const active = activeView === item.key;
           return (
             <button

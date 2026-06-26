@@ -1,3 +1,26 @@
+"""
+Django REST Framework views for the NOTCE AI Tutor backend.
+
+This module exposes the HTTP API surface for the application, including:
+
+- Health / diagnostics: ``PingView``, ``DiagnosticView``, ``TestEmailView``.
+- Authentication & accounts: ``EmailOrUsernameTokenObtainPairView`` (JWT login
+  by username *or* email), ``RegisterView``, ``MeView``, ``VerifyEmailView``.
+- Study/practice domain: ``UserSessionViewSet``, ``CaseStudyViewSet`` (with AI
+  case generation via Gemini), ``UserAnswerViewSet``, ``HighlightViewSet``,
+  ``MockStudyViewSet`` (the one-question-at-a-time practice/exam flow),
+  ``AgentMemoryViewSet``.
+- Vetted question bank (premium, paid-only): ``BankQuestionViewSet``,
+  ``BankCaseViewSet``.
+- Billing: ``CreateCheckoutSessionView``, ``StripeWebhookView``, ``SyncPaymentView``.
+
+Permission notes: most endpoints require authentication; AI generation and the
+question bank additionally require a paid (or trial) subscription. Several
+endpoints were deliberately tightened (e.g. admin-only diagnostics) and the
+email-verification flow is intentionally disabled but kept in place for an easy
+re-enable. See inline comments for the "why" behind these decisions.
+"""
+
 from rest_framework import viewsets, status, permissions, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -16,18 +39,31 @@ from django.core.mail import send_mail
 from django.conf import settings
 from .models import UserProfile
 from .permissions import IsPaidUser, IsPaidOrTrialUser
+from .entitlements import active_org_for
 
 logger = logging.getLogger(__name__)
 
 class PingView(APIView):
+    """Simple liveness probe.
+
+    GET /ping/ -> ``{"status": "pong"}``. Public (no auth) so load balancers and
+    uptime monitors can confirm the service is responding.
+    """
     permission_classes = [permissions.AllowAny]
     def get(self, request):
         return Response({"status": "pong"})
 
 class DiagnosticView(APIView):
+    """Admin-only configuration dump for troubleshooting prod.
+
+    GET /diagnostic/ -> non-secret view of email/Stripe/frontend settings, with
+    credentials obfuscated. Admin-only because it exposes config; never public.
+    """
     permission_classes = [permissions.IsAdminUser]  # Exposes config; admin-only
 
     def get(self, request):
+        # Mask secrets so they can be eyeballed (first/last 2 chars) without
+        # leaking the full value in the response body or logs.
         def obfuscate(val):
             if not val: return None
             if len(str(val)) < 4: return "***"
@@ -48,6 +84,12 @@ class DiagnosticView(APIView):
         return Response(diag_data)
 
 class TestEmailView(APIView):
+    """Admin-only SMTP smoke test.
+
+    GET /test-email/?email=someone@example.com sends a diagnostic message to the
+    given recipient (defaults to DEFAULT_FROM_EMAIL) and reports success/failure
+    plus the (masked) email config. Used to verify production SMTP works.
+    """
     # Admin-only: AllowAny here was an open mail relay (sends to any ?email=)
     # and leaked SMTP config / tracebacks.
     permission_classes = [permissions.IsAdminUser]
@@ -69,9 +111,11 @@ class TestEmailView(APIView):
         
         try:
             # Set a socket timeout to prevent hanging
+            # A blocked/slow SMTP port would otherwise hang the request worker
+            # indefinitely; bound it and always restore the previous default.
             old_timeout = socket.getdefaulttimeout()
             socket.setdefaulttimeout(10)  # 10 second timeout
-            
+
             try:
                 send_mail(
                     subject="Diagnostic: NOTCE AI Tutor Email Test",
@@ -89,9 +133,12 @@ class TestEmailView(APIView):
                 "config": config_info
             })
         except Exception as e:
+            # Report the failure as HTTP 200 with details so the admin tool can
+            # render the diagnostic info instead of choking on an error status.
+            # Full traceback only leaks when DEBUG is on.
             logger.error(f"SMTP Diagnostic Failure: {str(e)}")
             return Response({
-                "success": False, 
+                "success": False,
                 "error": str(e),
                 "error_type": type(e).__name__,
                 "config": config_info,
@@ -112,6 +159,9 @@ class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     def validate(self, attrs):
         login = (attrs.get(self.username_field) or "").strip()
+        # If the identifier looks like an email, swap it for the matching
+        # account's username before SimpleJWT does its username-only auth.
+        # order_by("id").first() picks the oldest account on duplicate emails.
         if login and "@" in login:
             match = User.objects.filter(email__iexact=login).order_by("id").first()
             if match:
@@ -120,16 +170,32 @@ class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class EmailOrUsernameTokenObtainPairView(TokenObtainPairView):
+    """JWT login endpoint (POST) accepting username *or* email as the identifier.
+
+    Returns access/refresh tokens. Public so unauthenticated users can log in;
+    the email->username resolution lives in the serializer above.
+    """
     permission_classes = [permissions.AllowAny]
     serializer_class = EmailOrUsernameTokenObtainPairSerializer
 
 
 class RegisterView(generics.CreateAPIView):
+    """User signup endpoint.
+
+    POST /register/ with the fields ``UserSerializer`` expects (username, email,
+    password, ...). Creates the ``User`` and an associated ``UserProfile``,
+    starts the free trial, and (currently) auto-verifies the email. Public.
+    """
     queryset = User.objects.all()
     permission_classes = [permissions.AllowAny]
     serializer_class = UserSerializer
 
     def perform_create(self, serializer):
+        """Create the user, attach a profile, start the trial, auto-verify.
+
+        Everything after the ``return`` below is the (intentionally disabled)
+        email-verification path and is never executed in the current flow.
+        """
         user = serializer.save()
         profile, created = UserProfile.objects.get_or_create(user=user)
         profile.trial_start_date = timezone.now()
@@ -142,6 +208,9 @@ class RegisterView(generics.CreateAPIView):
         return
 
         # --- Verification email (disabled) ---
+        # NOTE: The block below is intentionally disabled (it sits after the
+        # early ``return`` above) and is kept here so the email-verification
+        # flow can be re-enabled by removing that return. Do not delete.
         token = str(uuid.uuid4())
         profile.verification_token = token
         profile.email_verified = False
@@ -219,9 +288,14 @@ class RegisterView(generics.CreateAPIView):
         except Exception as e:
             logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
             # Don't block registration if email fails - user is still created
- 
+
 
 class MeView(APIView):
+    """Returns the currently authenticated user's profile.
+
+    GET /me/ -> serialized ``request.user`` (via ``UserSerializer``). Used by the
+    frontend to hydrate session/account state. Requires authentication.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -229,6 +303,12 @@ class MeView(APIView):
         return Response(serializer.data)
 
 class VerifyEmailView(APIView):
+    """Confirms a user's email from a verification token.
+
+    POST /verify-email/ with ``{"token": "..."}``. Marks the matching profile as
+    verified and clears the token. Public (the user is not yet logged in). This
+    backs the disabled RegisterView email flow; safe to keep for re-enable.
+    """
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -246,11 +326,17 @@ class VerifyEmailView(APIView):
             return Response({'error': 'Invalid token'}, status=400)
 
 class UserSessionViewSet(viewsets.ModelViewSet):
+    """Tracks per-user progress through curated case studies.
+
+    Standard CRUD under /sessions/ plus ``save_progress`` and ``resume`` custom
+    actions. All access is scoped to the requesting user. Requires authentication.
+    """
     queryset = UserSession.objects.all()
     serializer_class = UserSessionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Scope every list/detail operation to the caller's own sessions.
         return UserSession.objects.filter(user=self.request.user)
 
     @action(detail=False, methods=['post'])
@@ -270,7 +356,8 @@ class UserSessionViewSet(viewsets.ModelViewSet):
             case_study=case,
             defaults={
                 'current_question_index': index,
-                'is_completed': is_completed
+                'is_completed': is_completed,
+                'organization': active_org_for(request.user),
             }
         )
         return Response({"status": "saved", "index": session.current_question_index})
@@ -293,6 +380,13 @@ class UserSessionViewSet(viewsets.ModelViewSet):
 from .gemini_service import get_evolving_rationale
 
 class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to allow creation
+    """CRUD for case studies plus AI-backed generation.
+
+    Standard /cases/ CRUD, plus ``generate`` (create + return an AI case) and
+    ``prefetch`` (create one in the background). Authentication is required
+    because create/update/delete and the Gemini-powered actions consume quota
+    and must not be reachable anonymously.
+    """
     queryset = CaseStudy.objects.all()
     serializer_class = CaseStudySerializer
     # Require authentication: AllowAny exposed create/update/delete and the
@@ -303,22 +397,28 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
     def generate(self, request):
         """
         Triggers AI generation of a new case study, saves it, and returns it.
+
+        POST /cases/generate/ with ``{"domain": ..., "difficulty": ...}``.
+        Calls Gemini to produce a full case (vignette + questions + distractors),
+        persists it, records it in agent memory, and returns the serialized case.
+        Returns 503 if the AI returns nothing (likely an API key/quota issue).
         """
         domain = request.data.get('domain', 'OT Expertise')
         difficulty = request.data.get('difficulty', 'Medium')
-        
+
         try:
             from .gemini_service import generate_full_case_study
             import json
             import uuid
             from .models import CaseStudy, Question, Distractor
-            
+
+            # AI call: synchronously ask Gemini for a JSON-encoded case study.
             json_str = generate_full_case_study(domain, difficulty)
             if not json_str:
                 return Response({"error": "AI Generation failed (returned empty). Possible API Key issue."}, status=503)
-            
+
             data = json.loads(json_str)
-            
+
             # Create Case
             case_id = f"case-{uuid.uuid4().hex[:8]}"
             case = CaseStudy.objects.create(
@@ -329,7 +429,8 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
                 tags=["AI-Generated", domain, difficulty] # Add tags
             )
             
-            # Record in Agent Memory
+            # Record in Agent Memory so the agent can recall what it has already
+            # generated for this user (avoids repetition, enables continuity).
             from .memory_service import store_memory
             store_memory(
                 user_id=request.user.id if request.user.is_authenticated else None,
@@ -339,6 +440,8 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
             )
             
             # Create Questions & Distractors
+            # Persist the nested AI payload: one Question per item, each with its
+            # answer options (Distractors) including per-option rationale text.
             for idx, q_data in enumerate(data.get('questions', [])):
                 q_id = f"{case_id}-q{idx+1}"
                 question = Question.objects.create(
@@ -349,7 +452,7 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
                     correct_label=q_data.get('correct_label'),
                     correct_rationale=q_data.get('correct_rationale')
                 )
-                
+
                 for d_data in q_data.get('distractors', []):
                     Distractor.objects.create(
                         question=question,
@@ -369,6 +472,10 @@ class CaseStudyViewSet(viewsets.ModelViewSet):  # Changed to ModelViewSet to all
     def prefetch(self, request):
         """
         Generates a new case study in the background and saves it to the library.
+
+        POST /cases/prefetch/ with ``{"domain": ..., "difficulty": ...}``. Same
+        Gemini-backed generation as ``generate`` but returns only a status/case_id
+        (no full payload) so the frontend can warm the library ahead of demand.
         """
         domain = request.data.get('domain', 'OT Expertise')
         difficulty = request.data.get('difficulty', 'Medium')
@@ -433,19 +540,30 @@ class AgentMemoryViewSet(viewsets.ModelViewSet):
         return AgentMemory.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
+        # Stamp ownership server-side so callers can't write memories for others.
         serializer.save(user=self.request.user)
 
 class UserAnswerViewSet(viewsets.ModelViewSet):
+    """Records and auto-grades a user's answers to case-study questions.
+
+    CRUD under /answers/ (scoped to the user) plus two AI actions:
+    ``get_rationale`` (evolving explanation) and ``evidence_link`` (compares the
+    user's highlights against expert clinical indicators). Requires auth.
+    """
     queryset = UserAnswer.objects.all()
     serializer_class = UserAnswerSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        # Auto-grade
+        # Auto-grade on save: compare the chosen label to the question's correct
+        # label (case-insensitive) so correctness is computed server-side and
+        # can't be spoofed by the client. Ownership is also set here.
         question = serializer.validated_data['question']
         selected = serializer.validated_data['selected_label']
         is_correct = (selected.upper() == question.correct_label.upper())
-        serializer.save(user=self.request.user, is_correct=is_correct)
+        # Stamp the tenant so org instructors can aggregate cohort performance.
+        serializer.save(user=self.request.user, is_correct=is_correct,
+                        organization=active_org_for(self.request.user))
 
     @action(detail=False, methods=['post'])
     def get_rationale(self, request):
@@ -461,9 +579,13 @@ class UserAnswerViewSet(viewsets.ModelViewSet):
         question = get_object_or_404(Question, id=data.get('question_id'))
         
         previous_ans = data.get('previous_answer', None) # Dict or None
+        # When no prior answer is supplied, treat history as "all correct" so the
+        # rationale tone stays neutral rather than remedial.
         prev_correct = previous_ans['is_correct'] if previous_ans else True
         prev_label = previous_ans['selected_label'] if previous_ans else None
-        
+
+        # AI call: generate an explanation that adapts to the user's running
+        # performance (e.g. reinforce vs. remediate).
         rationale = get_evolving_rationale(
             current_question_stem=question.stem,
             current_correct_rationale=question.correct_rationale,
@@ -507,10 +629,13 @@ class UserAnswerViewSet(viewsets.ModelViewSet):
             if not question:
                 return Response({"error": f"Question {question_id} not found", "expert_highlights": [], "matched_count": 0, "missed_indicators": [], "perceptual_tip": "Question not found.", "score": 0}, status=200)
             
-            # Get the correct answer text
+            # Resolve the correct option's display text (fall back to the label
+            # itself if the matching distractor row is missing).
             correct_distractor = question.distractor_set.filter(label=question.correct_label).first()
             correct_answer_text = correct_distractor.text if correct_distractor else question.correct_label
-            
+
+            # AI call: score the user's highlighted evidence against expert
+            # clinical indicators and surface what they missed.
             result = analyze_evidence_link(
                 vignette=data.get('vignette', ''),
                 question_stem=question.stem,
@@ -521,18 +646,28 @@ class UserAnswerViewSet(viewsets.ModelViewSet):
             
             return Response(result)
         except Exception as e:
+            # Always return HTTP 200 with a zero-score, empty result shape so the
+            # frontend can render gracefully instead of treating analysis hiccups
+            # (e.g. AI errors) as a hard failure.
             print(f"Evidence Link Error: {e}")
             return Response({"error": str(e), "expert_highlights": [], "matched_count": 0, "missed_indicators": [], "perceptual_tip": "Analysis error.", "score": 0}, status=200)
 
 class HighlightViewSet(viewsets.ModelViewSet):
+    """CRUD for a user's text highlights on case vignettes.
+
+    /highlights/ scoped to the requesting user; used to persist what passages the
+    learner marked while reading. Requires authentication.
+    """
     queryset = Highlight.objects.all()
     serializer_class = HighlightSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Only ever expose the caller's own highlights.
         return Highlight.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
+        # Force ownership to the authenticated user.
         serializer.save(user=self.request.user)
 
 # --- MOCK STUDY VIEWS ---
@@ -553,6 +688,10 @@ class MockStudyViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Enforce IsPaidOrTrial for actions that start or progress the study.
+
+        The "consuming" actions (start/next/prefetch/pivot) generate or serve
+        questions and so are gated behind a paid-or-trial subscription; all other
+        actions (e.g. reading/saving state) only require authentication.
         """
         if self.action in ['start', 'next', 'prefetch', 'pivot']:
             return [permissions.IsAuthenticated(), IsPaidOrTrialUser()]
@@ -560,7 +699,11 @@ class MockStudyViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _served_bank_ids(session):
-        """Bank question ids already used in this session (served or answered)."""
+        """Bank question ids already used in this session (served or answered).
+
+        Collected from the current/next question slots and the answer history so
+        the bank selector can exclude them and avoid repeats within a session.
+        """
         ids = set()
         for d in (session.current_question_data, session.next_question_data):
             if d and d.get('bank_id'):
@@ -587,8 +730,10 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         total_questions = request.data.get('total_questions', 10)
         
         mode = request.data.get('mode', 'practice')
-        
+
         # Override for exam mode
+        # Exam mode mimics the real NOTCE: large fixed length (200 = 2 "books",
+        # 100 = 1) and a timer; practice mode is shorter and self-paced.
         if mode == 'exam':
             # Default to 200 questions (2 books)
             total_questions = request.data.get('total_questions', 200)
@@ -599,12 +744,14 @@ class MockStudyViewSet(viewsets.ModelViewSet):
              exam_config = {}
 
         # Validate total_questions for practice mode
+        # Clamp to a supported set length; reject arbitrary client values.
         if mode == 'practice' and total_questions not in [10, 25, 50]:
             total_questions = 10
         
         # Create session
         session = MockStudySession.objects.create(
             user=request.user if request.user.is_authenticated else None,
+            organization=active_org_for(request.user) if request.user.is_authenticated else None,
             domain=domain,
             difficulty=difficulty,
             total_questions=total_questions,
@@ -763,6 +910,7 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             return Response({"error": "No active question"}, status=400)
         
         # Generate feedback
+        # AI call: grade the selection and produce per-option rationale feedback.
         feedback = generate_answer_feedback(
             question_stem=question_data.get("stem", ""),
             selected_label=selected_label,
@@ -783,7 +931,9 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             topics.append(topic)
             session.topics_covered = topics
             
-        # Record history
+        # Record history. `domain` is captured per-question for analytics: prefer
+        # the question's own domain (bank items carry it; matters for MIXED exams)
+        # and fall back to the session's domain for single-domain practice runs.
         history_item = {
             "question_number": session.current_question,
             "stem": question_data.get("stem"),
@@ -791,6 +941,7 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             "correct_label": question_data.get("correct_label"),
             "is_correct": is_correct,
             "bank_id": question_data.get("bank_id"),
+            "domain": question_data.get("domain") or session.domain,
             "timestamp": timezone.now().isoformat()
         }
         history = session.session_history or []
@@ -812,6 +963,8 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         }
 
         # If exam mode, DO NOT return feedback
+        # Real exam conditions: withhold correctness/rationale until the session
+        # is finished, so the learner can't course-correct mid-exam.
         if session.mode == 'exam':
             response_data["feedback"] = None # Explicitly None
             response_data["next_question_ready"] = True # Simplified for now
@@ -842,6 +995,8 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         if not question_data:
             return Response({"error": "No active question data to pivot"}, status=400)
             
+        # AI call: spin a "what if" variant of the current question to test the
+        # same concept under changed conditions.
         pivot_data = generate_pivot_scenario(
             original_stem=question_data.get("stem", ""),
             original_correct_label=question_data.get("correct_label", ""),
@@ -928,6 +1083,27 @@ from .models import BankCase, BankQuestion
 from .serializers import BankCaseSerializer, BankQuestionSerializer
 
 
+class PerformanceView(APIView):
+    """
+    Performance Hub: a single cross-session analytics payload for the signed-in
+    user (overall accuracy, per-domain mastery, confidence calibration, recent
+    trend, projected accuracy/pass band, and study activity).
+
+    Read-only and self-scoped. Aggregates persisted answer history from both the
+    case-study (`UserAnswer`) and mock/exam (`MockStudySession.session_history`)
+    flows. See `performance_service.compute_performance`.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .performance_service import compute_performance
+        try:
+            return Response(compute_performance(request.user))
+        except Exception:
+            logger.exception("Failed to compute performance for %s", request.user)
+            return Response({"error": "Failed to compute performance"}, status=500)
+
+
 class BankQuestionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Serves the vetted premium question bank. Approved items only.
@@ -1012,6 +1188,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 class CreateCheckoutSessionView(APIView):
+    """Starts a Stripe Checkout session for a subscription tier.
+
+    POST /create-checkout-session/ with ``{"tier", "success_url", "cancel_url"}``.
+    Returns ``{"sessionId", "url"}`` to redirect the user to Stripe. Requires
+    auth and is gated by the PAYMENTS_ENABLED env kill-switch.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -1029,6 +1211,8 @@ class CreateCheckoutSessionView(APIView):
         cancel_url = request.data.get('cancel_url', 'http://localhost:5173/?cancel=true')
 
         try:
+            # Delegates to the Stripe service; ValueError signals bad input
+            # (e.g. unknown tier) -> 400, anything else -> 500.
             session = create_checkout_session(request.user, tier, success_url, cancel_url)
             return Response({'sessionId': session.id, 'url': session.url})
         except ValueError as e:
@@ -1036,28 +1220,48 @@ class CreateCheckoutSessionView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
+# csrf_exempt: Stripe posts server-to-server and can't supply a CSRF token.
 @method_decorator(csrf_exempt, name='dispatch')
 class StripeWebhookView(APIView):
+    """Receives Stripe webhook events (payment lifecycle).
+
+    POST /stripe-webhook/ with the raw Stripe payload. Public/CSRF-exempt because
+    Stripe calls it directly; authenticity is verified inside
+    ``handle_stripe_webhook`` via the Stripe-Signature header, not via DRF auth.
+    """
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         payload = request.body
+        # Signature header lets the service confirm the event really came from
+        # Stripe (HMAC against the webhook secret) before acting on it.
         sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
 
         try:
             handle_stripe_webhook(payload, sig_header)
             return Response(status=200)
         except Exception as e:
+            # 400 tells Stripe the event failed verification/processing so it
+            # will retry per its delivery policy.
             return Response({'error': str(e)}, status=400)
 
 from .stripe_service import verify_payment_status
 
 class SyncPaymentView(APIView):
+    """Reconciles the user's local subscription state with Stripe.
+
+    POST /sync-payment/ -> re-checks Stripe for the user and returns the updated
+    paid status/tier. Used after checkout (or on app load) so the UI reflects a
+    payment even if the webhook is delayed. Requires authentication.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        # Pull current status from Stripe and persist any change to the profile.
         updated = verify_payment_status(request.user)
         # Refresh from DB to get latest status
+        # verify_payment_status may have written via a separate instance, so
+        # reload to return the freshest values.
         request.user.userprofile.refresh_from_db()
         return Response({
             'success': True, 

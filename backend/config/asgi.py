@@ -1,7 +1,9 @@
 """
 ASGI config for config project.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
+Entry point for ASGI-compatible (async) web servers. It exposes the ASGI
+callable as a module-level variable named ``application``. The project is
+deployed via WSGI (see wsgi.py); this module exists for async-capable servers.
 
 For more information on this file, see
 https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/

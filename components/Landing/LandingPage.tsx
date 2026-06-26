@@ -1,5 +1,14 @@
 import React from 'react';
 
+/**
+ * Props for LandingPage.
+ *
+ * @property onStart      - Generic "get started" entry point.
+ * @property onLogin      - Navigate to the login screen (navbar "Login").
+ * @property onRegister   - Navigate to the sign-up screen (CTAs / "Join Now").
+ * @property onSelectPlan - Optional; invoked with the chosen pricing tier id
+ *                          ('crammer' | 'guarantee' | 'beta') from the pricing cards.
+ */
 interface LandingPageProps {
     onStart: () => void;
     onLogin: () => void;
@@ -7,6 +16,13 @@ interface LandingPageProps {
     onSelectPlan?: (tier: string) => void;
 }
 
+/**
+ * LandingPage
+ *
+ * Marketing/home page: hero, feature highlights, and pricing tiers. Purely
+ * presentational — all navigation and purchase intent is delegated to the
+ * callbacks supplied via props.
+ */
 const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister, onSelectPlan }) => {
     return (
         <div className="min-h-screen bg-[#0F172A] text-white selection:bg-cyan-500/30">
@@ -74,11 +90,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister,
                         >
                             Start Studying Free
                         </button>
-                        <button 
-                            onClick={onLogin}
+                        <button
+                            onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
                             className="px-10 py-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-extrabold text-lg transition-all"
                         >
-                            View Demo
+                            See Pricing
                         </button>
                     </div>
 
@@ -127,7 +143,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onLogin, onRegister,
                             {[
                                 "Unlimited Device Switching",
                                 "Mobile-First Interactive UI",
-                                "Offline Progress Syncing",
+                                "Auto-Saved Progress",
                                 "Cloud-Based Rationale Engine"
                             ].map((item) => (
                                 <li key={item} className="flex items-center gap-3 text-gray-200">

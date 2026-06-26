@@ -21,19 +21,33 @@ def serve_bank_question(domain: str, difficulty: str, exclude_ids=None) -> dict:
 
     The returned dict also carries `bank_id` and `source='bank'`, plus the
     pre-minted learning aids (`core_concept`, `explain_differently`).
+
+    Args:
+        domain: OT competency domain to match.
+        difficulty: Difficulty label to match.
+        exclude_ids: Iterable of BankQuestion ids to skip (already-served items).
+
+    Returns:
+        A question dict shaped like ``generate_practice_question`` output, or
+        ``None`` when no matching approved bank item remains.
     """
     from .models import BankQuestion  # local import to avoid circulars
 
+    # Match approved items for this domain/difficulty, skipping any already used,
+    # and prefetch distractors to avoid N+1 queries when building the payload.
     qs = (BankQuestion.objects
           .filter(domain=domain, difficulty=difficulty, status='approved')
           .exclude(id__in=list(exclude_ids or []))
           .prefetch_related('distractors'))
+    # order_by('?') picks a random matching question (DB-level RANDOM()).
     bq = qs.order_by('?').first()
     if not bq:
         return None
 
     distractors = list(bq.distractors.all())
     options = [{"label": d.label, "text": d.text} for d in distractors]
+    # Build the incorrect-rationale map for the distractors only (exclude the
+    # correct option, and skip blanks).
     incorrect = {
         d.label: d.incorrect_rationale
         for d in distractors
@@ -49,6 +63,9 @@ def serve_bank_question(domain: str, difficulty: str, exclude_ids=None) -> dict:
         "explain_differently": bq.explain_differently or "",
         "topic": bq.topic or "",
         "bank_id": bq.id,
+        # Per-question domain so analytics can attribute MIXED/exam answers to the
+        # right NOTCE competency (session.domain is 'MIXED' for exams).
+        "domain": bq.domain,
         "source": "bank",
     }
 
@@ -69,13 +86,16 @@ def generate_practice_question(domain: str, difficulty: str,
         
     Returns:
         dict with keys: stem, options, correct_label, rationale, topic
+
+    Side effects:
+        Prints a diagnostic line if generation/JSON parsing fails.
     """
     client = get_client()
     if not client:
         return None
-        
+
     topics_covered = topics_covered or []
-    
+
     # Map difficulty to question characteristics
     difficulty_guidance = {
         'Easy': 'foundational recall-based question testing basic knowledge and definitions',
@@ -96,8 +116,12 @@ def generate_practice_question(domain: str, difficulty: str,
     domain_full = domain_names.get(domain, domain)
     diff_guidance = difficulty_guidance.get(difficulty, difficulty_guidance['Medium'])
     
+    # Inject a "don't repeat" clause only when prior topics exist, to keep the
+    # session varied across questions.
     avoid_topics = f"Avoid these specific topics already covered: {topics_covered}" if topics_covered else ""
-    
+
+    # Prompt pins the Canadian NOTCE context and the resolved domain/difficulty
+    # guidance, and demands the exact JSON schema the caller parses below.
     prompt = f"""
     Generate a single Occupational Therapy practice question for the Canadian NOTCE (National
     Occupational Therapy Certification Examination, administered by CAOT) under the September 2026
@@ -151,10 +175,11 @@ def generate_practice_question(domain: str, difficulty: str,
                 response_mime_type='application/json'
             )
         )
-        
+
+        # Strip any markdown fences before decoding the JSON into a dict.
         result = json.loads(clean_json_text(response.text))
         return result
-        
+
     except Exception as e:
         print(f"Mock Study Question Generation Error: {e}")
         return None
@@ -165,11 +190,22 @@ def generate_answer_feedback(question_stem: str, selected_label: str,
                               incorrect_rationales: dict) -> dict:
     """
     Generates personalized feedback for the user's answer.
-    
+
+    This is pure local logic (no AI/network call): it compares the chosen label
+    to the correct one and assembles a feedback payload.
+
+    Args:
+        question_stem: The question text (currently unused in the message body).
+        selected_label: The option label the user chose.
+        correct_label: The correct option label.
+        correct_rationale: Explanation of the correct answer.
+        incorrect_rationales: Map of label -> why-it-is-wrong text.
+
     Returns dict with: is_correct, feedback_message, explanation
     """
+    # Case-insensitive comparison so "a" and "A" are treated the same.
     is_correct = selected_label.upper() == correct_label.upper()
-    
+
     if is_correct:
         return {
             "is_correct": True,
@@ -190,11 +226,25 @@ def generate_pivot_scenario(original_stem: str, original_correct_label: str, ori
     """
     Generates a 'What If' pivot scenario based on an existing question.
     It changes a key variable to shift the clinical reasoning.
+
+    Args:
+        original_stem: The source question text.
+        original_correct_label: The source question's correct option label.
+        original_correct_rationale: Why that answer was correct.
+
+    Returns:
+        A dict (pivot_variable / new_scenario_snippet / change_explanation), or
+        ``None`` if no client is available or generation/parsing fails.
+
+    Side effects:
+        Prints a diagnostic line on error.
     """
     client = get_client()
     if not client:
         return None
-        
+
+    # Prompt instructs the model to alter exactly one clinical variable and
+    # explain the resulting reasoning shift, returned as the JSON parsed below.
     prompt = f"""
     You are an expert Clinical OT Exam Tutor.
     
@@ -227,8 +277,9 @@ def generate_pivot_scenario(original_stem: str, original_correct_label: str, ori
             )
         )
         
+        # Unwrap any fences and decode the pivot JSON into a dict.
         return json.loads(clean_json_text(response.text))
-        
+
     except Exception as e:
         print(f"Pivot Generation Error: {e}")
         return None
