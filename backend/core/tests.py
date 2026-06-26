@@ -16,6 +16,7 @@ from rest_framework.test import APITestCase
 
 from .models import (
     Organization, OrgMembership, OrgInvite, OrgRole, MembershipStatus, UserProfile,
+    CaseStudy, Question, UserAnswer, MockStudySession,
 )
 from .entitlements import user_has_premium, active_org_for
 
@@ -169,3 +170,73 @@ class InviteRedemptionTests(APITestCase):
         self.client.force_authenticate(invitee)
         resp = self.client.post("/api/organizations/accept_invite/", {"token": "nope"})
         self.assertEqual(resp.status_code, 400)
+
+
+class AnalyticsTests(APITestCase):
+    def setUp(self):
+        self.org = make_org("school-analytics")
+        self.instructor = make_user("instr_a")
+        self.s1 = make_user("learner1")
+        self.s2 = make_user("learner2")
+        OrgMembership.objects.create(organization=self.org, user=self.instructor, role=OrgRole.INSTRUCTOR, status=MembershipStatus.ACTIVE)
+        OrgMembership.objects.create(organization=self.org, user=self.s1, role=OrgRole.MEMBER, status=MembershipStatus.ACTIVE)
+        OrgMembership.objects.create(organization=self.org, user=self.s2, role=OrgRole.MEMBER, status=MembershipStatus.ACTIVE)
+        # Seed case-study answers (org-stamped) for learner1: 2/3 correct.
+        case = CaseStudy.objects.create(id="c-an", title="t", vignette="v", setting="s")
+        q = Question.objects.create(id="c-an-q1", case_study=case, stem="?", domain="OT_EXP", correct_label="A", correct_rationale="r")
+        for label, ok in [("A", True), ("A", True), ("B", False)]:
+            UserAnswer.objects.create(user=self.s1, question=q, selected_label=label, confidence="MED", is_correct=ok, organization=self.org)
+        # Seed a mock session (org-stamped) for learner2: 1/2 correct.
+        MockStudySession.objects.create(
+            user=self.s2, organization=self.org, domain="OT_EXP", difficulty="Medium",
+            total_questions=2, current_question=2, correct_count=1,
+            session_history=[{"is_correct": True}, {"is_correct": False}],
+        )
+
+    def test_instructor_sees_per_student_and_rollup(self):
+        self.client.force_authenticate(self.instructor)
+        resp = self.client.get(f"/api/organizations/{self.org.id}/analytics/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.data
+        self.assertEqual(data["summary"]["members"], 3)
+        self.assertEqual(data["summary"]["active_learners"], 2)
+        self.assertEqual(data["summary"]["answered"], 5)   # 3 case + 2 mock
+        self.assertEqual(data["summary"]["correct"], 3)    # 2 + 1
+        by_user = {s["username"]: s for s in data["students"]}
+        self.assertEqual(by_user["learner1"]["answered"], 3)
+        self.assertEqual(by_user["learner1"]["accuracy"], 67)
+        self.assertEqual(by_user["learner2"]["answered"], 2)
+        self.assertEqual(by_user["learner2"]["accuracy"], 50)
+
+    def test_plain_member_cannot_view_analytics(self):
+        self.client.force_authenticate(self.s1)
+        resp = self.client.get(f"/api/organizations/{self.org.id}/analytics/")
+        self.assertEqual(resp.status_code, 403)
+
+
+class OrgStampingTests(APITestCase):
+    """Verifies activity created through the real API is stamped with the org FK
+    (the basis for all cohort analytics)."""
+    def test_answer_submission_is_stamped_with_org(self):
+        org = make_org("school-stamp")
+        student = make_user("stamp_student")
+        OrgMembership.objects.create(organization=org, user=student, role=OrgRole.MEMBER, status=MembershipStatus.ACTIVE)
+        case = CaseStudy.objects.create(id="c-st", title="t", vignette="v", setting="s")
+        q = Question.objects.create(id="c-st-q1", case_study=case, stem="?", domain="OT_EXP", correct_label="A", correct_rationale="r")
+
+        self.client.force_authenticate(student)
+        resp = self.client.post("/api/answers/", {"question": q.id, "selected_label": "A", "confidence": "HIGH"})
+        self.assertEqual(resp.status_code, 201)
+        answer = UserAnswer.objects.get(user=student, question=q)
+        self.assertEqual(answer.organization_id, org.id)
+        self.assertTrue(answer.is_correct)
+
+    def test_b2c_answer_has_no_org(self):
+        student = make_user("solo_student")
+        case = CaseStudy.objects.create(id="c-solo", title="t", vignette="v", setting="s")
+        q = Question.objects.create(id="c-solo-q1", case_study=case, stem="?", domain="OT_EXP", correct_label="A", correct_rationale="r")
+        self.client.force_authenticate(student)
+        resp = self.client.post("/api/answers/", {"question": q.id, "selected_label": "B", "confidence": "LOW"})
+        self.assertEqual(resp.status_code, 201)
+        answer = UserAnswer.objects.get(user=student, question=q)
+        self.assertIsNone(answer.organization_id)

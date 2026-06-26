@@ -36,6 +36,7 @@ const OrgConsole: React.FC = () => {
   const [org, setOrg] = useState<Organization | null>(null);
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +80,18 @@ const OrgConsole: React.FC = () => {
     if (orgId !== null) load(orgId);
   }, [orgId, load]);
 
+  // Pending invites are admin-only; load them separately so an instructor's view
+  // (which would 403 here) isn't broken by the roster/analytics fetch.
+  const refreshInvites = React.useCallback(async (id: number) => {
+    try { setPendingInvites(await api.organizations.pendingInvites(id)); }
+    catch { setPendingInvites([]); }
+  }, []);
+
+  useEffect(() => {
+    if (orgId !== null && canManage) refreshInvites(orgId);
+    else setPendingInvites([]);
+  }, [orgId, canManage, refreshInvites]);
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgId || !inviteEmail.trim()) return;
@@ -87,7 +100,7 @@ const OrgConsole: React.FC = () => {
       await api.organizations.invite(orgId, inviteEmail.trim(), inviteRole);
       setActionMsg(`Invitation sent to ${inviteEmail.trim()}.`);
       setInviteEmail('');
-      load(orgId);
+      refreshInvites(orgId);
     } catch (e: any) {
       setActionMsg(e?.message || 'Invite failed');
     }
@@ -240,6 +253,22 @@ const OrgConsole: React.FC = () => {
               </form>
               {org && org.seats_available <= 0 && org.seats_total > 0 && (
                 <p className="text-xs text-amber-600 mt-2 font-semibold">No seats available — buy more before inviting new members.</p>
+              )}
+
+              {pendingInvites.length > 0 && (
+                <div className="mt-4 border-t border-gray-100 pt-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-400 font-bold mb-2">
+                    Pending invites ({pendingInvites.length})
+                  </p>
+                  <ul className="space-y-1">
+                    {pendingInvites.map(inv => (
+                      <li key={inv.id} className="flex items-center justify-between text-sm text-gray-600">
+                        <span>{inv.email}</span>
+                        <span className="text-xs text-gray-400">{ROLE_LABEL[inv.role as OrgRole] ?? inv.role}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}

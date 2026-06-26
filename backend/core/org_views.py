@@ -21,6 +21,7 @@ import logging
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -223,7 +224,7 @@ class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
         user_id = request.data.get('user_id')
         if not user_id:
             return Response({'error': 'user_id required'}, status=400)
-        target = org.memberships.filter(user_id=str(user_id)).first() or org.memberships.filter(user_id=user_id).first()
+        target = org.memberships.filter(user_id=user_id).first()
         if not target:
             return Response({'error': 'member not found'}, status=404)
         # Protect the last owner from removal.
@@ -265,34 +266,48 @@ class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
     # --- Invite redemption (any authenticated user holding the token) ---
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def accept_invite(self, request):
-        """Redeem an invite token for the current user. Body: {token}."""
+        """Redeem an invite token for the current user. Body: {token}.
+
+        Runs in a transaction with a row lock on the organization so concurrent
+        redemptions of the last seat can't over-allocate (the seat check and the
+        membership write are serialized per-org).
+        """
         token = (request.data.get('token') or '').strip()
         if not token:
             return Response({'error': 'token required'}, status=400)
+
         invite = OrgInvite.objects.filter(token=token).select_related('organization').first()
         if not invite or not invite.is_pending:
             return Response({'error': 'invalid or expired invitation'}, status=400)
 
-        org = invite.organization
-        existing = org.memberships.filter(user=request.user).first()
-        if existing and existing.status == MembershipStatus.ACTIVE:
-            invite.accepted_at = timezone.now()
-            invite.save(update_fields=['accepted_at'])
-            return Response(OrganizationSerializer(org, context={'request': request}).data)
+        try:
+            with transaction.atomic():
+                # Lock the org row: a second concurrent accept waits here until the
+                # first commits, then re-reads seats_used and sees the new count.
+                org = Organization.objects.select_for_update().get(pk=invite.organization_id)
+                existing = org.memberships.filter(user=request.user).first()
 
-        # Seat check for genuinely new active members.
-        if not existing and org.seats_total and org.seats_available <= 0:
-            return Response({'error': 'No seats available in this organization.'}, status=409)
+                if existing and existing.status == MembershipStatus.ACTIVE:
+                    invite.accepted_at = timezone.now()
+                    invite.save(update_fields=['accepted_at'])
+                    return Response(OrganizationSerializer(org, context={'request': request}).data)
 
-        if existing:
-            existing.status = MembershipStatus.ACTIVE
-            existing.role = invite.role
-            existing.save(update_fields=['status', 'role'])
-        else:
-            OrgMembership.objects.create(
-                organization=org, user=request.user,
-                role=invite.role, status=MembershipStatus.ACTIVE,
-            )
-        invite.accepted_at = timezone.now()
-        invite.save(update_fields=['accepted_at'])
+                # Seat check for genuinely new active members (re-evaluated under lock).
+                if not existing and org.seats_total and org.seats_available <= 0:
+                    return Response({'error': 'No seats available in this organization.'}, status=409)
+
+                if existing:
+                    existing.status = MembershipStatus.ACTIVE
+                    existing.role = invite.role
+                    existing.save(update_fields=['status', 'role'])
+                else:
+                    OrgMembership.objects.create(
+                        organization=org, user=request.user,
+                        role=invite.role, status=MembershipStatus.ACTIVE,
+                    )
+                invite.accepted_at = timezone.now()
+                invite.save(update_fields=['accepted_at'])
+        except Organization.DoesNotExist:
+            return Response({'error': 'organization no longer exists'}, status=404)
+
         return Response(OrganizationSerializer(org, context={'request': request}).data, status=201)
