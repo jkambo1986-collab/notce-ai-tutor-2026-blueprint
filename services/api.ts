@@ -25,17 +25,24 @@ const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // cross-site, so the backend hands us the value via /auth/csrf/ and we echo it
 // back in the X-CSRFToken header on unsafe requests.
 let _csrfToken: string | null = null;
+// Dedupes concurrent first-write fetches so we only hit /auth/csrf/ once.
+let _csrfInflight: Promise<string | null> | null = null;
 
 /** Lazily fetch (and cache) the CSRF token; primes the csrftoken cookie too. */
 async function ensureCsrf(): Promise<string | null> {
   if (_csrfToken) return _csrfToken;
-  try {
-    const r = await fetch(`${API_BASE_URL}/auth/csrf/`, { credentials: 'include' });
-    if (r.ok) _csrfToken = (await r.json()).csrfToken;
-  } catch {
-    /* offline / network error — unsafe requests will 403 until reachable */
-  }
-  return _csrfToken;
+  if (_csrfInflight) return _csrfInflight;
+  _csrfInflight = (async () => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/auth/csrf/`, { credentials: 'include' });
+      if (r.ok) _csrfToken = (await r.json()).csrfToken;
+    } catch {
+      /* offline / network error — unsafe requests will 403 until reachable */
+    }
+    _csrfInflight = null;
+    return _csrfToken;
+  })();
+  return _csrfInflight;
 }
 
 /**
@@ -62,6 +69,15 @@ async function request(path: string, init: RequestInit = {}, _retried = false): 
     const refreshed = await fetch(`${API_BASE_URL}/auth/refresh/`, { method: 'POST', credentials: 'include' });
     if (refreshed.ok) return request(path, init, true);
   }
+
+  // Stale/missing CSRF token on a write (cookie cleared or rotated server-side)
+  // → drop the cached token, re-prime, and retry once before giving up.
+  if (res.status === 403 && UNSAFE_METHODS.has(method) && !_retried && !path.startsWith('/auth/')) {
+    _csrfToken = null;
+    await ensureCsrf();
+    return request(path, init, true);
+  }
+
   return res;
 }
 
