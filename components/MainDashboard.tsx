@@ -14,6 +14,7 @@ import CaseGeneratorModal from './CaseGeneratorModal';
 import AnalyticsModal from './AnalyticsModal';
 import SavedProgressModal from './SavedProgressModal';
 import ReviewQueueModal from './ReviewQueueModal';
+import NotebookModal from './NotebookModal';
 import { useToast } from './ui/Feedback';
 
 /**
@@ -76,6 +77,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
     const [isProgressOpen, setIsProgressOpen] = useState(false);
     const [isReviewOpen, setIsReviewOpen] = useState(false);
+    const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     // Number of weak items due for review (badge on the Daily Review card).
     const [reviewCount, setReviewCount] = useState<number | null>(null);
     // True while the post-checkout payment sync request is in flight.
@@ -291,6 +293,22 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </div>
                     </button>
+
+                    {/* Notebook Card */}
+                    <button
+                        onClick={() => setIsNotebookOpen(true)}
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-left hover:shadow-lg hover:border-amber-200 transition-all group cursor-pointer"
+                    >
+                        <div className="h-12 w-12 bg-gradient-to-br from-amber-100 to-orange-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                        </div>
+                        <h3 className="font-bold text-gray-800 text-lg group-hover:text-amber-700 transition">My Notebook</h3>
+                        <p className="text-gray-500 text-sm mt-2">Saved rationales in one place — export a printable study sheet.</p>
+                        <div className="mt-4 text-amber-600 text-sm font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <span>Open Notebook</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </div>
+                    </button>
                 </div>
 
                 <div className={`bg-gradient-to-r from-teal-50 to-emerald-50 rounded-3xl p-8 border border-teal-100 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group ${!isPaid && !isTrial ? 'cursor-not-allowed' : ''}`}>
@@ -480,6 +498,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             <ReviewQueueModal
                 isOpen={isReviewOpen}
                 onClose={() => setIsReviewOpen(false)}
+            />
+
+            <NotebookModal
+                isOpen={isNotebookOpen}
+                onClose={() => setIsNotebookOpen(false)}
             />
 
             {/* Mock Study Components will be lifted to App.tsx for session state, but entry point is here */}

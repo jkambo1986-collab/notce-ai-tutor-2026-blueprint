@@ -293,3 +293,17 @@ export interface ReviewQueue {
     count: number;
     items: ReviewItem[];
 }
+
+/**
+ * --- RATIONALE NOTEBOOK ---
+ * A saved rationale/learning-aid entry (GET/POST/DELETE /api/notebook/).
+ */
+export interface NoteEntry {
+    id: string;
+    stem: string;
+    domain: string;
+    correct_label: string;
+    correct_text: string;
+    rationale: string;
+    source: string;
+}

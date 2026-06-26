@@ -10,7 +10,7 @@
  * transformers at the bottom of the file.
  */
 
-import { CaseStudy, User, Performance, ReviewQueue, Organization, OrgMember, OrgAnalytics, OrgRole } from '../types';
+import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, Organization, OrgMember, OrgAnalytics, OrgRole } from '../types';
 
 // Base URL for all API requests. Prefers the Vite-injected env var (set per
 // deployment), and falls back to the local dev backend when it's not defined.
@@ -121,6 +121,36 @@ export const api = {
     if (!response.ok) {
       throw new Error(`Failed to fetch review queue: ${response.statusText}`);
     }
+    return response.json();
+  },
+
+  /** Returns the user's saved rationale notebook. GET /notebook/ (auth). */
+  async getNotebook(): Promise<{ items: NoteEntry[] }> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/notebook/`, { headers });
+    if (!response.ok) throw new Error(`Failed to fetch notebook: ${response.statusText}`);
+    return response.json();
+  },
+
+  /** Saves (dedups by id) a rationale to the notebook. POST /notebook/ (auth). */
+  async addNote(entry: NoteEntry): Promise<{ items: NoteEntry[] }> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/notebook/`, { method: 'POST', headers, body: JSON.stringify(entry) });
+    if (!response.ok) throw new Error(`Failed to save note: ${response.statusText}`);
+    return response.json();
+  },
+
+  /** Removes a notebook entry by id. DELETE /notebook/?id=... (auth). */
+  async removeNote(id: string): Promise<{ items: NoteEntry[] }> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/notebook/?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers });
+    if (!response.ok) throw new Error(`Failed to remove note: ${response.statusText}`);
     return response.json();
   },
 

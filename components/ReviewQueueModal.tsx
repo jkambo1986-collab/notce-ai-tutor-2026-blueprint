@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { ReviewItem } from '../types';
 import { DOMAIN_INFO } from '../constants';
+import { useToast } from './ui/Feedback';
 
 interface ReviewQueueModalProps {
   isOpen: boolean;
@@ -20,18 +21,34 @@ const domainLabel = (code: string) =>
   (DOMAIN_INFO as Record<string, { label: string }>)[code]?.label || code;
 
 const ReviewQueueModal: React.FC<ReviewQueueModalProps> = ({ isOpen, onClose }) => {
+  const toast = useToast();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
   const [error, setError] = useState(false);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [saved, setSaved] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isOpen) return;
-    setItems(null); setError(false); setIndex(0); setRevealed(false);
+    setItems(null); setError(false); setIndex(0); setRevealed(false); setSaved(new Set());
     api.getReviewQueue()
       .then(q => setItems(q.items))
       .catch(() => setError(true));
   }, [isOpen]);
+
+  const saveCurrent = async (it: ReviewItem) => {
+    try {
+      await api.addNote({
+        id: it.id, stem: it.stem, domain: it.domain,
+        correct_label: it.correct_label, correct_text: it.correct_text,
+        rationale: it.rationale, source: it.source,
+      });
+      setSaved(prev => new Set(prev).add(it.id));
+      toast('Saved to your notebook.', 'success');
+    } catch {
+      toast('Could not save to notebook.', 'error');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -126,7 +143,17 @@ const ReviewQueueModal: React.FC<ReviewQueueModalProps> = ({ isOpen, onClose }) 
 
         {/* Footer actions (only on an active card) */}
         {items && total > 0 && index < total && item && (
-          <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+          <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-between items-center gap-3">
+            {revealed ? (
+              <button
+                onClick={() => saveCurrent(item)}
+                disabled={saved.has(item.id)}
+                className="px-4 py-3 rounded-xl font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition flex items-center gap-2 disabled:opacity-60 disabled:cursor-default"
+              >
+                <svg className="w-4 h-4" fill={saved.has(item.id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                {saved.has(item.id) ? 'Saved' : 'Save to notebook'}
+              </button>
+            ) : <span />}
             {!revealed ? (
               <button onClick={() => setRevealed(true)} className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">Reveal answer</button>
             ) : (

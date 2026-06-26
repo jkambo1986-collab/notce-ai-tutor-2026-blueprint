@@ -1142,6 +1142,61 @@ class ReviewQueueView(APIView):
             return Response({"error": "Failed to compute review queue"}, status=500)
 
 
+class NotebookView(APIView):
+    """
+    Personal rationale notebook: a per-user list of saved rationales/learning aids
+    the learner wants to keep and export before exam day. Backed by a single
+    AgentMemory row (key='notebook') — no dedicated model/migration.
+
+    GET    /notebook/        -> {"items": [...]}      (newest first)
+    POST   /notebook/        -> add/dedup an entry (by id), returns the list
+    DELETE /notebook/?id=... -> remove an entry, returns the list
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    KEY = 'notebook'
+    MAX_ITEMS = 200
+
+    def _row(self, user):
+        from .models import AgentMemory
+        row, _ = AgentMemory.objects.get_or_create(
+            user=user, key=self.KEY, defaults={'value': [], 'category': 'notebook'}
+        )
+        if not isinstance(row.value, list):
+            row.value = []
+        return row
+
+    def get(self, request):
+        return Response({'items': self._row(request.user).value})
+
+    def post(self, request):
+        entry = request.data or {}
+        eid = str(entry.get('id') or '').strip()
+        if not eid:
+            return Response({'error': 'id required'}, status=400)
+        row = self._row(request.user)
+        # Dedup by id, newest first, bounded length, sanitized fields.
+        items = [it for it in row.value if it.get('id') != eid]
+        items.insert(0, {
+            'id': eid,
+            'stem': entry.get('stem', ''),
+            'domain': entry.get('domain', ''),
+            'correct_label': entry.get('correct_label', ''),
+            'correct_text': entry.get('correct_text', ''),
+            'rationale': entry.get('rationale', ''),
+            'source': entry.get('source', ''),
+        })
+        row.value = items[:self.MAX_ITEMS]
+        row.save()
+        return Response({'items': row.value})
+
+    def delete(self, request):
+        eid = request.query_params.get('id') or (request.data or {}).get('id')
+        row = self._row(request.user)
+        row.value = [it for it in row.value if it.get('id') != eid]
+        row.save()
+        return Response({'items': row.value})
+
+
 class BankQuestionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Serves the vetted premium question bank. Approved items only.
