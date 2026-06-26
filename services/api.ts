@@ -1,5 +1,5 @@
 
-import { CaseStudy } from '../types';
+import { CaseStudy, User } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -329,10 +329,17 @@ export const api = {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
+    // Send Stripe back to the real app routes on whatever origin we're on.
+    // The backend appends ?session_id={CHECKOUT_SESSION_ID} to success_url.
+    const origin = window.location.origin;
     const response = await fetch(`${API_BASE_URL}/stripe/checkout/`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ tier })
+        body: JSON.stringify({
+            tier,
+            success_url: `${origin}/payment/success`,
+            cancel_url: `${origin}/payment/cancel`,
+        })
     });
     if (!response.ok) throw new Error('Checkout session creation failed');
     return response.json();

@@ -6,7 +6,9 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { CaseStudy, QuestionItem, Highlight, UserAnswer, ConfidenceLevel, DomainTag, DomainStats, ExpertHighlight, EvidenceLinkResult } from './types';
+import { VIEW_TO_PATH, PATH_TO_VIEW, isAppPath, HOME_PATH } from './routes';
 import { DOMAIN_INFO } from './constants';
 import HighlightableText from './components/HighlightableText';
 import MainDashboard from './components/MainDashboard';
@@ -65,8 +67,10 @@ const MainApp: React.FC = () => {
   // Evidence-Link analysis result (AI-identified clinical indicators)
   const [evidenceLinkResult, setEvidenceLinkResult] = useState<EvidenceLinkResult | null>(null);
   
-  // Current view mode
-  const [view, setView] = useState<'landing' | 'study' | 'dashboard' | 'mock-study' | 'exam-mode' | 'payment-success' | 'payment-cancel'>('landing');
+  // Routing: the current view is derived from the URL (single source of truth).
+  const navigate = useNavigate();
+  const location = useLocation();
+  const view = PATH_TO_VIEW[location.pathname] ?? 'landing';
   
   // Mock Study State
   const [isMockSetupOpen, setIsMockSetupOpen] = useState(false);
@@ -76,23 +80,36 @@ const MainApp: React.FC = () => {
 
   // --- EFFECTS ---
 
+    // On the payment-success route (Stripe redirect target), sync payment status
+    // with the backend and refresh the local profile. The route itself carries
+    // the ?session_id Stripe appends; we don't need to read it here.
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('session_id')) {
-            setView('payment-success');
-            // Sync payment status with backend and refresh local profile
+        if (view === 'payment-success') {
             api.syncPayment().then(() => {
                 refreshProfile();
             }).catch(err => {
                 console.error("Failed to sync payment:", err);
             });
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (urlParams.has('cancel')) {
-            setView('payment-cancel');
-            window.history.replaceState({}, document.title, window.location.pathname);
         }
-    }, [refreshProfile]);
+    }, [view, refreshProfile]);
+
+    // Route guards: keep the URL and the in-memory app state consistent.
+    useEffect(() => {
+        // Unknown/public path while authenticated -> the in-app home.
+        if (!isAppPath(location.pathname)) {
+            navigate(HOME_PATH, { replace: true });
+            return;
+        }
+        // Session-backed views need a live session; a deep-link or refresh has
+        // none in memory. Resume an active mock session if possible, else go home.
+        if ((view === 'mock-study' || view === 'exam-mode') && !mockSessionId) {
+            if (view === 'mock-study' && activeMockSession) {
+                handleResumeMockStudy();
+            } else {
+                navigate(HOME_PATH, { replace: true });
+            }
+        }
+    }, [location.pathname, view, mockSessionId, activeMockSession]);
 
     // Fetch initial data on mount
     useEffect(() => {
@@ -247,7 +264,7 @@ const MainApp: React.FC = () => {
     setAnswers([]);
     setCurrentQuestionIndex(0);
     setIsCaseComplete(false);
-    setView('study');
+    navigate('/study');
     setHighlights([]);
   };
 
@@ -294,7 +311,7 @@ const MainApp: React.FC = () => {
             const data = await api.mockStudy.start(domain, difficulty, length);
             setMockSessionId(data.session_id);
             setMockSessionData(data);
-            setView('mock-study');
+            navigate('/mock-study');
             setIsMockSetupOpen(false);
             setActiveMockSession(data); // Set as active
         } catch (err) {
@@ -309,7 +326,7 @@ const MainApp: React.FC = () => {
         if (activeMockSession) {
             setMockSessionId(activeMockSession.session_id);
             setMockSessionData(activeMockSession);
-            setView('mock-study');
+            navigate('/mock-study');
         }
     };
 
@@ -329,7 +346,7 @@ const MainApp: React.FC = () => {
             const data = await api.mockStudy.start("MIXED", "Exam", 200, 'exam');
             setMockSessionId(data.session_id);
             setMockSessionData(data);
-            setView('exam-mode');
+            navigate('/exam');
         } catch (err) {
             console.error("Failed to start exam:", err);
             alert("Failed to start exam session. Please try again.");
@@ -353,12 +370,12 @@ const MainApp: React.FC = () => {
                 handleLaunchExam();
                 break;
             default:
-                setView(target);
+                navigate(VIEW_TO_PATH[target]);
         }
     };
 
     /** Upgrade chip routes to Home, where plan/pricing options live. */
-    const handleUpgrade = () => setView('landing');
+    const handleUpgrade = () => navigate(HOME_PATH);
 
 
   // --- COMPUTED VALUES ---
@@ -427,9 +444,9 @@ const MainApp: React.FC = () => {
         )}
 
         {view === 'landing' && (
-            <MainDashboard 
-                onStartCase={handleGenerateCase} 
-                onResumeCase={() => setView('study')}
+            <MainDashboard
+                onStartCase={handleGenerateCase}
+                onResumeCase={() => navigate('/study')}
                 hasActiveCase={!!currentCase}
                 domainStats={domainStats}
                 totalAnswered={answers.length}
@@ -668,9 +685,9 @@ const MainApp: React.FC = () => {
 
                   <div className="flex gap-4">
                     <button onClick={resetCase} className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">Restart Case</button>
-                    <button onClick={() => setView('dashboard')} className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition">View Analytics</button>
+                    <button onClick={() => navigate('/dashboard')} className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition">View Analytics</button>
                     {/* Return to Dashboard */}
-                    <button onClick={() => setView('landing')} className="flex-1 py-4 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition">Home</button>
+                    <button onClick={() => navigate(HOME_PATH)} className="flex-1 py-4 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition">Home</button>
                   </div>
                 </div>
               )}
@@ -757,7 +774,7 @@ const MainApp: React.FC = () => {
                 sessionId={mockSessionId}
                 initialData={mockSessionData}
                 onExit={async () => {
-                    setView('landing');
+                    navigate(HOME_PATH);
                     setMockSessionId(null);
                     setMockSessionData(null);
                     // Refresh active session status
@@ -768,10 +785,10 @@ const MainApp: React.FC = () => {
         )}
 
         {view === 'exam-mode' && mockSessionId && mockSessionData && (
-            <ExamSession 
+            <ExamSession
                 sessionId={mockSessionId}
                 initialData={mockSessionData}
-                onExit={() => setView('landing')}
+                onExit={() => navigate(HOME_PATH)}
             />
         )}
 
@@ -782,7 +799,7 @@ const MainApp: React.FC = () => {
                 </div>
                 <h2 className="text-3xl font-black text-gray-900 mb-4">Payment Successful!</h2>
                 <p className="text-gray-600 mb-8 max-w-md">Thank you for your purchase. Your account has been upgraded and you now have full access to all features.</p>
-                <button onClick={() => setView('landing')} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition">Go to Dashboard</button>
+                <button onClick={() => navigate(HOME_PATH)} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition">Go to Dashboard</button>
             </div>
         )}
 
@@ -793,7 +810,7 @@ const MainApp: React.FC = () => {
                 </div>
                 <h2 className="text-3xl font-black text-gray-900 mb-4">Payment Cancelled</h2>
                 <p className="text-gray-600 mb-8 max-w-md">The payment process was cancelled. No charges were made.</p>
-                <button onClick={() => setView('landing')} className="px-8 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 transition">Return Home</button>
+                <button onClick={() => navigate(HOME_PATH)} className="px-8 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 transition">Return Home</button>
             </div>
         )}
     </AppShell>
@@ -801,17 +818,25 @@ const MainApp: React.FC = () => {
 };
 
 const App: React.FC = () => {
-    const { isAuthenticated } = useAuth();
-    const [authView, setAuthView] = useState<'landing' | 'login' | 'register' | 'verify'>('landing');
+    const { isAuthenticated, loading } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [pendingPlan, setPendingPlan] = useState<string | null>(null);
 
-    // Check for verification token
+    // Back-compat: legacy entrypoints that used to live on "/" as query strings
+    // (?token, ?session_id, ?cancel) are now real routes. Redirect old links so
+    // existing emails / Stripe configs keep working.
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
+        if (location.pathname !== '/') return;
+        const params = new URLSearchParams(location.search);
         if (params.get('token')) {
-            setAuthView('verify');
+            navigate('/verify' + location.search, { replace: true });
+        } else if (params.get('session_id')) {
+            navigate('/payment/success' + location.search, { replace: true });
+        } else if (params.has('cancel')) {
+            navigate('/payment/cancel', { replace: true });
         }
-    }, []);
+    }, [location.pathname, location.search, navigate]);
 
     const handleSelectPlan = async (tier: string) => {
         if (isAuthenticated) {
@@ -823,8 +848,9 @@ const App: React.FC = () => {
                 alert("Failed to initiate checkout. Please try again.");
             }
         } else {
+            // Send unauthenticated buyers through onboarding, then resume checkout.
             setPendingPlan(tier);
-            setAuthView('register');
+            navigate('/signup');
         }
     };
 
@@ -836,24 +862,52 @@ const App: React.FC = () => {
         }
     }, [isAuthenticated, pendingPlan]);
 
-    if (isAuthenticated) {
-        return <MainApp />;
+    // Wait for the token check before resolving routes; otherwise a logged-in
+    // user refreshing a deep link (e.g. /dashboard) would flash as logged-out
+    // and get bounced to /signin before auth resolves.
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#0F172A]">
+                <div className="h-12 w-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
     }
 
     return (
-        <>
-            {authView === 'landing' && (
-                <LandingPage 
-                    onStart={() => setAuthView('register')}
-                    onLogin={() => setAuthView('login')}
-                    onRegister={() => setAuthView('register')}
-                    onSelectPlan={handleSelectPlan}
-                />
+        <Routes>
+            {/* Email verification works in any auth state (clicked from an email). */}
+            <Route path="/verify" element={<VerifyEmailPage />} />
+
+            {!isAuthenticated && (
+                <>
+                    <Route
+                        path="/"
+                        element={
+                            <LandingPage
+                                onStart={() => navigate('/signup')}
+                                onLogin={() => navigate('/signin')}
+                                onRegister={() => navigate('/signup')}
+                                onSelectPlan={handleSelectPlan}
+                            />
+                        }
+                    />
+                    <Route path="/signin" element={<LoginPage onSwitch={() => navigate('/signup')} />} />
+                    <Route path="/signup" element={<RegisterPage onSwitch={() => navigate('/signin')} />} />
+                    {/* Aliases for the canonical auth routes. */}
+                    <Route path="/login" element={<Navigate to="/signin" replace />} />
+                    <Route path="/register" element={<Navigate to="/signup" replace />} />
+                    {/* Any protected or unknown path -> sign in. */}
+                    <Route path="*" element={<Navigate to="/signin" replace />} />
+                </>
             )}
-            {authView === 'login' && <LoginPage onSwitch={() => setAuthView('register')} />}
-            {authView === 'register' && <RegisterPage onSwitch={() => setAuthView('login')} />}
-            {authView === 'verify' && <VerifyEmailPage />}
-        </>
+
+            {isAuthenticated && (
+                // A single catch-all keeps MainApp mounted across every in-app
+                // navigation, so case / mock / exam state survives route changes.
+                // MainApp derives its view from the URL and guards bad paths.
+                <Route path="*" element={<MainApp />} />
+            )}
+        </Routes>
     );
 };
 

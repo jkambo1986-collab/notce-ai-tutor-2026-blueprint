@@ -13,7 +13,6 @@ interface MainDashboardProps {
     domainStats?: DomainStats[];
     totalAnswered?: number;
     totalCorrect?: number;
-    totalCorrect?: number;
     currentCaseId?: string;
     onStartMockStudy?: () => void;
     onResumeMockStudy?: () => void;

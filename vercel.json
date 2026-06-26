@@ -1,3 +1,6 @@
 {
-  "installCommand": "pip3 install -r requirements.txt --break-system-packages && npm install"
+  "installCommand": "pip3 install -r requirements.txt --break-system-packages && npm install",
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }
