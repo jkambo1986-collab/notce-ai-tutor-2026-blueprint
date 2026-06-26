@@ -19,12 +19,16 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 export const api = {
   /**
    * Fetches all available case studies.
-   * GET /cases/ (no auth). Sends nothing.
+   * GET /cases/ (Bearer auth required). Sends nothing.
    * Returns the list mapped through `transformCaseStudy` into typed CaseStudy objects.
    * Throws on a non-OK response.
    */
   async getCases(): Promise<CaseStudy[]> {
-    const response = await fetch(`${API_BASE_URL}/cases/`);
+    // /cases/ requires authentication; attach the JWT or the call 401s.
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/cases/`, { headers });
     if (!response.ok) {
       throw new Error(`Failed to fetch cases: ${response.statusText}`);
     }
@@ -34,11 +38,14 @@ export const api = {
 
   /**
    * Fetches a single case study by ID.
-   * GET /cases/{id}/ (no auth). Sends the `id` in the URL path.
+   * GET /cases/{id}/ (Bearer auth required). Sends the `id` in the URL path.
    * Returns the normalized CaseStudy. Throws on a non-OK response.
    */
   async getCase(id: string): Promise<CaseStudy> {
-    const response = await fetch(`${API_BASE_URL}/cases/${id}/`);
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/cases/${id}/`, { headers });
     if (!response.ok) {
       throw new Error(`Failed to fetch case ${id}: ${response.statusText}`);
     }
