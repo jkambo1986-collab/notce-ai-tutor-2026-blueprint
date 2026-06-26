@@ -31,7 +31,7 @@ import SettingsScreen from './components/SettingsScreen';
 import AcceptInvite, { PENDING_INVITE_KEY } from './components/AcceptInvite';
 import LegalPage from './components/Legal/LegalPage';
 import { FeedbackProvider, useToast, useConfirm } from './components/ui/Feedback';
-import OnboardingModal, { ONBOARDING_DISMISSED_KEY } from './components/OnboardingModal';
+import OnboardingModal from './components/OnboardingModal';
 
 /**
  * MainApp
@@ -209,6 +209,37 @@ const MainApp: React.FC = () => {
     }
   }, [currentCase]);
 
+  // Hydrate the case's persisted highlights + flagged questions from the backend
+  // whenever the active case changes, so a learner's notes survive refresh and
+  // follow them across devices (previously these lived only in memory).
+  useEffect(() => {
+    if (!currentCase) return;
+    const caseId = currentCase.id;
+    let cancelled = false;
+    (async () => {
+      const [serverHighlights, serverFlags] = await Promise.all([
+        api.highlights.list(caseId),
+        api.memory.get<string[]>(`study_flags:${caseId}`),
+      ]);
+      if (cancelled) return;
+      setHighlights(serverHighlights);
+      setFlaggedItems(new Set(serverFlags || []));
+    })();
+    return () => { cancelled = true; };
+  }, [currentCase?.id]);
+
+  // Auto-save study progress (current question index + completion) whenever it
+  // advances, so position is never lost — the manual "Save Progress" button is
+  // now just a backstop. Debounced to coalesce rapid changes.
+  useEffect(() => {
+    if (!currentCase || view !== 'study') return;
+    const caseId = currentCase.id;
+    const timer = setTimeout(() => {
+      api.saveSession(caseId, currentQuestionIndex, isCaseComplete).catch(() => { /* best-effort */ });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [currentCase?.id, currentQuestionIndex, isCaseComplete, view]);
+
   /**
    * Adaptive Logic Effect:
    * Generates an "evolving rationale" or tip using Gemini AI when the user progresses to a new question.
@@ -292,24 +323,33 @@ const MainApp: React.FC = () => {
 
   // --- ACTIONS ---
 
-  /** Append a new user highlight to the vignette. */
-  const addHighlight = (h: Highlight) => setHighlights(prev => [...prev, h]);
-  /** Remove a user highlight by its id. */
-  const removeHighlight = (id: string) => setHighlights(prev => prev.filter(h => h.id !== id));
+  /** Append a new user highlight and persist it to the backend (survives refresh / new device). */
+  const addHighlight = (h: Highlight) => {
+    setHighlights(prev => [...prev, h]);
+    if (currentCase) api.highlights.create(currentCase.id, { id: h.id, start: h.start, end: h.end, text: h.text });
+  };
+  /** Remove a user highlight by its id and delete it server-side. */
+  const removeHighlight = (id: string) => {
+    setHighlights(prev => prev.filter(h => h.id !== id));
+    api.highlights.remove(id);
+  };
 
-  /** Toggle a question's flagged-for-review state (local to the current case). */
+  /**
+   * Toggle a question's flagged-for-review state and persist the per-case flag
+   * set to the Django-backed memory store, so flags survive refresh and follow
+   * the user across devices.
+   */
   const toggleFlag = (questionId: string) => {
-    setFlaggedItems(prev => {
-      const next = new Set(prev);
-      if (next.has(questionId)) {
-        next.delete(questionId);
-        toast("Flag removed.", "info");
-      } else {
-        next.add(questionId);
-        toast("Item flagged for review.", "success");
-      }
-      return next;
-    });
+    const next = new Set(flaggedItems);
+    if (next.has(questionId)) {
+      next.delete(questionId);
+      toast("Flag removed.", "info");
+    } else {
+      next.add(questionId);
+      toast("Item flagged for review.", "success");
+    }
+    setFlaggedItems(next);
+    if (currentCase) api.memory.set(`study_flags:${currentCase.id}`, Array.from(next), 'study_flags');
   };
 
   /**
@@ -691,8 +731,8 @@ const MainApp: React.FC = () => {
             isOpen={
                 !!user?.userprofile &&
                 !user?.userprofile?.target_exam_date &&
-                !onboardingClosed &&
-                (() => { try { return localStorage.getItem(ONBOARDING_DISMISSED_KEY) !== 'true'; } catch { return true; } })()
+                !user?.userprofile?.onboarding_completed &&
+                !onboardingClosed
             }
             onClose={() => setOnboardingClosed(true)}
             onComplete={() => { setOnboardingClosed(true); refreshProfile(); }}

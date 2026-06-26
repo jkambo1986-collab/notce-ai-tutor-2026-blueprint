@@ -5,8 +5,9 @@
  * contextual top bar. Wraps the authenticated app views (study, mock, exam, analytics).
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { User } from '../types';
+import { getCachedPreference, loadPreference, savePreference } from '../services/preferences';
 
 /** Union of every top-level view the shell can host; doubles as the nav/page-title key. */
 export type ShellView =
@@ -52,7 +53,9 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-// localStorage key that persists the desktop sidebar collapsed/expanded preference.
+// Preference key for the desktop sidebar collapsed/expanded state. Persisted via
+// the Django-backed preference store (with a localStorage cache for instant first
+// paint) so the layout width follows the user across devices.
 const STORAGE_KEY = 'sidebar_collapsed';
 
 // --- Icons (inline so the shell has no asset/icon dependency) ---
@@ -143,25 +146,32 @@ const AppShell: React.FC<AppShellProps> = ({
   onOpenNotebook,
   children,
 }) => {
-  // Desktop collapse state, lazily initialized from localStorage so the layout
-  // reopens in the user's last-used width. Wrapped in try/catch for SSR/privacy modes.
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Desktop collapse state, seeded synchronously from the cached preference so the
+  // layout paints at the last-used width with no flash.
+  const [collapsed, setCollapsed] = useState<boolean>(() => getCachedPreference(STORAGE_KEY, false));
+  // Tracks whether the initial server reconciliation has run, so the first
+  // server-driven update doesn't get echoed straight back as a write.
+  const hydratedRef = useRef(false);
   // Whether the mobile drawer is currently open (no persistence needed).
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Persist the collapse preference whenever it changes.
+  // On mount, reconcile with the server copy (source of truth across devices).
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(collapsed));
-    } catch {
-      /* ignore storage failures */
-    }
+    let cancelled = false;
+    loadPreference(STORAGE_KEY, collapsed).then((value) => {
+      if (!cancelled) setCollapsed(value);
+      hydratedRef.current = true;
+    });
+    return () => { cancelled = true; };
+    // Run once on mount; collapsed is only the initial fallback here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist the collapse preference whenever the user changes it (skip the
+  // initial hydration write).
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    savePreference(STORAGE_KEY, collapsed);
   }, [collapsed]);
 
   // Close the mobile drawer whenever the active view changes.

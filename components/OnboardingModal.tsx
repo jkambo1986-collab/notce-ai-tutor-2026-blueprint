@@ -12,9 +12,6 @@ import { DomainTag } from '../types';
 import { DOMAIN_INFO } from '../constants';
 import { useToast } from './ui/Feedback';
 
-/** localStorage flag so a skipped wizard doesn't reappear every load. */
-export const ONBOARDING_DISMISSED_KEY = 'onboarding_dismissed';
-
 interface OnboardingModalProps {
   isOpen: boolean;
   /** Skip/close without finishing (records a local dismissal). */
@@ -43,7 +40,9 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, onCo
   };
 
   const dismiss = () => {
-    try { localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true'); } catch { /* ignore */ }
+    // Persist the dismissal server-side so the wizard doesn't reappear on other
+    // devices (best-effort; the modal closes regardless).
+    api.setOnboardingCompleted(true);
     onClose();
   };
 
@@ -54,7 +53,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, onCo
         target_exam_date: examDate || null,
         goal_domains: Array.from(goals),
       });
-      try { localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true'); } catch { /* ignore */ }
+      await api.setOnboardingCompleted(true);
       toast("You're set up — let's get studying!", 'success');
       onComplete();
     } catch (err) {

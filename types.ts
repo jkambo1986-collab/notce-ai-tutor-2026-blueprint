@@ -164,6 +164,7 @@ export interface UserProfile {
     target_exam_date: string | null; // User's chosen exam date (ISO string) or null if unset
     is_trial_active: boolean;       // True while the free trial period is still valid
     trial_end_date: string | null; // When the trial expires (ISO string) or null if no trial
+    onboarding_completed?: boolean; // True once the first-run wizard was finished/dismissed (server-persisted)
 }
 
 /**

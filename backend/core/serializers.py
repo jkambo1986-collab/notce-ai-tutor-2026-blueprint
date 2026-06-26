@@ -14,7 +14,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     computed `is_trial_active` and `trial_end_date` properties) to the client."""
     class Meta:
         model = UserProfile
-        fields = ('subscription_tier', 'is_paid', 'target_exam_date', 'is_trial_active', 'trial_end_date')
+        fields = ('subscription_tier', 'is_paid', 'target_exam_date', 'is_trial_active', 'trial_end_date', 'onboarding_completed')
 
 class UserSerializer(serializers.ModelSerializer):
     """

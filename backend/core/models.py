@@ -194,6 +194,9 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.TextField(blank=True)
     target_exam_date = models.DateField(null=True, blank=True)  # learner's goal exam date
+    # True once the user has completed/dismissed onboarding. Persisted here (not
+    # in browser localStorage) so the wizard doesn't re-appear on every device.
+    onboarding_completed = models.BooleanField(default=False)
     stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)  # links to the Stripe customer for billing
     subscription_tier = models.CharField(max_length=50, default='free') # 'free', 'crammer', 'guarantee', 'beta'
     is_paid = models.BooleanField(default=False)  # True once the user has an active paid subscription

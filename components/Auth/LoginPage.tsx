@@ -31,9 +31,10 @@ export const LoginPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
         setError('');
         setLoading(true);
         try {
-            // On success the API returns access/refresh tokens which we persist via AuthContext.login.
-            const data = await api.login(username, password);
-            login(data.access, data.refresh, username);
+            // On success the backend sets httpOnly auth cookies; we then hydrate
+            // the user profile through the context (no tokens touch JS).
+            await api.login(username, password);
+            await login();
             // Confirm the session started (previously only failures were surfaced).
             toast(`Welcome back, ${username}!`, 'success');
         } catch (err: any) {

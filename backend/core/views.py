@@ -27,6 +27,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import CaseStudy, Question, UserAnswer, Highlight, DomainTag, UserSession
 from .serializers import CaseStudySerializer, UserAnswerSerializer, HighlightSerializer, UserSessionSerializer, UserSerializer
 from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario, serve_bank_question, build_exam_question_set
@@ -172,11 +174,88 @@ class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
 class EmailOrUsernameTokenObtainPairView(TokenObtainPairView):
     """JWT login endpoint (POST) accepting username *or* email as the identifier.
 
-    Returns access/refresh tokens. Public so unauthenticated users can log in;
-    the email->username resolution lives in the serializer above.
+    On success sets the access/refresh JWTs as httpOnly cookies (so JS never sees
+    them) and returns only a success flag instead of the raw tokens. Public so
+    unauthenticated users can log in; email->username resolution lives in the
+    serializer above.
     """
     permission_classes = [permissions.AllowAny]
     serializer_class = EmailOrUsernameTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        from .authentication import set_auth_cookies
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200 and isinstance(response.data, dict):
+            set_auth_cookies(
+                response,
+                access=response.data.get('access'),
+                refresh=response.data.get('refresh'),
+            )
+            # Tokens now live in httpOnly cookies; don't echo them to JS.
+            response.data = {'success': True}
+        return response
+
+
+class CookieTokenRefreshView(APIView):
+    """Refreshes the access token from the httpOnly refresh cookie.
+
+    POST /auth/refresh/ — reads the refresh JWT from the cookie (or request body
+    as a fallback), mints a new access token, and re-sets the cookies. Clears the
+    cookies and 401s when the refresh token is missing/expired.
+    """
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []  # bootstrap endpoint; no auth required
+
+    def post(self, request):
+        from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+        from rest_framework_simplejwt.exceptions import TokenError
+        from .authentication import REFRESH_COOKIE, set_auth_cookies, clear_auth_cookies
+
+        refresh = request.data.get('refresh') or request.COOKIES.get(REFRESH_COOKIE)
+        if not refresh:
+            return Response({'detail': 'No refresh token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = TokenRefreshSerializer(data={'refresh': refresh})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except (TokenError, Exception):
+            resp = Response({'detail': 'Invalid or expired refresh token.'}, status=status.HTTP_401_UNAUTHORIZED)
+            return clear_auth_cookies(resp)
+
+        resp = Response({'success': True})
+        # `refresh` is only present in validated_data when ROTATE_REFRESH_TOKENS is on.
+        set_auth_cookies(
+            resp,
+            access=serializer.validated_data.get('access'),
+            refresh=serializer.validated_data.get('refresh'),
+        )
+        return resp
+
+
+class LogoutView(APIView):
+    """Clears the auth cookies. POST /auth/logout/. Public (idempotent)."""
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        from .authentication import clear_auth_cookies
+        return clear_auth_cookies(Response({'success': True}))
+
+
+@method_decorator(ensure_csrf_cookie, name='get')
+class CsrfView(APIView):
+    """Primes the CSRF cookie and returns the token value.
+
+    GET /auth/csrf/ — the cross-site SPA can't read the API domain's csrftoken
+    cookie via document.cookie, so we return the token in the body for it to echo
+    back in the ``X-CSRFToken`` header on subsequent unsafe requests.
+    """
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        from .authentication import prime_csrf
+        return Response({'csrfToken': prime_csrf(request)})
 
 
 class RegisterView(generics.CreateAPIView):
@@ -316,6 +395,12 @@ class MeView(APIView):
             raw = request.data.get('target_exam_date')
             profile.target_exam_date = parse_date(raw) if raw else None
             profile.save(update_fields=['target_exam_date'])
+
+        if 'onboarding_completed' in request.data:
+            # Persist the onboarding-dismissed flag server-side so it follows the
+            # user across devices (replaces the old localStorage-only flag).
+            profile.onboarding_completed = bool(request.data.get('onboarding_completed'))
+            profile.save(update_fields=['onboarding_completed'])
 
         if 'goal_domains' in request.data:
             from .models import AgentMemory
@@ -562,20 +647,50 @@ from .serializers import AgentMemorySerializer
 
 class AgentMemoryViewSet(viewsets.ModelViewSet):
     """
-    API endpoint for the agent to store/retrieve persistent memory.
+    Per-user key/value persistence store. Originally for AI-agent state, it now
+    also backs durable client preferences/flags that used to live in the
+    browser's localStorage (UI prefs, per-case study flags, etc.), so they follow
+    the user across devices. Optional ``?key=`` / ``?category=`` filters narrow
+    the list; the ``set`` action upserts by key.
     """
     queryset = AgentMemory.objects.all()
     serializer_class = AgentMemorySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Users only see their own memories? Or global agent memories?
-        # For this prototype, return user's memories.
-        return AgentMemory.objects.filter(user=self.request.user)
+        # Only ever expose the caller's own memories; support optional filtering
+        # by key (exact) and category so the client can fetch a single pref.
+        qs = AgentMemory.objects.filter(user=self.request.user)
+        key = self.request.query_params.get('key')
+        category = self.request.query_params.get('category')
+        if key:
+            qs = qs.filter(key=key)
+        if category:
+            qs = qs.filter(category=category)
+        return qs
 
     def perform_create(self, serializer):
         # Stamp ownership server-side so callers can't write memories for others.
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['post'])
+    def set(self, request):
+        """Upsert a memory entry by key (POST /memory/set/).
+
+        Body: ``{ "key": "...", "value": <any-json>, "category": "..." }``.
+        Idempotent per (user, key) so a preference write doesn't pile up rows.
+        """
+        key = request.data.get('key')
+        if not key:
+            return Response({'error': 'key is required'}, status=status.HTTP_400_BAD_REQUEST)
+        obj, _ = AgentMemory.objects.update_or_create(
+            user=request.user, key=key,
+            defaults={
+                'value': request.data.get('value'),
+                'category': request.data.get('category', 'general'),
+            },
+        )
+        return Response(AgentMemorySerializer(obj).data)
 
 class UserAnswerViewSet(viewsets.ModelViewSet):
     """Records and auto-grades a user's answers to case-study questions.
@@ -697,8 +812,13 @@ class HighlightViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Only ever expose the caller's own highlights.
-        return Highlight.objects.filter(user=self.request.user)
+        # Only ever expose the caller's own highlights; optionally scope to one
+        # case so study mode can hydrate just that vignette's highlights.
+        qs = Highlight.objects.filter(user=self.request.user)
+        case_id = self.request.query_params.get('case_study')
+        if case_id:
+            qs = qs.filter(case_study_id=case_id)
+        return qs
 
     def perform_create(self, serializer):
         # Force ownership to the authenticated user.
