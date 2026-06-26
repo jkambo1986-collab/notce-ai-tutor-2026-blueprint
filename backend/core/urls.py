@@ -14,6 +14,11 @@ from .differentiator_views import (
     CatStartView, CatAnswerView,
     EncounterStartView, EncounterMessageView, EncounterFinishView,
 )
+from .voice_views import (
+    TeachbackStartView, TeachbackMessageView, TeachbackFinishView,
+    HandoverStartView, HandoverMessageView, HandoverFinishView,
+    DailyBriefingView, DrillNextView,
+)
 
 # DRF router: auto-generates list/detail (and other) routes for each ViewSet.
 router = DefaultRouter()
@@ -49,6 +54,15 @@ urlpatterns = [
     path('encounter/start/', EncounterStartView.as_view(), name='encounter_start'),    # OSCE client encounter - start
     path('encounter/message/', EncounterMessageView.as_view(), name='encounter_message'),  # encounter - send turn
     path('encounter/finish/', EncounterFinishView.as_view(), name='encounter_finish'),     # encounter - score
+    # --- AI voice-driven feature suite ---
+    path('teachback/start/', TeachbackStartView.as_view(), name='teachback_start'),        # teach-it-back - start
+    path('teachback/message/', TeachbackMessageView.as_view(), name='teachback_message'),  # teach-it-back - turn
+    path('teachback/finish/', TeachbackFinishView.as_view(), name='teachback_finish'),     # teach-it-back - score
+    path('handover/start/', HandoverStartView.as_view(), name='handover_start'),           # SBAR handover - start
+    path('handover/message/', HandoverMessageView.as_view(), name='handover_message'),     # SBAR handover - turn
+    path('handover/finish/', HandoverFinishView.as_view(), name='handover_finish'),        # SBAR handover - score
+    path('briefing/', DailyBriefingView.as_view(), name='daily_briefing'),                 # personalized spoken daily digest
+    path('drill/next/', DrillNextView.as_view(), name='drill_next'),                       # eyes-free voice drill question
     # Router-generated resource endpoints (cases, answers, bank/*, etc.).
     path('', include(router.urls)),
     # --- Stripe billing ---
