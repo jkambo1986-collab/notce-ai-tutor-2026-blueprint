@@ -563,3 +563,27 @@ class ReviewItem(models.Model):
     def __str__(self):
         return f"{self.user.username} · {self.item_key} (box {self.box})"
 
+
+class CohortAssignment(models.Model):
+    """A study target an instructor/admin sets for their organization's cohort.
+
+    Lightweight by design: a title + optional domain focus + a question target and
+    optional due date. Students see active assignments for their org; we don't
+    track per-student completion here (the cohort analytics already show progress).
+    """
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='assignments')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_assignments')
+    title = models.CharField(max_length=160)
+    domain = models.CharField(max_length=20, choices=DomainTag.choices, blank=True, default='')  # blank = any domain
+    target_questions = models.PositiveIntegerField(default=20)
+    due_date = models.DateField(null=True, blank=True)
+    note = models.TextField(blank=True, default='')
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.organization.slug}] {self.title}"
+

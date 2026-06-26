@@ -14,7 +14,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { api } from '../services/api';
-import { Organization, OrgMember, OrgAnalytics, OrgMembership, OrgRole } from '../types';
+import { Organization, OrgMember, OrgAnalytics, OrgMembership, OrgRole, CohortAssignment } from '../types';
+import { DomainTag } from '../types';
+import { DOMAIN_INFO } from '../constants';
 
 const MANAGER_ROLES: OrgRole[] = ['owner', 'admin', 'instructor'];
 const ROLE_LABEL: Record<OrgRole, string> = {
@@ -37,6 +39,8 @@ const OrgConsole: React.FC = () => {
   const [analytics, setAnalytics] = useState<OrgAnalytics | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<CohortAssignment[]>([]);
+  const [newAssignment, setNewAssignment] = useState({ title: '', domain: '', target_questions: 20, due_date: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,14 +78,16 @@ const OrgConsole: React.FC = () => {
     setError(null);
     try {
       // Analytics requires instructor+, members requires instructor+ — both allowed here.
-      const [orgData, analyticsData, memberData] = await Promise.all([
+      const [orgData, analyticsData, memberData, assignmentData] = await Promise.all([
         api.organizations.get(id),
         api.organizations.analytics(id),
         api.organizations.members(id),
+        api.organizations.assignments(id),
       ]);
       setOrg(orgData);
       setAnalytics(analyticsData);
       setMembers(memberData);
+      setAssignments(assignmentData);
     } catch (e: any) {
       setError(e?.message || 'Failed to load organization data');
     } finally {
@@ -116,6 +122,34 @@ const OrgConsole: React.FC = () => {
       refreshInvites(orgId);
     } catch (e: any) {
       setActionMsg(e?.message || 'Invite failed');
+    }
+  };
+
+  const handleCreateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orgId || !newAssignment.title.trim()) return;
+    try {
+      await api.organizations.createAssignment(orgId, {
+        title: newAssignment.title.trim(),
+        domain: newAssignment.domain || '',
+        target_questions: Number(newAssignment.target_questions) || 20,
+        due_date: newAssignment.due_date || null,
+      });
+      setNewAssignment({ title: '', domain: '', target_questions: 20, due_date: '' });
+      setAssignments(await api.organizations.assignments(orgId));
+      setActionMsg('Assignment posted to your cohort.');
+    } catch (e: any) {
+      setActionMsg(e?.message || 'Could not create assignment');
+    }
+  };
+
+  const handleArchiveAssignment = async (id: number) => {
+    if (!orgId) return;
+    try {
+      await api.organizations.archiveAssignment(orgId, id);
+      setAssignments(prev => prev.filter(a => a.id !== id));
+    } catch (e: any) {
+      setActionMsg(e?.message || 'Could not archive assignment');
     }
   };
 
@@ -297,6 +331,72 @@ const OrgConsole: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* Cohort assignments (F5): instructors set targets students see on Home. */}
+          <div className={card}>
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Assignments</h2>
+            <form onSubmit={handleCreateAssignment} className="flex flex-wrap gap-2 items-end mb-4">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Title</label>
+                <input
+                  value={newAssignment.title}
+                  onChange={e => setNewAssignment(a => ({ ...a, title: e.target.value }))}
+                  placeholder="e.g. Drill Professional Responsibility"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Domain</label>
+                <select
+                  value={newAssignment.domain}
+                  onChange={e => setNewAssignment(a => ({ ...a, domain: e.target.value }))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">Any</option>
+                  {Object.values(DomainTag).map(d => (
+                    <option key={d} value={d}>{(DOMAIN_INFO as Record<string, { label: string }>)[d]?.label || d}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-20">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Target</label>
+                <input
+                  type="number" min={1}
+                  value={newAssignment.target_questions}
+                  onChange={e => setNewAssignment(a => ({ ...a, target_questions: Number(e.target.value) }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Due</label>
+                <input
+                  type="date"
+                  value={newAssignment.due_date}
+                  onChange={e => setNewAssignment(a => ({ ...a, due_date: e.target.value }))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <button type="submit" className="bg-teal-500 hover:bg-teal-400 text-white font-bold rounded-lg px-4 py-2 text-sm">Post</button>
+            </form>
+            {assignments.length === 0 ? (
+              <p className="text-sm text-gray-400">No active assignments.</p>
+            ) : (
+              <ul className="space-y-2">
+                {assignments.map(a => (
+                  <li key={a.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-2.5">
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">{a.title}</p>
+                      <p className="text-xs text-gray-400">
+                        {a.domain ? `${(DOMAIN_INFO as Record<string, { label: string }>)[a.domain]?.label || a.domain} · ` : ''}
+                        {a.target_questions} questions{a.due_date ? ` · due ${a.due_date}` : ''}
+                      </p>
+                    </div>
+                    <button onClick={() => handleArchiveAssignment(a.id)} className="text-xs font-semibold text-gray-400 hover:text-red-600">Archive</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {/* Roster + per-student performance */}
           <div className={card}>

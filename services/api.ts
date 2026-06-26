@@ -10,7 +10,7 @@
  * transformers at the bottom of the file.
  */
 
-import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, ExamState, Organization, OrgMember, OrgAnalytics, OrgRole } from '../types';
+import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, ExamState, Organization, OrgMember, OrgAnalytics, OrgRole, CohortAssignment } from '../types';
 
 // Base URL for all API requests. Prefers the Vite-injected env var (set per
 // deployment), and falls back to the local dev backend when it's not defined.
@@ -728,6 +728,37 @@ export const api = {
         method: 'POST', headers: await this._headers(), body: JSON.stringify({ user_id: userId }),
       });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Remove failed');
+    },
+
+    /** GET /organizations/{id}/assignments/ — active cohort assignments (members). */
+    async assignments(orgId: number): Promise<CohortAssignment[]> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/assignments/`, { headers: await this._headers() });
+      if (!response.ok) throw new Error('Failed to load assignments');
+      return response.json();
+    },
+
+    /** POST /organizations/{id}/assignments/ — create an assignment (instructor+). */
+    async createAssignment(orgId: number, data: Partial<CohortAssignment>): Promise<CohortAssignment> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/assignments/`, {
+        method: 'POST', headers: await this._headers(), body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Could not create assignment');
+      return response.json();
+    },
+
+    /** POST /organizations/{id}/assignments/{aid}/archive/ — deactivate (instructor+). */
+    async archiveAssignment(orgId: number, assignmentId: number): Promise<void> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/assignments/${assignmentId}/archive/`, {
+        method: 'POST', headers: await this._headers(),
+      });
+      if (!response.ok) throw new Error('Could not archive assignment');
+    },
+
+    /** GET /organizations/my_assignments/ — the caller's org assignments (student view). */
+    async myAssignments(): Promise<CohortAssignment[]> {
+      const response = await fetch(`${API_BASE_URL}/organizations/my_assignments/`, { headers: await this._headers() });
+      if (!response.ok) return [];
+      return response.json();
     },
 
     /** POST /organizations/accept_invite/ — redeem an invite token (any user). */

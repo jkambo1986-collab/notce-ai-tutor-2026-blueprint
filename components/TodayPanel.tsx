@@ -16,7 +16,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
-import { Performance } from '../types';
+import { Performance, CohortAssignment } from '../types';
 import { DOMAIN_INFO } from '../constants';
 
 const DOMAIN_LABEL = (code: string): string =>
@@ -48,6 +48,7 @@ const TodayPanel: React.FC<TodayPanelProps> = ({ reviewCount, onSmartDrill, onSt
   const canDrill = isPaid || isTrial;
 
   const [perf, setPerf] = useState<Performance | null>(null);
+  const [assignments, setAssignments] = useState<CohortAssignment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,6 +57,10 @@ const TodayPanel: React.FC<TodayPanelProps> = ({ reviewCount, onSmartDrill, onSt
       .then(p => { if (active) setPerf(p); })
       .catch(() => { /* non-fatal: panel degrades to a generic prompt */ })
       .finally(() => { if (active) setLoading(false); });
+    // B2B: surface any active assignments from the student's org instructor.
+    api.organizations.myAssignments()
+      .then(a => { if (active) setAssignments(a); })
+      .catch(() => { /* B2C users / no org → no assignments */ });
     return () => { active = false; };
   }, []);
 
@@ -141,6 +146,24 @@ const TodayPanel: React.FC<TodayPanelProps> = ({ reviewCount, onSmartDrill, onSt
           <p className="text-xs text-slate-400 mt-2">{bandStyle.line}</p>
         </div>
       </div>
+
+      {/* Assignments from the student's instructor (B2B). */}
+      {assignments.length > 0 && (
+        <div className="mt-5 pt-5 border-t border-white/10">
+          <p className="text-xs font-bold uppercase tracking-widest text-teal-300 mb-2">From your instructor</p>
+          <ul className="space-y-1.5">
+            {assignments.slice(0, 3).map(a => (
+              <li key={a.id} className="flex items-center gap-2 text-sm text-slate-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
+                <span className="font-semibold">{a.title}</span>
+                <span className="text-slate-400 text-xs">
+                  {a.domain ? `${DOMAIN_LABEL(a.domain)} · ` : ''}{a.target_questions} questions{a.due_date ? ` · due ${a.due_date}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

@@ -283,3 +283,38 @@ class SrsTests(APITestCase):
     def test_grade_unknown_item_404(self):
         resp = self.client.post("/api/review-queue/", {"item_key": "case:nope", "remembered": True}, format="json")
         self.assertEqual(resp.status_code, 404)
+
+
+class CohortAssignmentTests(APITestCase):
+    def setUp(self):
+        self.org = make_org("school-assign")
+        self.instructor = make_user("assign_instr")
+        self.student = make_user("assign_student")
+        OrgMembership.objects.create(organization=self.org, user=self.instructor, role=OrgRole.INSTRUCTOR, status=MembershipStatus.ACTIVE)
+        OrgMembership.objects.create(organization=self.org, user=self.student, role=OrgRole.MEMBER, status=MembershipStatus.ACTIVE)
+
+    def test_instructor_creates_student_reads(self):
+        self.client.force_authenticate(self.instructor)
+        c = self.client.post(f"/api/organizations/{self.org.id}/assignments/",
+                             {"title": "Drill PROF_RESP", "domain": "PROF_RESP", "target_questions": 25}, format="json")
+        self.assertEqual(c.status_code, 201)
+
+        # Student sees it via the no-org-id endpoint.
+        self.client.force_authenticate(self.student)
+        mine = self.client.get("/api/organizations/my_assignments/")
+        self.assertEqual(mine.status_code, 200)
+        self.assertEqual(len(mine.data), 1)
+        self.assertEqual(mine.data[0]["title"], "Drill PROF_RESP")
+
+    def test_student_cannot_create(self):
+        self.client.force_authenticate(self.student)
+        c = self.client.post(f"/api/organizations/{self.org.id}/assignments/",
+                             {"title": "x", "target_questions": 5}, format="json")
+        self.assertEqual(c.status_code, 403)
+
+    def test_b2c_user_has_no_assignments(self):
+        solo = make_user("assign_solo")
+        self.client.force_authenticate(solo)
+        resp = self.client.get("/api/organizations/my_assignments/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data, [])

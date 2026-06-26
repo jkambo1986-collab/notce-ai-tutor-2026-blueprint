@@ -232,3 +232,17 @@ class OrgInviteSerializer(serializers.ModelSerializer):
         fields = ('id', 'email', 'role', 'accepted_at', 'expires_at', 'created_at', 'is_pending')
         read_only_fields = ('id', 'accepted_at', 'created_at', 'is_pending')
 
+
+from .models import CohortAssignment
+
+
+class CohortAssignmentSerializer(serializers.ModelSerializer):
+    """A cohort study target set by an instructor; org/creator set server-side."""
+    org_name = serializers.CharField(source='organization.name', read_only=True)
+
+    class Meta:
+        model = CohortAssignment
+        fields = ('id', 'org_name', 'title', 'domain', 'target_questions',
+                  'due_date', 'note', 'is_active', 'created_at')
+        read_only_fields = ('id', 'org_name', 'is_active', 'created_at')
+

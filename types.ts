@@ -213,6 +213,19 @@ export interface Organization {
     my_role: OrgRole | null;
 }
 
+/** A cohort study target set by an instructor (/organizations/{id}/assignments/). */
+export interface CohortAssignment {
+    id: number;
+    org_name?: string;
+    title: string;
+    domain: string;          // '' = any domain
+    target_questions: number;
+    due_date: string | null;
+    note: string;
+    is_active: boolean;
+    created_at: string;
+}
+
 /** A member row in an org roster (/organizations/{id}/members/). */
 export interface OrgMember {
     id: number;

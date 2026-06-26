@@ -31,10 +31,14 @@ from django.db.models import Count, Q
 
 from .models import (
     Organization, OrgMembership, OrgInvite, OrgRole, MembershipStatus,
-    UserAnswer, MockStudySession,
+    UserAnswer, MockStudySession, CohortAssignment,
 )
-from .serializers import OrganizationSerializer, OrgMembershipSerializer, OrgInviteSerializer
-from .permissions import IsOrgAdmin, IsOrgInstructor
+from .serializers import (
+    OrganizationSerializer, OrgMembershipSerializer, OrgInviteSerializer,
+    CohortAssignmentSerializer,
+)
+from .permissions import IsOrgAdmin, IsOrgInstructor, IsOrgMember
+from .entitlements import active_org_for
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +135,34 @@ class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
             },
             'students': students,
         })
+
+    # --- Cohort assignments (instructors set targets; members read them) ---
+    @action(detail=True, methods=['get', 'post'], permission_classes=[permissions.IsAuthenticated, IsOrgMember])
+    def assignments(self, request, pk=None):
+        """GET: active assignments for this org (any member). POST: create one
+        (instructor/admin/owner only)."""
+        org = self.get_object()
+        if request.method.lower() == 'post':
+            m = _caller_membership(request, org)
+            if not (request.user.is_staff or (m and m.can_view_analytics)):
+                return Response({'error': 'instructor access required'}, status=403)
+            serializer = CohortAssignmentSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            obj = serializer.save(organization=org, created_by=request.user)
+            return Response(CohortAssignmentSerializer(obj).data, status=201)
+
+        qs = org.assignments.filter(is_active=True)
+        return Response(CohortAssignmentSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=['post'], url_path=r'assignments/(?P<assignment_id>\d+)/archive',
+            permission_classes=[permissions.IsAuthenticated, IsOrgInstructor])
+    def archive_assignment(self, request, pk=None, assignment_id=None):
+        """Deactivate an assignment (instructor/admin/owner)."""
+        org = self.get_object()
+        updated = org.assignments.filter(id=assignment_id).update(is_active=False)
+        if not updated:
+            return Response({'error': 'assignment not found'}, status=404)
+        return Response({'status': 'archived', 'id': assignment_id})
 
     # --- Invites ---
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsOrgAdmin])
@@ -262,6 +294,16 @@ class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception as e:  # noqa: BLE001
             logger.exception("Org seat checkout failed for %s", org.slug)
             return Response({'error': str(e)}, status=500)
+
+    # --- Student-facing: my org's active assignments (no org id needed) ---
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def my_assignments(self, request):
+        """Active assignments for the caller's primary org (empty for B2C users)."""
+        org = active_org_for(request.user)
+        if not org:
+            return Response([])
+        qs = org.assignments.filter(is_active=True)
+        return Response(CohortAssignmentSerializer(qs, many=True).data)
 
     # --- Invite redemption (any authenticated user holding the token) ---
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
