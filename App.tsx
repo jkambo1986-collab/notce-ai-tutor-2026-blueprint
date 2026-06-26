@@ -31,6 +31,7 @@ import SettingsScreen from './components/SettingsScreen';
 import AcceptInvite, { PENDING_INVITE_KEY } from './components/AcceptInvite';
 import LegalPage from './components/Legal/LegalPage';
 import { FeedbackProvider, useToast, useConfirm } from './components/ui/Feedback';
+import { Button, Badge, LoadingScreen, EmptyState } from './components/ui';
 import OnboardingModal from './components/OnboardingModal';
 
 /**
@@ -688,12 +689,11 @@ const MainApp: React.FC = () => {
     >
         {/* Generating overlay (sits over content; sidebar stays visible) */}
         {isGenerating && (
-            <div className="absolute inset-0 z-40 flex items-center justify-center bg-gray-50/95 backdrop-blur-sm">
-                <div className="text-center">
-                    <div className="h-16 w-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Generating Magic...</h2>
-                    <p className="text-gray-500 animate-pulse">Our AI is crafting a unique clinical scenario for you.</p>
-                </div>
+            <div className="absolute inset-0 z-40 flex items-center justify-center bg-canvas/95 backdrop-blur-md animate-fade-in">
+                <LoadingScreen
+                    title="Preparing your session"
+                    subtitle="Curating vetted clinical questions tuned to your focus."
+                />
             </div>
         )}
 
@@ -740,18 +740,16 @@ const MainApp: React.FC = () => {
 
         {/* Study Mode: two-pane layout (vignette + question flow) when a case is loaded */}
         {view === 'study' && currentCase && (
-          <div className="h-full flex flex-col md:flex-row">
+          <div className="h-full flex flex-col md:flex-row bg-canvas">
             {/* Desktop Left Panel: Clinical Vignette with Highlighting */}
-            <section className="hidden md:block w-1/2 lg:w-2/5 h-full bg-white border-r border-gray-200 overflow-y-auto p-8">
+            <section className="hidden md:block w-1/2 lg:w-2/5 h-full bg-white border-r border-slate-200/70 overflow-y-auto p-8 animate-fade-in-up">
               <div className="max-w-2xl mx-auto">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                    {currentCase.setting}
-                  </span>
-                  <span className="text-gray-300">|</span>
-                  <span className="text-sm text-gray-500 italic">Case ID: {currentCase.id}</span>
+                  <Badge tone="brand">{currentCase.setting}</Badge>
+                  <span className="text-slate-300">|</span>
+                  <span className="text-sm text-slate-400 italic">Case ID: {currentCase.id}</span>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">{currentCase.title}</h2>
+                <h2 className="text-2xl font-bold text-ink mb-6">{currentCase.title}</h2>
                 <HighlightableText 
                   text={currentCase.vignette}
                   highlights={highlights}
@@ -804,15 +802,15 @@ const MainApp: React.FC = () => {
                   </div>
                 )}
                 
-                <div className="mt-12 p-4 bg-yellow-50 rounded-lg border border-yellow-100 text-xs text-yellow-800">
+                <div className="mt-12 p-4 bg-amber-50 rounded-2xl ring-1 ring-amber-200/70 text-xs text-amber-800">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="font-bold">PRO-TIP: HIGHLIGHTING</p>
+                    <p className="font-bold uppercase tracking-wider">Pro-tip: Highlighting</p>
                     {/* Live count gives quiet feedback that highlights are being captured. */}
                     {highlights.length > 0 && (
-                      <span className="inline-flex items-center gap-1 bg-yellow-200 text-yellow-900 font-bold px-2 py-0.5 rounded-full">
+                      <Badge tone="warning">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                         {highlights.length} highlighted
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   <p>Click and drag text to highlight key clinical indicators. Your highlights will persist across all questions in this case bundle.</p>
@@ -821,21 +819,21 @@ const MainApp: React.FC = () => {
             </section>
 
             {/* Right Panel: Questions and Interactions */}
-            <section className="flex-1 h-full overflow-y-auto bg-gray-50 p-4 md:p-8">
+            <section className="flex-1 h-full overflow-y-auto bg-canvas p-4 md:p-8">
               {!isCaseComplete ? (
                 // Active Question View
-                <div className="max-w-xl mx-auto space-y-6">
+                <div className="max-w-xl mx-auto space-y-6 animate-fade-in-up">
                   {/* Progress Indicator Steps */}
                   <div className="flex items-center justify-between mb-8">
                     <div className="flex gap-2">
                       {currentCase.questions.map((_, i) => (
-                        <div 
-                          key={i} 
-                          className={`h-1.5 w-8 rounded-full transition-all duration-300 ${i === currentQuestionIndex ? 'bg-blue-600' : i < currentQuestionIndex ? 'bg-green-500' : 'bg-gray-200'}`}
+                        <div
+                          key={i}
+                          className={`h-1.5 w-8 rounded-full transition-all duration-300 ${i === currentQuestionIndex ? 'bg-brand-600' : i < currentQuestionIndex ? 'bg-emerald-500' : 'bg-slate-200'}`}
                         />
                       ))}
                     </div>
-                    <span className="text-sm font-bold text-gray-500 uppercase">Item {currentQuestionIndex + 1} of {currentCase.questions.length}</span>
+                    <span className="text-sm font-bold text-slate-500 uppercase tracking-wide">Item {currentQuestionIndex + 1} of {currentCase.questions.length}</span>
                     <button
                         onClick={async () => {
                             if (currentCase) {
@@ -847,7 +845,7 @@ const MainApp: React.FC = () => {
                                 }
                             }
                         }}
-                        className="text-xs font-bold text-green-600 hover:text-green-700 underline"
+                        className="text-xs font-bold text-brand-600 hover:text-brand-700 underline"
                     >
                         Save Progress
                     </button>
@@ -855,44 +853,44 @@ const MainApp: React.FC = () => {
 
                   {/* AI Evolving Tip Banner */}
                   {evolvingTip && (
-                    <div className="animate-in fade-in slide-in-from-top-4 duration-500 bg-blue-600 text-white p-4 rounded-xl shadow-lg flex gap-3 items-start border border-blue-400">
-                      <div className="bg-blue-400 p-1.5 rounded-lg text-white font-bold text-xs">AI</div>
+                    <div className="animate-in fade-in slide-in-from-top-4 duration-500 bg-gradient-to-b from-brand-500 to-brand-600 text-white p-4 rounded-2xl shadow-glow-teal flex gap-3 items-start ring-1 ring-inset ring-white/10">
+                      <div className="bg-white/20 p-1.5 rounded-lg text-white font-bold text-xs">AI</div>
                       <p className="text-sm italic leading-snug">{evolvingTip}</p>
                     </div>
                   )}
 
                   {/* Question Card */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="bg-white p-6 rounded-3xl shadow-card ring-1 ring-slate-200/70">
                     <div className="flex items-center justify-between mb-4">
-                      <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">{currentQuestion && DOMAIN_INFO[currentQuestion.domain].label}</span>
+                      <span className="text-xs font-bold text-brand-600 uppercase tracking-widest">{currentQuestion && DOMAIN_INFO[currentQuestion.domain].label}</span>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 leading-tight mb-8">{currentQuestion?.stem}</h3>
+                    <h3 className="text-xl font-bold text-ink leading-tight mb-8">{currentQuestion?.stem}</h3>
 
                     <div className="space-y-3">
                       {currentQuestion?.distractors.map((d) => (
                         <button
                           key={d.label}
                           onClick={() => setSelectedLabel(d.label)}
-                          className={`w-full text-left p-4 rounded-xl border-2 transition-all group flex gap-4 items-start ${selectedLabel === d.label ? 'border-blue-600 bg-blue-50 shadow-md' : 'border-gray-100 hover:border-blue-200 hover:bg-gray-50'}`}
+                          className={`w-full text-left p-4 rounded-2xl ring-1 transition-all duration-200 group flex gap-4 items-start active:scale-[.98] ${selectedLabel === d.label ? 'ring-2 ring-brand-500 bg-brand-50 shadow-card -translate-y-0.5' : 'ring-slate-200/70 hover:ring-brand-300 hover:bg-slate-50 hover:-translate-y-0.5'}`}
                         >
-                          <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-2 transition ${selectedLabel === d.label ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-400 group-hover:border-blue-400 group-hover:text-blue-600'}`}>
+                          <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ring-1 transition ${selectedLabel === d.label ? 'bg-brand-600 ring-brand-600 text-white' : 'bg-white ring-slate-200 text-slate-400 group-hover:ring-brand-400 group-hover:text-brand-600'}`}>
                             {d.label}
                           </span>
-                          <span className={`text-base font-medium ${selectedLabel === d.label ? 'text-blue-900' : 'text-gray-700'}`}>{d.text}</span>
+                          <span className={`text-base font-medium ${selectedLabel === d.label ? 'text-brand-900' : 'text-slate-700'}`}>{d.text}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {/* Confidence Selection */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <p className="text-sm font-bold text-gray-500 mb-4 uppercase text-center tracking-widest">Confidence Level</p>
+                  <div className="bg-white p-6 rounded-3xl shadow-card ring-1 ring-slate-200/70">
+                    <p className="text-sm font-bold text-slate-500 mb-4 uppercase text-center tracking-widest">Confidence Level</p>
                     <div className="flex gap-4">
                       {[ConfidenceLevel.LOW, ConfidenceLevel.MED, ConfidenceLevel.HIGH].map((lvl) => (
                         <button
                           key={lvl}
                           onClick={() => setSelectedConfidence(lvl)}
-                          className={`flex-1 py-3 px-2 rounded-xl border-2 font-bold text-xs uppercase tracking-widest transition-all ${selectedConfidence === lvl ? 'bg-gray-900 border-gray-900 text-white shadow-lg transform -translate-y-1' : 'border-gray-100 text-gray-400 hover:border-gray-200'}`}
+                          className={`flex-1 py-3 px-2 rounded-2xl ring-1 font-bold text-xs uppercase tracking-widest transition-all duration-200 active:scale-[.98] ${selectedConfidence === lvl ? 'bg-ink ring-ink text-white shadow-soft -translate-y-0.5' : 'ring-slate-200/70 text-slate-400 hover:ring-slate-300 hover:-translate-y-0.5'}`}
                         >
                           {lvl}
                         </button>
@@ -900,23 +898,17 @@ const MainApp: React.FC = () => {
                     </div>
                   </div>
 
-                  <button
+                  <Button
+                    size="lg"
+                    fullWidth
+                    loading={isSubmitting}
                     disabled={!selectedLabel || !selectedConfidence || isSubmitting}
                     onClick={handleNext}
-                    className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-blue-200 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex justify-center items-center gap-2"
                   >
-                    {isSubmitting ? (
-                        <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span>Analyzing...</span>
-                        </>
-                    ) : (
-                        currentQuestionIndex === currentCase.questions.length - 1 ? 'Finish Case Bundle' : 'Submit & Continue'
-                    )}
-                  </button>
+                    {isSubmitting
+                        ? 'Analyzing…'
+                        : currentQuestionIndex === currentCase.questions.length - 1 ? 'Finish Case Bundle' : 'Submit & Continue'}
+                  </Button>
 
                   <div className="flex flex-col items-center gap-2 pt-4">
                     <button
@@ -924,29 +916,29 @@ const MainApp: React.FC = () => {
                       className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest transition ${
                         currentQuestion && flaggedItems.has(currentQuestion.id)
                           ? 'text-amber-600'
-                          : 'text-gray-400 hover:text-amber-600'
+                          : 'text-slate-400 hover:text-amber-600'
                       }`}
                     >
                       <svg className="w-4 h-4" fill={currentQuestion && flaggedItems.has(currentQuestion.id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 2H21l-3 6 3 6h-8.5l-1-2H5a2 2 0 00-2 2z" /></svg>
                       {currentQuestion && flaggedItems.has(currentQuestion.id) ? 'Flagged for Review' : 'Flag Item for Review'}
                     </button>
-                    <p className="text-[10px] text-gray-300 font-medium tracking-wide">Tip: press A–D or 1–4 to choose, Enter to submit</p>
+                    <p className="text-[10px] text-slate-300 font-medium tracking-wide">Tip: press A–D or 1–4 to choose, Enter to submit</p>
                   </div>
                 </div>
               ) : (
                 // Case Complete / Summary View
-                <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                <div className="max-w-2xl mx-auto space-y-8 animate-scale-in">
                   <div className="text-center space-y-4">
-                    <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 text-green-600 rounded-full mb-4">
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl ring-1 ring-emerald-100 mb-4">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <h2 className="text-3xl font-extrabold text-gray-900">Case Complete</h2>
-                    <p className="text-gray-500">You've finished the "{currentCase.title}" bundle. Review your rationales below.</p>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-full font-bold text-sm">
+                    <h2 className="text-3xl font-extrabold text-ink">Case Complete</h2>
+                    <p className="text-slate-500">You've finished the "{currentCase.title}" bundle. Review your rationales below.</p>
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-white rounded-full font-bold text-sm shadow-soft">
                       Score: {totalCorrect} / {currentCase.questions.length}
-                      <span className="text-gray-300">·</span>
+                      <span className="text-slate-400">·</span>
                       {Math.round((totalCorrect / (currentCase.questions.length || 1)) * 100)}%
                     </div>
                   </div>
@@ -956,31 +948,31 @@ const MainApp: React.FC = () => {
                       const ans = answers.find(a => a.questionId === q.id);
                       const isCorrect = ans?.selectedLabel === q.correctLabel;
                       return (
-                        <div key={q.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                          <div className={`p-4 flex items-center justify-between ${isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
-                            <span className="font-bold text-sm">Question {idx + 1}</span>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${isCorrect ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
+                        <div key={q.id} className="bg-white rounded-3xl shadow-card ring-1 ring-slate-200/70 overflow-hidden">
+                          <div className={`p-4 flex items-center justify-between ${isCorrect ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                            <span className="font-bold text-sm text-ink">Question {idx + 1}</span>
+                            <Badge tone={isCorrect ? 'success' : 'danger'}>
                               {isCorrect ? 'Correct' : 'Incorrect'}
-                            </span>
+                            </Badge>
                           </div>
                           <div className="p-6 space-y-4">
-                            <p className="font-bold text-gray-800">{q.stem}</p>
+                            <p className="font-bold text-ink">{q.stem}</p>
                             <div className="grid grid-cols-2 gap-4 text-xs">
-                              <div className="bg-gray-50 p-3 rounded-lg">
-                                <p className="text-gray-400 uppercase font-bold mb-1">Your Answer</p>
-                                <p className="font-bold text-gray-700">{ans?.selectedLabel}: {q.distractors.find(d => d.label === ans?.selectedLabel)?.text}</p>
+                              <div className="bg-slate-50 p-3 rounded-xl ring-1 ring-slate-200/70">
+                                <p className="text-slate-400 uppercase font-bold mb-1">Your Answer</p>
+                                <p className="font-bold text-slate-700">{ans?.selectedLabel}: {q.distractors.find(d => d.label === ans?.selectedLabel)?.text}</p>
                               </div>
-                              <div className="bg-blue-50 p-3 rounded-lg">
-                                <p className="text-blue-400 uppercase font-bold mb-1">Correct Answer</p>
-                                <p className="font-bold text-blue-700">{q.correctLabel}: {q.distractors.find(d => d.label === q.correctLabel)?.text}</p>
+                              <div className="bg-brand-50 p-3 rounded-xl ring-1 ring-brand-100">
+                                <p className="text-brand-500 uppercase font-bold mb-1">Correct Answer</p>
+                                <p className="font-bold text-brand-700">{q.correctLabel}: {q.distractors.find(d => d.label === q.correctLabel)?.text}</p>
                               </div>
                             </div>
-                            <div className="bg-green-50 p-4 rounded-xl border border-green-100">
-                              <h4 className="text-sm font-bold text-green-800 mb-2">Rationale</h4>
-                              <p className="text-sm text-green-700 leading-relaxed">{q.correctRationale}</p>
+                            <div className="bg-emerald-50 p-4 rounded-2xl ring-1 ring-emerald-100">
+                              <h4 className="text-sm font-bold text-emerald-800 mb-2">Rationale</h4>
+                              <p className="text-sm text-emerald-700 leading-relaxed">{q.correctRationale}</p>
                             </div>
                             {!isCorrect && q.distractors.find(d => d.label === ans?.selectedLabel)?.incorrect_rationale && (
-                                <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                                <div className="bg-red-50 p-4 rounded-2xl ring-1 ring-red-100">
                                     <h4 className="text-sm font-bold text-red-800 mb-2">Why Your Choice was Incorrect</h4>
                                     <p className="text-sm text-red-700 leading-relaxed">
                                         {q.distractors.find(d => d.label === ans?.selectedLabel)?.incorrect_rationale}
@@ -994,10 +986,10 @@ const MainApp: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <button onClick={() => navigate('/dashboard')} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">View Analytics</button>
+                    <Button size="lg" fullWidth onClick={() => navigate('/dashboard')}>View Analytics</Button>
                     <div className="flex gap-3">
-                      <button onClick={resetCase} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">Restart Case</button>
-                      <button onClick={() => navigate(HOME_PATH)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">Home</button>
+                      <Button variant="outline" fullWidth onClick={resetCase}>Restart Case</Button>
+                      <Button variant="outline" fullWidth onClick={() => navigate(HOME_PATH)}>Home</Button>
                     </div>
                   </div>
                 </div>
@@ -1035,37 +1027,41 @@ const MainApp: React.FC = () => {
 
         {/* Study Mode empty state: no case loaded yet, prompt to generate one */}
         {view === 'study' && !currentCase && (
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mb-6">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No active case</h2>
-            <p className="text-gray-500 mb-8 max-w-sm">Generate an AI-crafted clinical case to start a study session.</p>
-            <button onClick={() => handleGenerateCase('Physical Rehabilitation', 'Medium')} className="px-6 py-3 bg-teal-500 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-400 transition">
-              Generate New Case
-            </button>
+          <div className="h-full flex flex-col items-center justify-center p-8 bg-canvas">
+            <EmptyState
+              icon={
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+              }
+              title="No active case"
+              description="Start a vetted clinical practice session to begin building your reasoning."
+              action={
+                <Button size="lg" onClick={() => handleGenerateCase('Physical Rehabilitation', 'Medium')}>
+                  Start Practice
+                </Button>
+              }
+            />
           </div>
         )}
 
         {view === 'dashboard' && (
           // Dashboard Analysis View
-          <div className="h-full overflow-y-auto p-4 md:p-12 bg-gray-50">
-            <div className="max-w-4xl mx-auto space-y-12">
+          <div className="h-full overflow-y-auto p-4 md:p-12 bg-canvas">
+            <div className="max-w-4xl mx-auto space-y-12 animate-fade-in-up">
               {/* Cross-session analytics (server-backed, all history) */}
               <div>
-                <h1 className="text-2xl font-extrabold text-gray-900 mb-1">Performance Hub</h1>
-                <p className="text-gray-500 mb-6">Your mastery across every case, drill, and exam.</p>
+                <h1 className="text-2xl font-extrabold text-ink mb-1">Performance Hub</h1>
+                <p className="text-slate-500 mb-6">Your mastery across every case, drill, and exam.</p>
                 <PerformanceHub />
               </div>
 
               {/* In-session competency radar (current case) */}
               <Dashboard stats={domainStats} />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">AI Validation Status</h4>
+                <div className="bg-white p-6 rounded-3xl shadow-card ring-1 ring-slate-200/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">AI Validation Status</h4>
                   {validationResult?.valid ? (
-                    <div className="flex items-center gap-2 text-green-600 font-bold text-sm">
+                    <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
@@ -1080,24 +1076,24 @@ const MainApp: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Review Queue</h4>
+                <div className="bg-white p-6 rounded-3xl shadow-card ring-1 ring-slate-200/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Review Queue</h4>
                   {(() => {
                     const incorrect = currentCase ? answers.filter(a => a.selectedLabel !== currentCase.questions.find(q => q.id === a.questionId)?.correctLabel).length : 0;
                     const lowConf = answers.filter(a => a.confidence === ConfidenceLevel.LOW).length;
                     const total = flaggedItems.size + incorrect;
                     return (
                       <>
-                        <p className="text-gray-900 font-bold">{total} item{total === 1 ? '' : 's'} to revisit</p>
-                        <p className="text-xs text-gray-500 mt-1">{flaggedItems.size} flagged · {incorrect} missed · {lowConf} low-confidence (this session)</p>
+                        <p className="text-ink font-bold">{total} item{total === 1 ? '' : 's'} to revisit</p>
+                        <p className="text-xs text-slate-500 mt-1">{flaggedItems.size} flagged · {incorrect} missed · {lowConf} low-confidence (this session)</p>
                       </>
                     );
                   })()}
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Logic Path</h4>
-                  <p className="text-gray-900 font-bold">{answers.filter(a => a.selectedLabel === currentCase.questions.find(q => q.id === a.questionId)?.correctLabel).length / (answers.length || 1) > 0.7 ? 'Competent Path' : 'Drifting'}</p>
-                  <p className="text-xs text-gray-500 mt-1">Your clinical reasoning is evolving.</p>
+                <div className="bg-white p-6 rounded-3xl shadow-card ring-1 ring-slate-200/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Logic Path</h4>
+                  <p className="text-ink font-bold">{answers.filter(a => a.selectedLabel === currentCase.questions.find(q => q.id === a.questionId)?.correctLabel).length / (answers.length || 1) > 0.7 ? 'Competent Path' : 'Drifting'}</p>
+                  <p className="text-xs text-slate-500 mt-1">Your clinical reasoning is evolving.</p>
                 </div>
               </div>
             </div>
@@ -1144,25 +1140,25 @@ const MainApp: React.FC = () => {
 
         {/* Stripe redirect target on success; payment sync runs in the effect above */}
         {view === 'payment-success' && (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-canvas animate-fade-in-up">
+                <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl ring-1 ring-emerald-100 flex items-center justify-center mb-6 animate-scale-in">
                     <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                 </div>
-                <h2 className="text-3xl font-black text-gray-900 mb-4">Payment Successful!</h2>
-                <p className="text-gray-600 mb-8 max-w-md">Thank you for your purchase. Your account has been upgraded and you now have full access to all features.</p>
-                <button onClick={() => navigate(HOME_PATH)} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition">Go to Dashboard</button>
+                <h2 className="text-3xl font-black text-ink mb-4">Payment Successful!</h2>
+                <p className="text-slate-500 mb-8 max-w-md">Thank you for your purchase. Your account has been upgraded and you now have full access to all features.</p>
+                <Button size="lg" onClick={() => navigate(HOME_PATH)}>Go to Dashboard</Button>
             </div>
         )}
 
         {/* Stripe redirect target when the user backs out of checkout (no charge) */}
         {view === 'payment-cancel' && (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-6">
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-canvas animate-fade-in-up">
+                <div className="w-20 h-20 bg-red-50 text-red-600 rounded-3xl ring-1 ring-red-100 flex items-center justify-center mb-6 animate-scale-in">
                     <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                 </div>
-                <h2 className="text-3xl font-black text-gray-900 mb-4">Payment Cancelled</h2>
-                <p className="text-gray-600 mb-8 max-w-md">The payment process was cancelled. No charges were made.</p>
-                <button onClick={() => navigate(HOME_PATH)} className="px-8 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 transition">Return Home</button>
+                <h2 className="text-3xl font-black text-ink mb-4">Payment Cancelled</h2>
+                <p className="text-slate-500 mb-8 max-w-md">The payment process was cancelled. No charges were made.</p>
+                <Button variant="outline" size="lg" onClick={() => navigate(HOME_PATH)}>Return Home</Button>
             </div>
         )}
     </AppShell>
