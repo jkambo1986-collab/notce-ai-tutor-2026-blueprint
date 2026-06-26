@@ -208,7 +208,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
   // --- RENDER: empty/guard ---
   if (total === 0 && !finalScore) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
+      <div className="h-full bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">No exam questions available</h2>
         <p className="text-gray-500 mb-6">The question bank doesn't have enough approved items for an exam yet.</p>
         <button onClick={onExit} className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold">Exit</button>
@@ -220,7 +220,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
   if (finalScore) {
     const passed = finalScore.percentage >= PASS_THRESHOLD;
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="h-full bg-gray-50 flex flex-col overflow-y-auto">
         <div className={`p-12 text-center text-white bg-gradient-to-r ${passed ? 'from-cyan-400 to-emerald-400' : 'from-amber-400 to-orange-500'}`}>
           <h2 className="text-4xl font-extrabold mb-2">Exam Complete</h2>
           <p className="text-white/90 text-xl">
@@ -328,9 +328,9 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-white flex items-center justify-between sticky top-0 z-30">
+    <div className="h-full bg-gray-50 flex flex-col overflow-hidden">
+      {/* Header (fixed; only the body below scrolls) */}
+      <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-3 text-white flex items-center justify-between flex-shrink-0 z-30">
         <div>
           <h1 className="text-xl font-bold leading-none">Exam Simulation</h1>
           <p className="text-white/70 text-xs mt-1">{answeredCount} of {total} answered{flags.size ? ` · ${flags.size} flagged` : ''}</p>
@@ -344,10 +344,11 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
         </div>
       </div>
 
-      <div className="flex-1 w-full max-w-6xl mx-auto px-4 lg:px-8 py-6 flex gap-6">
+      <div className="flex-1 overflow-y-auto">
+       <div className="w-full max-w-6xl mx-auto px-4 lg:px-8 py-5 flex gap-6">
         {/* Question column */}
         <main className="flex-1 min-w-0">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 lg:p-6">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
                 Question {current + 1} of {total} · {domainLabel(q?.domain || '')}
@@ -361,7 +362,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
               </button>
             </div>
 
-            <div className="text-lg leading-relaxed text-gray-800 mb-6">
+            <div className="text-base md:text-lg leading-relaxed text-gray-800 mb-5">
               <HighlightableText
                 text={q?.stem || ''}
                 highlights={highlights}
@@ -370,7 +371,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
               />
             </div>
 
-            <div className="space-y-3" role="radiogroup" aria-label="Answer options">
+            <div className="space-y-2.5" role="radiogroup" aria-label="Answer options">
               {(q?.options || []).map(option => {
                 const isSelected = selected === option.label;
                 return (
@@ -379,7 +380,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
                     role="radio"
                     aria-checked={isSelected}
                     onClick={() => selectAnswer(option.label)}
-                    className={`w-full text-left p-4 flex items-center gap-4 rounded-xl border-2 transition ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50/50 hover:border-blue-200'}`}
+                    className={`w-full text-left p-3.5 flex items-center gap-3.5 rounded-xl border-2 transition ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50/50 hover:border-blue-200'}`}
                   >
                     <span className={`flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold ${isSelected ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 text-gray-400'}`}>{option.label}</span>
                     <span className={`text-base ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>{option.text}</span>
@@ -393,7 +394,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
             )}
 
             {/* Prev / Next */}
-            <div className="mt-8 flex items-center justify-between">
+            <div className="mt-6 flex items-center justify-between">
               <button onClick={() => goTo(current - 1)} disabled={current === 0} className="px-5 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition disabled:opacity-40">← Previous</button>
               {current < total - 1 ? (
                 <button onClick={() => goTo(current + 1)} className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition">Next →</button>
@@ -406,11 +407,12 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
 
         {/* Desktop navigator */}
         <aside className="hidden lg:block w-64 flex-shrink-0">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-24">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-2">
             <h3 className="text-sm font-bold text-gray-700 mb-4">Question Navigator</h3>
             {navigator}
           </div>
         </aside>
+       </div>
       </div>
 
       {/* Mobile navigator sheet */}

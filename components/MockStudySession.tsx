@@ -256,7 +256,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     // --- RENDER: LOADING STATE ---
     if (isLoading && !feedback && !finalScore) {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
+            <div className="h-full bg-gray-50 flex flex-col items-center justify-center p-8">
                 <div className="bg-white p-10 rounded-3xl shadow-xl flex flex-col items-center max-w-lg w-full text-center space-y-6 animate-pulse">
                     <div className="w-20 h-20 relative">
                         <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
@@ -279,7 +279,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     if (finalScore) {
         const passed = finalScore.percentage >= PASS_THRESHOLD;
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col">
+            <div className="h-full bg-gray-50 flex flex-col overflow-y-auto">
                 {/* Gradient Header */}
                 <div className={`p-12 text-center text-white bg-gradient-to-r ${passed ? 'from-cyan-400 to-emerald-400' : 'from-amber-400 to-orange-500'}`}>
                     <h2 className="text-4xl font-extrabold mb-2">{passed ? 'Well done!' : 'Keep going.'}</h2>
@@ -390,77 +390,55 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
 
     // --- RENDER: QUESTION VIEW ---
     return (
-        <div className="min-h-screen bg-white flex flex-col">
-            {/* Header: Gradient + Step Indicators */}
-            <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-4 md:p-6 text-white relative">
-                <div className="max-w-6xl mx-auto">
-                    <div className="flex justify-between items-center gap-3 mb-6 md:mb-8">
-                        <h1 className="text-lg md:text-2xl font-bold">Multichoice MCQ</h1>
-                        <div className="flex items-center gap-2 opacity-90">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="font-mono text-lg font-bold">Time - {formatTime(elapsed)}</span>
-                        </div>
-                    </div>
-
-                    {/* Step Indicators */}
-                    <div className="flex items-center justify-center relative">
-                        {/* Removed connecting line per user request */}
-                        
-                        <div className="flex justify-between w-full max-w-sm relative z-10">
+        <div className="h-full bg-white flex flex-col overflow-hidden">
+            {/* Compact header: title, progress dots, timer + Save/Exit on one row */}
+            <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 px-5 py-2.5 text-white flex-shrink-0">
+                <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                        <h1 className="text-base font-bold whitespace-nowrap">Multichoice MCQ</h1>
+                        {/* Step dots: compact sliding window */}
+                        <div className="hidden sm:flex items-center gap-1.5">
                             {(() => {
-                                // Sliding window of up to 5 step bubbles centered on the current
-                                // question, clamped to [1, total] so the count stays constant.
                                 const maxVisible = 5;
                                 let start = Math.max(1, progress.current - Math.floor(maxVisible / 2));
                                 let end = Math.min(progress.total, start + maxVisible - 1);
-                                
-                                if (end - start + 1 < maxVisible) {
-                                    start = Math.max(1, end - maxVisible + 1);
-                                }
-                                
+                                if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
                                 return Array.from({ length: end - start + 1 }).map((_, i) => {
                                     const stepNum = start + i;
                                     const isPassed = progress.current > stepNum;
                                     const isCurrent = progress.current === stepNum;
-                                    
                                     return (
-                                        <div key={stepNum} className="flex flex-col items-center">
-                                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-xs md:text-sm transition-all shadow-lg ${
-                                                isCurrent ? 'bg-blue-600 text-white border-2 border-white' : 
-                                                isPassed ? 'bg-emerald-500 text-white' : 
-                                                'bg-white text-cyan-500'
-                                            }`}>
-                                                {stepNum}
-                                                {isCurrent && <div className="absolute -bottom-1 w-1.5 h-1.5 bg-red-500 rounded-full" />}
-                                            </div>
-                                        </div>
+                                        <div key={stepNum} className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] transition-all ${
+                                            isCurrent ? 'bg-white text-cyan-600 ring-2 ring-white' :
+                                            isPassed ? 'bg-white/40 text-white' :
+                                            'bg-white/20 text-white/80'
+                                        }`}>{stepNum}</div>
                                     );
                                 });
                             })()}
                         </div>
                     </div>
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                        <span className="font-mono text-sm font-bold whitespace-nowrap">{formatTime(elapsed)}</span>
+                        <button
+                            onClick={handleSaveAndExit}
+                            disabled={isLoading}
+                            className="flex items-center gap-1.5 text-sm font-bold text-white/90 hover:text-white transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v6h6M3 13a9 9 0 109-9" /></svg>
+                            <span className="hidden sm:inline">Save &amp; Exit</span>
+                        </button>
+                    </div>
+                </div>
+                {/* Thin progress bar (replaces the tall step row's vertical cost). */}
+                <div className="max-w-6xl mx-auto mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-white rounded-full transition-all duration-300" style={{ width: `${Math.round((progress.current / progress.total) * 100)}%` }} />
                 </div>
             </div>
 
-            {/* Sub-Header: Save/Exit & Context */}
-            <div className="bg-white px-6 py-4 flex justify-between items-center border-b border-gray-100">
-                <button
-                    onClick={handleSaveAndExit}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v6h6M3 13a9 9 0 109-9" /></svg>
-                    Save &amp; Exit
-                </button>
-                <div className="text-gray-400 font-bold text-sm">
-                    {progress.current}. Question
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <main className="flex-1 max-w-6xl mx-auto w-full px-6 lg:px-12 pb-24 pt-6 space-y-6">
+            {/* Scrollable content region — only this scrolls, header + action bar stay put */}
+            <main className="flex-1 overflow-y-auto">
+              <div className="max-w-3xl mx-auto w-full px-6 lg:px-8 py-5 space-y-4">
                 {/* Persistent action error with a clear escape (A9). */}
                 {actionError && (
                     <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
@@ -488,13 +466,13 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                 </div>
 
                 {/* Options List (single-select; radio semantics) */}
-                <div className="space-y-3" role="radiogroup" aria-label="Answer options">
+                <div className="space-y-2.5" role="radiogroup" aria-label="Answer options">
                     {currentQuestion.options.map((option: any) => {
                         const isSelected = selectedLabel === option.label;
                         const isTheCorrect = !!feedback && correctLabel === option.label;
                         const isWrongPick = !!feedback && isSelected && !feedback.is_correct;
 
-                        let cardClasses = "w-full text-left p-4 flex items-center gap-4 transition-all rounded-xl border-2 ";
+                        let cardClasses = "w-full text-left p-3.5 flex items-center gap-3.5 transition-all rounded-xl border-2 ";
 
                         if (feedback) {
                             if (isTheCorrect) {
@@ -545,22 +523,17 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
 
                 {/* Feedback Panel */}
                 {feedback && (
-                    <div className={`rounded-3xl p-8 animate-in slide-in-from-bottom-4 duration-300 border ${feedback.is_correct ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
-                        <div className="flex gap-4 mb-4">
-                            <div className={`text-4xl ${feedback.is_correct ? 'animate-bounce' : ''}`}>
+                    <div className={`rounded-2xl p-5 animate-in slide-in-from-bottom-4 duration-300 border ${feedback.is_correct ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                        <div className="flex gap-3 mb-3 items-center">
+                            <div className={`text-2xl ${feedback.is_correct ? 'animate-bounce' : ''}`}>
                                 {feedback.is_correct ? '🎉' : '💡'}
                             </div>
-                            <div>
-                                <h3 className={`text-xl font-bold ${feedback.is_correct ? 'text-green-800' : 'text-red-800'}`}>
-                                    {feedback.feedback_message}
-                                </h3>
-                                <p className={`font-medium mt-1 ${feedback.is_correct ? 'text-green-700' : 'text-red-700'}`}>
-                                    Let's look at the reasoning.
-                                </p>
-                            </div>
+                            <h3 className={`text-base font-bold ${feedback.is_correct ? 'text-green-800' : 'text-red-800'}`}>
+                                {feedback.feedback_message}
+                            </h3>
                         </div>
-                        <div className="prose prose-sm max-w-none bg-white/50 p-6 rounded-2xl">
-                             <div className="text-gray-700 text-base leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
+                        <div className="bg-white/60 p-4 rounded-xl">
+                             <div className="text-gray-700 text-sm md:text-base leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
                                 {(feedback.explanation || '')
                                     .replace(/\*\*([^*]+)\*\*/g, '$1')
                                     .replace(/\*([^*]+)\*/g, '$1')
@@ -607,7 +580,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
 
                 {/* Pivot Scenario Display */}
                 {pivotData && (
-                    <div className="bg-amber-50 rounded-3xl p-8 border border-amber-200 animate-in fade-in duration-500">
+                    <div className="bg-amber-50 rounded-2xl p-5 border border-amber-200 animate-in fade-in duration-500">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2 bg-amber-100 rounded-lg text-amber-700">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -636,30 +609,29 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                         </div>
                     </div>
                 )}
+              </div>
             </main>
 
-            {/* Bottom Action Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40">
-                <div className="max-w-6xl mx-auto px-6 lg:px-12 flex justify-end">
+            {/* Pinned action bar — part of the column, always visible (no scrolling). */}
+            <div className="flex-shrink-0 bg-white border-t border-gray-100 px-6 lg:px-8 py-3">
+                <div className="max-w-3xl mx-auto flex justify-end">
                     {!feedback ? (
                         <button
                             onClick={handleSubmitAnswer}
                             disabled={!selectedLabel || isLoading}
-                            className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-600 text-white px-12 py-4 rounded font-bold text-lg transition-all flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-10 py-3 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2"
                         >
-                            {isLoading ? 'Checking...' : 'Next'}
+                            {isLoading ? 'Checking...' : 'Submit'}
                             {!isLoading && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>}
                         </button>
                     ) : (
-                        <div className="w-full flex gap-4">
-                            <button
-                                onClick={handleNextQuestion}
-                                className="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-4 rounded font-bold text-lg transition-all flex items-center justify-center gap-2"
-                            >
-                                <span>{loadingMessage ? 'Continue...' : (isComplete ? 'Finish Session' : 'Next')}</span>
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                            </button>
-                        </div>
+                        <button
+                            onClick={handleNextQuestion}
+                            className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-600 text-white px-10 py-3 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2"
+                        >
+                            <span>{loadingMessage ? 'Continue...' : (isComplete ? 'Finish Session' : 'Next Question')}</span>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                        </button>
                     )}
                 </div>
             </div>
