@@ -16,7 +16,7 @@ from rest_framework.test import APITestCase
 
 from .models import (
     Organization, OrgMembership, OrgInvite, OrgRole, MembershipStatus, UserProfile,
-    CaseStudy, Question, UserAnswer, MockStudySession,
+    CaseStudy, Question, UserAnswer, MockStudySession, ReviewItem,
 )
 from .entitlements import user_has_premium, active_org_for
 
@@ -240,3 +240,46 @@ class OrgStampingTests(APITestCase):
         self.assertEqual(resp.status_code, 201)
         answer = UserAnswer.objects.get(user=student, question=q)
         self.assertIsNone(answer.organization_id)
+
+
+class SrsTests(APITestCase):
+    """Spaced-repetition: weak items enter the schedule, become due, and are
+    rescheduled out of the queue once remembered."""
+    def setUp(self):
+        self.user = make_user("srs_user")
+        case = CaseStudy.objects.create(id="c-srs", title="t", vignette="v", setting="s")
+        self.q = Question.objects.create(id="c-srs-q1", case_study=case, stem="Why?", domain="OT_EXP", correct_label="A", correct_rationale="because")
+        # A wrong answer makes this a weak item.
+        UserAnswer.objects.create(user=self.user, question=self.q, selected_label="B", confidence="MED", is_correct=False)
+        self.client.force_authenticate(self.user)
+
+    def test_weak_item_becomes_due_and_reschedules(self):
+        # First load: the weak item is discovered and due now.
+        resp = self.client.get("/api/review-queue/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["count"], 1)
+        key = resp.data["items"][0]["key"]
+        self.assertEqual(key, f"case:{self.q.id}")
+
+        # Grade it "remembered" → it should leave the due queue (scheduled out).
+        g = self.client.post("/api/review-queue/", {"item_key": key, "remembered": True}, format="json")
+        self.assertEqual(g.status_code, 200)
+        self.assertEqual(g.data["box"], 1)
+        item = ReviewItem.objects.get(user=self.user, item_key=key)
+        self.assertGreater(item.due_at, timezone.now())
+
+        resp2 = self.client.get("/api/review-queue/")
+        self.assertEqual(resp2.data["count"], 0)
+
+    def test_forgot_resets_box(self):
+        self.client.get("/api/review-queue/")  # discover
+        key = f"case:{self.q.id}"
+        ReviewItem.objects.filter(user=self.user, item_key=key).update(box=3)
+        g = self.client.post("/api/review-queue/", {"item_key": key, "remembered": False}, format="json")
+        self.assertEqual(g.status_code, 200)
+        self.assertEqual(g.data["box"], 0)
+        self.assertEqual(ReviewItem.objects.get(user=self.user, item_key=key).lapses, 1)
+
+    def test_grade_unknown_item_404(self):
+        resp = self.client.post("/api/review-queue/", {"item_key": "case:nope", "remembered": True}, format="json")
+        self.assertEqual(resp.status_code, 404)

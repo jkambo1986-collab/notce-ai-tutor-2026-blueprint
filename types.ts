@@ -278,15 +278,16 @@ export interface Performance {
  */
 export interface ReviewItem {
     id: string;
+    key: string;          // SRS scheduling key ("case:<id>" / "bank:<id>")
     source: 'case' | 'bank';
     stem: string;
     domain: string;
     options: { label: string; text: string }[];
-    your_label: string | null;
     correct_label: string;
     correct_text: string;
     rationale: string;
-    reason: 'incorrect' | 'low_confidence';
+    your_label?: string | null;                 // legacy/optional
+    reason?: 'incorrect' | 'low_confidence';    // legacy/optional
 }
 
 export interface ReviewQueue {

@@ -528,3 +528,38 @@ class OrgInvite(models.Model):
         state = 'accepted' if self.accepted_at else 'pending'
         return f"invite {self.email} -> {self.organization.slug} [{state}]"
 
+
+# --- SPACED REPETITION (SRS) ---
+
+class ReviewItem(models.Model):
+    """Per-user spaced-repetition scheduling for a single reviewable question.
+
+    Items enter the schedule when the user gets a question wrong or rates it
+    low-confidence (discovered from answer history). Each review grades the item
+    remembered/forgot and reschedules it via a Leitner box ladder, so material
+    resurfaces just before it would be forgotten instead of all at once.
+
+    ``item_key`` is "case:<question_id>" or "bank:<bank_question_id>" — stable
+    across sessions and used to rehydrate the full question for review.
+    """
+    SOURCE_CHOICES = [('case', 'Case'), ('bank', 'Bank')]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='review_items')
+    item_key = models.CharField(max_length=80)
+    source = models.CharField(max_length=8, choices=SOURCE_CHOICES)
+    domain = models.CharField(max_length=20, blank=True, default='')
+    box = models.PositiveSmallIntegerField(default=0)  # Leitner box index → interval
+    due_at = models.DateTimeField(db_index=True)
+    last_reviewed_at = models.DateTimeField(null=True, blank=True)
+    reps = models.PositiveIntegerField(default=0)       # total graded reviews
+    lapses = models.PositiveIntegerField(default=0)     # times forgotten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'item_key')
+        indexes = [models.Index(fields=['user', 'due_at'])]
+
+    def __str__(self):
+        return f"{self.user.username} · {self.item_key} (box {self.box})"
+

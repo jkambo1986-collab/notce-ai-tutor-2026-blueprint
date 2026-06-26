@@ -1,9 +1,9 @@
 /**
  * @file ReviewQueueModal.tsx
- * @description Flashcard-style review of the user's weak items (wrong or
- * low-confidence answers), fetched from GET /api/review-queue/. Each card shows
- * the stem and options; revealing surfaces the correct answer, the user's prior
- * choice, and the rationale. Pure review (no re-grading) — fast spaced revisiting.
+ * @description Spaced-repetition review of the user's weak items, fetched from
+ * GET /api/review-queue/ (items that are *due* now). Each card shows the stem and
+ * options; revealing surfaces the correct answer + rationale, then the learner
+ * grades it (Forgot / Got it) which reschedules the item via the SRS backend.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -62,6 +62,12 @@ const ReviewQueueModal: React.FC<ReviewQueueModalProps> = ({ isOpen, onClose }) 
     setIndex(i => i + 1);
   };
 
+  /** Grade the current card (spaced repetition) and advance. */
+  const grade = (it: ReviewItem, remembered: boolean) => {
+    api.gradeReview(it.key, remembered); // fire-and-forget; UI advances immediately
+    next();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={onClose} />
@@ -111,9 +117,11 @@ const ReviewQueueModal: React.FC<ReviewQueueModalProps> = ({ isOpen, onClose }) 
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Card {index + 1} of {total}</span>
                 <div className="flex gap-2">
                   <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">{domainLabel(item.domain)}</span>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.reason === 'incorrect' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {item.reason === 'incorrect' ? 'Missed' : 'Low confidence'}
-                  </span>
+                  {item.reason && (
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.reason === 'incorrect' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {item.reason === 'incorrect' ? 'Missed' : 'Low confidence'}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -159,9 +167,16 @@ const ReviewQueueModal: React.FC<ReviewQueueModalProps> = ({ isOpen, onClose }) 
             {!revealed ? (
               <button onClick={() => setRevealed(true)} className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">Reveal answer</button>
             ) : (
-              <button onClick={next} className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">
-                {index + 1 >= total ? 'Finish' : 'Next card'}
-              </button>
+              <div className="flex gap-2">
+                {/* Grading drives spaced repetition: "Forgot" resurfaces it soon,
+                    "Got it" pushes it further out. */}
+                <button onClick={() => grade(item, false)} className="px-5 py-3 rounded-xl font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition">
+                  Forgot
+                </button>
+                <button onClick={() => grade(item, true)} className="px-5 py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition">
+                  Got it
+                </button>
+              </div>
             )}
           </div>
         )}

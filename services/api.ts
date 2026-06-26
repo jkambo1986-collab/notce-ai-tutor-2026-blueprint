@@ -124,6 +124,26 @@ export const api = {
     return response.json();
   },
 
+  /**
+   * Grades a spaced-repetition review and reschedules the item.
+   * POST /review-queue/ { item_key, remembered } (auth). Best-effort: returns
+   * null on failure so the review flow keeps moving.
+   */
+  async gradeReview(itemKey: string, remembered: boolean): Promise<{ box: number; due_at: string } | null> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    try {
+      const response = await fetch(`${API_BASE_URL}/review-queue/`, {
+        method: 'POST', headers, body: JSON.stringify({ item_key: itemKey, remembered }),
+      });
+      if (!response.ok) return null;
+      return response.json();
+    } catch {
+      return null;
+    }
+  },
+
   /** Returns the user's saved rationale notebook. GET /notebook/ (auth). */
   async getNotebook(): Promise<{ items: NoteEntry[] }> {
     const token = localStorage.getItem('auth_token');

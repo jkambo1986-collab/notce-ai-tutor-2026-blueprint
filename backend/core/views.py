@@ -1387,9 +1387,10 @@ class PerformanceView(APIView):
 
 class ReviewQueueView(APIView):
     """
-    Adaptive Review Queue: weak items the user should revisit, computed live from
-    their answer history (wrong + low-confidence case answers, wrong mock/exam
-    items). Read-only and self-scoped. See `review_service.compute_review_queue`.
+    Spaced-repetition Review Queue. GET returns the items DUE for review now (weak
+    items discovered from answer history, then scheduled via a Leitner ladder).
+    POST grades one item (remembered/forgot) and reschedules it. Self-scoped.
+    See `review_service`.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1400,6 +1401,20 @@ class ReviewQueueView(APIView):
         except Exception:
             logger.exception("Failed to compute review queue for %s", request.user)
             return Response({"error": "Failed to compute review queue"}, status=500)
+
+    def post(self, request):
+        """Grade a review. Body: {item_key, remembered: bool}."""
+        from .review_service import grade_review
+        item_key = request.data.get('item_key')
+        # Robust to JSON booleans and form-encoded strings ("false"/"0").
+        raw = request.data.get('remembered')
+        remembered = raw in (True, 'true', 'True', 1, '1')
+        if not item_key:
+            return Response({"error": "item_key required"}, status=400)
+        result = grade_review(request.user, item_key, remembered)
+        if result is None:
+            return Response({"error": "review item not found"}, status=404)
+        return Response(result)
 
 
 class NotebookView(APIView):
