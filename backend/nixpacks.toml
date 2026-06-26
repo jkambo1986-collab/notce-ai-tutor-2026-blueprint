@@ -1,0 +1,14 @@
+# Railway builds this service with Root Directory = backend, so this file (not
+# the repo-root nixpacks.toml) is the one Railway uses. cwd at build/runtime is
+# /app, which is the backend/ directory.
+#
+# collectstatic MUST run at build time so STATIC_ROOT (/app/staticfiles) exists
+# in the image before gunicorn boots — WhiteNoise indexes static files at
+# startup with DEBUG=False, so generating them later (or on a live container)
+# would not be served. This is what restores the Django admin CSS/theme.
+
+[phases.build]
+cmds = ["python manage.py collectstatic --noinput"]
+
+[start]
+cmd = "python manage.py migrate --noinput && gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120"
