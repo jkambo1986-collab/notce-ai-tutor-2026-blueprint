@@ -14,7 +14,7 @@ import { api } from '../services/api';
 import HighlightableText from './HighlightableText';
 import { Highlight, ExamQuestion } from '../types';
 import { useToast, useConfirm } from './ui/Feedback';
-import { Button } from './ui';
+import { Button, SpeakButton } from './ui';
 import { DOMAIN_INFO } from '../constants';
 
 /** Score (%) at or above which the exam is reported as a pass. */
@@ -357,13 +357,21 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
               <span className="text-xs font-bold text-brand-600 uppercase tracking-widest">
                 Question {current + 1} of {total} · {domainLabel(q?.domain || '')}
               </span>
-              <button
-                onClick={toggleFlag}
-                className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${isFlagged ? 'text-amber-600' : 'text-slate-400 hover:text-amber-600'}`}
-              >
-                <svg className="w-4 h-4" fill={isFlagged ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 2H21l-3 6 3 6h-8.5l-1-2H5a2 2 0 00-2 2z" /></svg>
-                {isFlagged ? 'Flagged' : 'Flag'}
-              </button>
+              <div className="flex items-center gap-2">
+                <SpeakButton
+                  id={`exam-q-${current}`}
+                  label="Read question"
+                  size="sm"
+                  text={`${q?.stem || ''}. ${(q?.options || []).map((o: any) => `${o.label}. ${o.text}`).join('. ')}`}
+                />
+                <button
+                  onClick={toggleFlag}
+                  className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${isFlagged ? 'text-amber-600' : 'text-slate-400 hover:text-amber-600'}`}
+                >
+                  <svg className="w-4 h-4" fill={isFlagged ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 2H21l-3 6 3 6h-8.5l-1-2H5a2 2 0 00-2 2z" /></svg>
+                  {isFlagged ? 'Flagged' : 'Flag'}
+                </button>
+              </div>
             </div>
 
             <div className="text-base md:text-lg leading-relaxed text-ink mb-5">
