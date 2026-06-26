@@ -7,11 +7,7 @@ Stripe, email-verification, and diagnostics use explicit path() entries.
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
-from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView, BankQuestionViewSet, BankCaseViewSet, EmailOrUsernameTokenObtainPairView, PerformanceView, ReviewQueueView, NotebookView
+from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView, BankQuestionViewSet, BankCaseViewSet, EmailOrUsernameTokenObtainPairView, PerformanceView, ReviewQueueView, NotebookView, CookieTokenRefreshView, LogoutView, CsrfView
 from .org_views import OrganizationViewSet
 
 # DRF router: auto-generates list/detail (and other) routes for each ViewSet.
@@ -32,7 +28,9 @@ urlpatterns = [
     # Login issues JWT access/refresh tokens; uses the custom view that accepts
     # either an email OR a username as the identifier.
     path('auth/login/', EmailOrUsernameTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # exchange refresh -> new access token
+    path('auth/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),  # refresh access from httpOnly cookie
+    path('auth/logout/', LogoutView.as_view(), name='auth_logout'),  # clear auth cookies
+    path('auth/csrf/', CsrfView.as_view(), name='auth_csrf'),  # prime CSRF cookie + return token for the SPA
     path('auth/me/', MeView.as_view(), name='auth_me'),  # current user + profile
     path('performance/', PerformanceView.as_view(), name='performance'),  # cross-session analytics (Performance Hub)
     path('review-queue/', ReviewQueueView.as_view(), name='review_queue'),  # adaptive weak-item review

@@ -79,13 +79,36 @@ INSTALLED_APPS = [
 # (issued by SimpleJWT) and require authentication by default; views that should
 # be public must opt out explicitly with their own permission_classes.
 REST_FRAMEWORK = {
+    # CookieJWTAuthentication reads the access token from an httpOnly cookie and
+    # enforces CSRF on cookie-authed writes; it falls back to the Authorization
+    # header (Bearer) so server-to-server / transitional clients keep working.
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'core.authentication.CookieJWTAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
+# JWT lifetimes. Access lives in a short-lived cookie; the SPA silently refreshes
+# it from the longer-lived refresh cookie via /auth/refresh/ on a 401.
+from datetime import timedelta  # noqa: E402
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+}
+
+# Auth cookie behavior. Cross-site (Vercel SPA -> Railway API) requires
+# SameSite=None + Secure in production; DEBUG relaxes this so http://localhost
+# development still works.
+AUTH_ACCESS_COOKIE = 'access_token'
+AUTH_REFRESH_COOKIE = 'refresh_token'
+AUTH_COOKIE_SECURE = not DEBUG
+AUTH_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+# The CSRF cookie must be readable cross-site by the browser (not the JS); keep
+# it non-httpOnly (Django default) and SameSite=None/Secure in prod (set below).
+CSRF_COOKIE_HTTPONLY = False
 
 # Middleware order matters and is processed top-down on requests. CorsMiddleware
 # must come first so CORS headers are applied even to responses from later
@@ -140,11 +163,15 @@ if CORS_ALLOWED_ORIGIN_ENV:
     CSRF_TRUSTED_ORIGINS.extend(extra_csrf)
 
 # Cookies are sent across sites (frontend and API live on different domains), so
-# SameSite=None is required; that in turn mandates Secure=True (HTTPS only).
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
+# SameSite=None is required in production; that in turn mandates Secure=True
+# (HTTPS only). Under DEBUG we relax to Lax/insecure so http://localhost dev works
+# (localhost:5173 and localhost:8000 are same-site, so Lax cookies are still sent).
+_cross_site_samesite = 'Lax' if DEBUG else 'None'
+_cross_site_secure = not DEBUG
+CSRF_COOKIE_SAMESITE = _cross_site_samesite
+CSRF_COOKIE_SECURE = _cross_site_secure
+SESSION_COOKIE_SAMESITE = _cross_site_samesite
+SESSION_COOKIE_SECURE = _cross_site_secure
 
 
 ROOT_URLCONF = 'config.urls'
