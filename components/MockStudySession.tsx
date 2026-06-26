@@ -35,6 +35,10 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     const [highlights, setHighlights] = useState<Highlight[]>(initialData.highlights || []);
     const [pivotData, setPivotData] = useState<any>(null);
     const [isPivoting, setIsPivoting] = useState(false);
+    // Pre-minted learning aids (bank questions only) + collapse state
+    const [learning, setLearning] = useState<any>(null);
+    const [showConcept, setShowConcept] = useState(false);
+    const [showDiff, setShowDiff] = useState(false);
 
     // Scroll to top upon new question & trigger prefetch
     useEffect(() => {
@@ -99,6 +103,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
         try {
             const data = await api.mockStudy.submitAnswer(sessionId, selectedLabel);
             setFeedback(data.feedback);
+            setLearning(data.learning || null);
             setProgress(prev => ({
                 ...prev,
                 correct: data.progress.correct
@@ -137,6 +142,9 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
         setIsLoading(true);
         setFeedback(null);
         setSelectedLabel(null);
+        setLearning(null);
+        setShowConcept(false);
+        setShowDiff(false);
 
         try {
             const data = await api.mockStudy.nextQuestion(sessionId);
@@ -356,6 +364,12 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
             <main className="flex-1 max-w-6xl mx-auto w-full px-6 lg:px-12 pb-24 pt-6 space-y-6">
                 {/* Question Stem */}
                 <div className="bg-white p-2">
+                     {currentQuestion.vetted && (
+                        <span className="inline-flex items-center gap-1.5 mb-3 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                            Vetted · Premium Bank
+                        </span>
+                     )}
                      <p className="text-lg leading-relaxed text-gray-700">
                         {currentQuestion.stem}
                      </p>
@@ -425,6 +439,40 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                                 }
                              </div>
                         </div>
+
+                        {/* Pre-minted student learning aids (bank questions) */}
+                        {learning && (learning.explain_differently || learning.core_concept) && (
+                            <div className="mt-4 space-y-3">
+                                {learning.explain_differently && (
+                                    <div className="bg-white/70 rounded-2xl border border-blue-100 overflow-hidden">
+                                        <button
+                                            onClick={() => setShowDiff(s => !s)}
+                                            className="w-full flex items-center justify-between p-4 font-bold text-blue-800 hover:bg-blue-50/60 transition"
+                                        >
+                                            <span className="flex items-center gap-2">🔄 Explain it differently</span>
+                                            <span className="text-xl leading-none">{showDiff ? '−' : '+'}</span>
+                                        </button>
+                                        {showDiff && (
+                                            <p className="px-4 pb-4 text-gray-700 text-base leading-relaxed">{learning.explain_differently}</p>
+                                        )}
+                                    </div>
+                                )}
+                                {learning.core_concept && (
+                                    <div className="bg-white/70 rounded-2xl border border-purple-100 overflow-hidden">
+                                        <button
+                                            onClick={() => setShowConcept(s => !s)}
+                                            className="w-full flex items-center justify-between p-4 font-bold text-purple-800 hover:bg-purple-50/60 transition"
+                                        >
+                                            <span className="flex items-center gap-2">💡 Core concept</span>
+                                            <span className="text-xl leading-none">{showConcept ? '−' : '+'}</span>
+                                        </button>
+                                        {showConcept && (
+                                            <p className="px-4 pb-4 text-gray-700 text-base leading-relaxed">{learning.core_concept}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 

@@ -13,15 +13,22 @@ Seed file schema:
 {
   "version": "2026.1",
   "cases": [
-    {"id", "title", "vignette", "setting", "domain", "tags"?, "provenance"?}
+    {"id", "title", "vignette", "setting", "domain", "tags"?, "provenance"?,
+     <descriptors>?}
   ],
   "questions": [
     {"id", "domain", "difficulty", "format", "case_id"?, "stem",
      "correct_label", "correct_rationale", "topic"?, "cognitive_level"?,
-     "status", "provenance"?,
+     "status", "provenance"?, <descriptors>?,
      "options": [{"label", "text", "incorrect_rationale"?}, ...]}
   ]
 }
+
+<descriptors> (NOTCE 2026 Blueprint "other codes/descriptors", all optional):
+  "client_type", "practice_setting", "age_group", "pronouns",
+  "representation", "diagnosis_category"
+Carry these on a case (case-based questions inherit them) or directly on a
+standalone question. cognitive_level is one of: knowledge | application | critical_thinking.
 """
 import json
 
@@ -29,6 +36,17 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from core.models import BankCase, BankQuestion, BankDistractor
+
+# NOTCE 2026 Blueprint scenario descriptor keys (see core.models.BlueprintDescriptors).
+DESCRIPTOR_FIELDS = (
+    'client_type', 'practice_setting', 'age_group',
+    'pronouns', 'representation', 'diagnosis_category',
+)
+
+
+def _descriptors(src):
+    """Pull the optional Blueprint descriptor fields out of a seed dict."""
+    return {f: src[f] for f in DESCRIPTOR_FIELDS if src.get(f)}
 
 
 class Command(BaseCommand):
@@ -73,6 +91,7 @@ class Command(BaseCommand):
                             'domain': c['domain'],
                             'tags': c.get('tags', []),
                             'provenance': c.get('provenance', {}),
+                            **_descriptors(c),
                         },
                     )
                     stats['cases_created' if created else 'cases_updated'] += 1
@@ -94,10 +113,13 @@ class Command(BaseCommand):
                             'stem': q['stem'],
                             'correct_label': q['correct_label'].upper(),
                             'correct_rationale': q['correct_rationale'],
+                            'explain_differently': q.get('explain_differently', ''),
+                            'core_concept': q.get('core_concept', ''),
                             'topic': q.get('topic', ''),
                             'cognitive_level': q.get('cognitive_level', 'application'),
                             'status': status,
                             'provenance': q.get('provenance', {}),
+                            **_descriptors(q),
                         },
                     )
                     stats['q_created' if created else 'q_updated'] += 1

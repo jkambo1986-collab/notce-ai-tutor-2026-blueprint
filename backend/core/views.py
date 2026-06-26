@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from .models import CaseStudy, Question, UserAnswer, Highlight, DomainTag, UserSession
 from .serializers import CaseStudySerializer, UserAnswerSerializer, HighlightSerializer, UserSessionSerializer, UserSerializer
-from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario
+from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario, serve_bank_question
 import logging
 import uuid
 import traceback
@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import UserProfile
-from .permissions import IsPaidUser
+from .permissions import IsPaidUser, IsPaidOrTrialUser
 
 logger = logging.getLogger(__name__)
 
@@ -555,8 +555,20 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         Enforce IsPaidOrTrial for actions that start or progress the study.
         """
         if self.action in ['start', 'next', 'prefetch', 'pivot']:
-            return [permissions.IsAuthenticated(), IsPaidUser()]
+            return [permissions.IsAuthenticated(), IsPaidOrTrialUser()]
         return [permissions.IsAuthenticated()]
+
+    @staticmethod
+    def _served_bank_ids(session):
+        """Bank question ids already used in this session (served or answered)."""
+        ids = set()
+        for d in (session.current_question_data, session.next_question_data):
+            if d and d.get('bank_id'):
+                ids.add(d['bank_id'])
+        for h in (session.session_history or []):
+            if h.get('bank_id'):
+                ids.add(h['bank_id'])
+        return ids
     
     def get_queryset(self):
         if self.request.user.is_authenticated:
@@ -604,23 +616,26 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             timer_start=timezone.now() if mode == 'exam' else None
         )
         
-        # Generate first question
-        question_data = generate_practice_question(
-            domain=domain,
-            difficulty=difficulty,
-            question_number=1,
-            total_questions=total_questions,
-            topics_covered=[]
-        )
-        
+        # Serve a vetted bank question first; fall back to Gemini if the bank
+        # has no approved item for this domain/difficulty.
+        question_data = serve_bank_question(domain, difficulty)
+        if not question_data:
+            question_data = generate_practice_question(
+                domain=domain,
+                difficulty=difficulty,
+                question_number=1,
+                total_questions=total_questions,
+                topics_covered=[]
+            )
+
         if not question_data:
             session.delete()
             return Response({"error": "Failed to generate question"}, status=503)
-        
+
         # Store current question data for answer validation
         session.current_question_data = question_data
         session.save()
-        
+
         # Return session info and question (without correct answer)
         return Response({
             "session_id": session.id,
@@ -630,7 +645,8 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             "current_question": 1,
             "question": {
                 "stem": question_data.get("stem"),
-                "options": question_data.get("options", [])
+                "options": question_data.get("options", []),
+                "vetted": question_data.get("source") == "bank"
             }
         }, status=201)
 
@@ -652,13 +668,18 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         # Only generate if we don't already have one
         if not session.next_question_data:
             next_num = session.current_question + 1
-            question_data = generate_practice_question(
-                domain=session.domain,
-                difficulty=session.difficulty,
-                question_number=next_num,
-                total_questions=session.total_questions,
-                topics_covered=session.topics_covered or []
+            question_data = serve_bank_question(
+                session.domain, session.difficulty,
+                exclude_ids=self._served_bank_ids(session)
             )
+            if not question_data:
+                question_data = generate_practice_question(
+                    domain=session.domain,
+                    difficulty=session.difficulty,
+                    question_number=next_num,
+                    total_questions=session.total_questions,
+                    topics_covered=session.topics_covered or []
+                )
             if question_data:
                 session.next_question_data = question_data
                 session.save()
@@ -769,6 +790,7 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             "selected_label": selected_label,
             "correct_label": question_data.get("correct_label"),
             "is_correct": is_correct,
+            "bank_id": question_data.get("bank_id"),
             "timestamp": timezone.now().isoformat()
         }
         history = session.session_history or []
@@ -795,6 +817,11 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             response_data["next_question_ready"] = True # Simplified for now
         else:
             response_data["feedback"] = feedback
+            # Pre-minted student learning aids (present only on bank questions).
+            response_data["learning"] = {
+                "core_concept": question_data.get("core_concept", ""),
+                "explain_differently": question_data.get("explain_differently", "")
+            }
 
         return Response(response_data)
 
@@ -865,28 +892,34 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             question_data = session.next_question_data
             session.next_question_data = None # Clear it
         else:
-            # Fallback to synchronous generation
-            question_data = generate_practice_question(
-                domain=session.domain,
-                difficulty=session.difficulty,
-                question_number=session.current_question,
-                total_questions=session.total_questions,
-                topics_covered=session.topics_covered or []
+            # Vetted bank question first, else fall back to Gemini.
+            question_data = serve_bank_question(
+                session.domain, session.difficulty,
+                exclude_ids=self._served_bank_ids(session)
             )
-        
+            if not question_data:
+                question_data = generate_practice_question(
+                    domain=session.domain,
+                    difficulty=session.difficulty,
+                    question_number=session.current_question,
+                    total_questions=session.total_questions,
+                    topics_covered=session.topics_covered or []
+                )
+
         if not question_data:
             return Response({"error": "Failed to generate question"}, status=503)
-        
+
         session.current_question_data = question_data
         session.save()
-        
+
         return Response({
             "is_complete": False,
             "current_question": session.current_question,
             "total_questions": session.total_questions,
             "question": {
                 "stem": question_data.get("stem"),
-                "options": question_data.get("options", [])
+                "options": question_data.get("options", []),
+                "vetted": question_data.get("source") == "bank"
             },
              "highlights": session.highlights
         })

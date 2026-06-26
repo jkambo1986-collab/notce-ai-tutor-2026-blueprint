@@ -1,11 +1,11 @@
 {
-  "version": "2026.1-smoke",
+  "version": "2026.1-smoke-v2",
   "cases": [
     {
-      "id": "bc_aae72ccd",
-      "title": "Left Unilateral Neglect Following Right MCA Stroke — Inpatient Rehabilitation",
-      "vignette": "Mrs. Chen is a 68-year-old woman admitted to an inpatient rehabilitation unit five days ago following a right middle cerebral artery ischemic stroke. She presents with left hemiplegia, moderate left unilateral neglect, and mild dysphagia. She lives alone in a two-story home and expresses a strong desire to return there independently. Her daughter, who visits daily, reports concern about her mother's safety during self-care. The occupational therapist completed an initial evaluation using the Functional Independence Measure (FIM) and the Catherine Bergego Scale (CBS) to quantify neglect severity; the current FIM motor subscale score is 42 out of 91. During today's bathing session, Mrs. Chen consistently failed to wash her left arm and leg and did not apply deodorant to her left axilla. When the therapist drew her attention to the omissions, Mrs. Chen expressed genuine surprise, stating, 'I did not even realize I was missing that side.' The interprofessional team is meeting the following morning to discuss goals and discharge planning.",
-      "setting": "Inpatient rehabilitation unit",
+      "id": "bc_a8314f2b",
+      "title": "Stroke Rehabilitation: Outcome-Driven Plan Revision and Fieldwork Mentorship",
+      "vignette": "Mr. Delgado is a 68-year-old man admitted to an inpatient rehabilitation unit 12 days ago following a left hemisphere ischemic stroke. He presents with right hemiplegia, expressive aphasia, and moderate deficits in self-care performance. Prior to admission, he was independent in all activities of daily living and lived alone in a single-story home. He communicates preferences reliably through gestures and yes/no responses. His adult daughter attends therapy sessions when her work schedule permits.\n\nOver the past week, the treating occupational therapist (OT) has been implementing a compensatory approach to upper-extremity dressing and grooming retraining. Upon reviewing Mr. Delgado's Functional Independence Measure (FIM) scores at the two-week mark, the OT identifies minimal functional gains. The OT recently reviewed a systematic review indicating that task-specific training combined with graded repetition produces superior upper-extremity outcomes compared to compensatory strategies alone for clients with moderate paresis at this stage of recovery. The rehabilitation unit has also recently welcomed a Level II fieldwork student, who will begin co-treating with the OT beginning next week.",
+      "setting": "inpatient rehabilitation unit",
       "domain": "EXCELLENCE",
       "tags": [
         "AI-Minted",
@@ -18,85 +18,89 @@
   ],
   "questions": [
     {
-      "id": "bq_cd353289",
+      "id": "bq_5bc8f661",
       "domain": "OT_EXP",
       "difficulty": "Easy",
       "format": "standalone",
       "case_id": null,
-      "stem": "An occupational therapist is completing an initial evaluation for a 68-year-old woman recently discharged home after a hip replacement. The therapist is using the Occupational Therapy Practice Framework (OTPF) to categorize the client's daily tasks. The client reports she is independent with bathing, dressing, and toileting, but needs assistance with grocery shopping, paying bills, and preparing meals. Which category of occupation best describes the tasks with which she requires assistance?",
+      "stem": "An occupational therapist is beginning services with a 45-year-old adult recovering from a stroke. The therapist wants to identify the client's self-perceived occupational performance problems, their importance to the client, and establish a baseline for measuring outcomes over time. Which assessment is MOST appropriate?",
       "correct_label": "A",
-      "correct_rationale": "Financial management, shopping, and meal preparation and cleanup are all explicitly listed as IADLs in the OTPF (4th ed.). These tasks support daily life within the home and community and are categorically distinct from basic self-care ADLs, making B the single defensible best answer.",
-      "topic": "OTPF-4 Occupational Categories — IADLs vs. ADLs",
-      "cognitive_level": "application",
+      "correct_rationale": "The COPM is a client-centered, semi-structured interview that asks clients to identify occupational performance problems across self-care, productivity, and leisure, then rate each problem on importance, perceived performance, and satisfaction (each on a 1–10 scale). This dual focus — capturing what matters to the client and producing scored baselines — makes it specifically designed for client-identified goal-setting and detection of clinically meaningful change over time, fulfilling all three requirements in the stem.",
+      "core_concept": "The Canadian Occupational Performance Measure (COPM) operationalizes client-centered practice by transferring problem identification and prioritization to the client rather than the clinician. It is the standard OT tool when the clinical goal is to measure self-perceived occupational performance and satisfaction as outcomes, because it is occupation-based, individualized, and sensitive to change.",
+      "explain_differently": "Picture handing the client a blank \"problem list\" and asking them to fill it in — that is the COPM. Every other tool on this list has the therapist or a standardized checklist deciding what to measure. The COPM is unique because the client names what they struggle with, scores how important it is, and then scores how well they think they are doing it. That combination of client voice plus scored outcomes is exactly what the stem is asking for.",
+      "topic": "Occupational Performance Assessment — Client-Centered Outcome Measurement",
+      "cognitive_level": "recall",
       "status": "approved",
       "options": [
         {
           "label": "A",
-          "text": "Instrumental Activities of Daily Living (IADLs)",
+          "text": "Canadian Occupational Performance Measure (COPM)",
           "incorrect_rationale": null
         },
         {
           "label": "B",
-          "text": "Activities of Daily Living (ADLs)",
-          "incorrect_rationale": null
+          "text": "Barthel Index",
+          "incorrect_rationale": "The Barthel Index measures observer-rated ADL independence but does not capture the client's subjective perception of performance problems or their personal priorities."
         },
         {
           "label": "C",
-          "text": "Rest and Sleep",
-          "incorrect_rationale": null
+          "text": "Functional Independence Measure (FIM)",
+          "incorrect_rationale": "The FIM rates functional independence across 18 items from the clinician's perspective and does not elicit the client's self-perception of performance or satisfaction with meaningful occupations."
         },
         {
           "label": "D",
-          "text": "Health Management",
-          "incorrect_rationale": null
+          "text": "Mini-Mental State Examination (MMSE)",
+          "incorrect_rationale": "The MMSE is a cognitive screening tool; it does not assess occupational performance, client-identified priorities, or satisfaction with daily activities."
         }
       ],
       "provenance": {
         "minted_by": "claude-sonnet-4-6",
         "audited_by": "claude-opus-4-8",
-        "blind_solver_label": "B",
+        "blind_solver_label": "C",
         "blind_solver_agreed": true,
-        "audit_verdict": "revise",
+        "audit_verdict": "approve",
         "audit_scores": {
-          "clinical_accuracy": 5,
-          "distractor_quality": 7
+          "clinical_accuracy": 10,
+          "distractor_quality": 8
         },
-        "revisions": 1,
+        "revisions": 0,
         "selftest_passed": true
       }
     },
     {
-      "id": "bq_cbf454fb",
+      "id": "bq_c3f9b86e",
       "domain": "CEJ_JUSTICE",
       "difficulty": "Medium",
       "format": "standalone",
       "case_id": null,
-      "stem": "An occupational therapist is conducting an initial home assessment with a 72-year-old First Nations woman who was recently discharged following a hip replacement. The client's adult daughter, who has not been identified as a formal interpreter, answers most of the OT's questions before the client has a chance to respond. The OT notices the client appears withdrawn and avoids direct eye contact throughout the visit. Which action best reflects culturally safe, client-centred practice?",
+      "stem": "An occupational therapist conducts a home assessment with a First Nations elder who sustained a hip fracture and is preparing for discharge. The elder's adult daughter is present and explains that the family has arranged for a traditional healer to visit weekly. The elder nods as his daughter speaks but has not yet expressed his own goals. Which action should the occupational therapist take FIRST?",
       "correct_label": "B",
-      "correct_rationale": "Pausing and consulting both the client and her daughter honours the client's right to self-determination while remaining open to culturally important family involvement. Addressing the client directly and warmly counteracts the dynamic in which her voice has been bypassed, and asking what arrangement feels comfortable avoids imposing a Western-individualist model of privacy on a situation where family presence may be valued and expected. This approach embodies cultural humility and client-centred practice without making assumptions in either direction.",
-      "topic": "Cultural safety and client-centred practice with Indigenous clients",
+      "correct_rationale": "Acknowledging the family's plan first demonstrates respect for collective decision-making practices that are normative in many Indigenous communities. Then directly and openly inviting the elder to articulate his own meaning and goals ensures the client's voice is centred rather than mediated through a family member, fulfilling both cultural safety and client-centred principles simultaneously. This sequence gathers essential occupational performance data from the person whose participation is the focus of intervention.",
+      "core_concept": "Cultural safety in OT practice requires the therapist to actively create conditions in which clients from marginalized or Indigenous communities can share their perspectives without coercion or judgment. In collectivist cultural frameworks, family presence and shared decision-making are normative and must be respected rather than dismantled; the therapist's role is to honour both relational structures and the individual client's voice.",
+      "explain_differently": "Think of it like being a guest in someone else's household. You don't rearrange the furniture (remove the daughter) or ignore the homeowner (proceed without asking him) — you greet everyone respectfully, then turn to the person whose home it is and ask, \"What matters most to you here?\" Option C does exactly that: it honours the family structure already in the room and then opens the door for the elder himself to speak.",
+      "topic": "Cultural safety and client-centred goal-setting with Indigenous older adults",
       "cognitive_level": "application",
       "status": "approved",
       "options": [
         {
           "label": "A",
-          "text": "Continue directing questions to the daughter, as her familiarity with the home environment and the client's routines will make the assessment more efficient.",
-          "incorrect_rationale": null
+          "text": "Proceed with the standard home safety assessment and document the family's plan for the traditional healer in the clinical notes.",
+          "incorrect_rationale": "Proceeding with assessment before establishing the elder's own priorities treats the family report as sufficient and bypasses the client's direct voice, which is inconsistent with client-centred practice."
         },
         {
           "label": "B",
-          "text": "Pause the assessment, address the client directly and warmly, and ask both the client and her daughter what arrangement would feel most comfortable for completing the visit.",
+          "text": "Acknowledge the family's plan, then invite the elder directly to describe what returning to his home life means to him.",
           "incorrect_rationale": null
         },
         {
           "label": "C",
-          "text": "Ask the daughter to wait in another room so the OT can conduct the remainder of the assessment privately with the client.",
-          "incorrect_rationale": null
+          "text": "Ask the daughter to step out of the room so the elder can express his personal goals without family influence.",
+          "incorrect_rationale": "Removing the family without the client's invitation imposes an individualistic Western norm onto a setting where collective family involvement may be culturally appropriate and expected, which is culturally unsafe."
         },
         {
           "label": "D",
-          "text": "Proceed with the planned assessment and document that the client's withdrawal and avoidance of eye contact may warrant further cognitive screening.",
-          "incorrect_rationale": null
+          "text": "Contact the traditional healer to align healing practices with the OT discharge goals before beginning the assessment.",
+          "incorrect_rationale": "Coordinating with the traditional healer is a valuable step but is premature before the therapist has first established what the elder himself wants from the return home."
         }
       ],
       "provenance": {
@@ -114,84 +118,89 @@
       }
     },
     {
-      "id": "bq_dcf8f377",
+      "id": "bq_e180543c",
       "domain": "COMM_COLLAB",
       "difficulty": "Hard",
       "format": "standalone",
       "case_id": null,
-      "stem": "An occupational therapist in an inpatient rehabilitation unit completes a standardized kitchen safety and IADL assessment for a 74-year-old patient who is 18 days post right CVA with mild residual cognitive deficits. The OT finds the patient requires moderate verbal cueing for multi-step meal preparation and cannot safely self-administer medications due to sequencing errors. During the interdisciplinary team meeting, the physical therapist reports that the patient has met all mobility and transfer benchmarks and recommends discharge to home within 48 hours. The patient's daughter, present at the meeting, strongly agrees and states she will visit daily. The attending physician asks the OT for input before finalizing the discharge plan. Which response by the OT is most appropriate?",
-      "correct_label": "B",
-      "correct_rationale": "The OT's professional and ethical obligation is to clearly communicate identified IADL safety deficits during the interdisciplinary meeting so the team can make an informed discharge decision. Naming the specific risks (multi-step sequencing errors, unsafe medication self-administration) and offering a graduated menu of options (caregiver training, home health OT, brief stay extension) fulfills the OT's expert role without overstepping team boundaries or unilaterally blocking discharge.",
-      "topic": "Occupational Therapy discharge planning and interdisciplinary communication post-CVA",
+      "stem": "An occupational therapist working in an inpatient rehabilitation unit has completed a standardized functional assessment showing that a client recovering from a traumatic brain injury scores at a maximal assistance level for all instrumental ADLs and demonstrates poor safety awareness on objective testing. During the weekly interdisciplinary team meeting, the physiatrist announces a discharge date in three days because insurance authorization has been exhausted. The client, who retains decision-making capacity, states he wants to go home. His spouse reports feeling \"too overwhelmed\" to provide full-time caregiving and has not been trained in any assist techniques. The OT believes discharge in three days poses a serious safety risk. Which action should the OT take FIRST?",
+      "correct_label": "C",
+      "correct_rationale": "The OT is currently inside the interprofessional forum where the discharge decision is being reached. Interprofessional collaboration competencies require that each discipline contribute discipline-specific, evidence-based findings at the point of team decision-making — not after the fact. Presenting standardized, objective data (rather than opinion) gives the team actionable clinical information, honors the OT's professional accountability to client safety, and initiates collaborative problem-solving (e.g., extended stay, transitional care unit, intensive caregiver training) within the appropriate channel. All other options either skip a step, delay advocacy, or route around the team structure prematurely.",
+      "core_concept": "Interprofessional advocacy requires OTs to raise evidence-based safety concerns within the shared team forum at the moment the decision is being made, using objective, standardized data rather than subjective opinion. Raising concerns after the meeting or bypassing the team to escalate elsewhere first undermines collaborative practice standards and the OT's professional accountability for client safety.",
+      "explain_differently": "Picture the team meeting as the one open window where all clinical voices can change the outcome in real time. The OT holds a key — objective, standardized assessment data that no other discipline collected. Waiting to slip a note under the door after the meeting closes, or going directly to the insurance company or the chart, means the window has already shut. Speaking up now, with data in hand, is not confrontation — it is exactly what interprofessional teams are designed to do: integrate each discipline's unique findings before locking in a plan.",
+      "topic": "Interprofessional Team Communication and Clinical Advocacy at Discharge Planning",
       "cognitive_level": "analysis",
-      "status": "needs_review",
+      "status": "approved",
       "options": [
         {
           "label": "A",
-          "text": "Affirm the PT's recommendation, noting the patient has met ambulation and transfer benchmarks, and assert that the daughter's daily visits will adequately offset the identified cueing and sequencing deficits.",
-          "incorrect_rationale": null
+          "text": "Contact the insurance company's utilization review department directly to request a continued-stay authorization on behalf of the client.",
+          "incorrect_rationale": "Contacting the insurer directly bypasses the interprofessional team and is typically the responsibility of the case manager or social worker; the OT should work through the team structure before escalating outside it."
         },
         {
           "label": "B",
-          "text": "State that the OT assessment identified IADL safety risks — specifically multi-step task sequencing errors and unsafe medication self-administration — and propose graduated options: caregiver training before discharge, home health OT services, or a brief stay extension to reach safe functional thresholds.",
-          "incorrect_rationale": null
+          "text": "Document the OT's clinical concerns thoroughly in the medical record and request that the physiatrist review them before finalizing the discharge date.",
+          "incorrect_rationale": "Charting is necessary but passive; because the OT is already present in the decision-making forum, deferring to a written note after the meeting forfeits the immediate opportunity for real-time interprofessional advocacy."
         },
         {
           "label": "C",
-          "text": "Defer to team consensus to preserve cohesion, then document the sequencing and medication management deficits in the medical record and arrange a follow-up home safety evaluation through outpatient OT.",
-          "incorrect_rationale": null
+          "text": "Present the objective functional assessment scores and specific safety concerns to the team during the current meeting, and propose that discharge alternatives be formally discussed before the date is finalized.",
+          "incorrect_rationale": "This is the correct answer."
         },
         {
           "label": "D",
-          "text": "Support discharge but propose the daughter assume daily cueing for meal preparation tasks and implement a pre-filled weekly medication organizer as structured compensatory strategies.",
-          "incorrect_rationale": null
+          "text": "Arrange a home visit before the next team meeting to assess environmental safety and evaluate caregiver feasibility before weighing in on the discharge plan.",
+          "incorrect_rationale": "A home visit may be a useful later step, but it is not feasible within a three-day window as a first action, and it delays the OT's obligation to raise safety concerns in the current clinical forum where the decision is actively being made."
         }
       ],
       "provenance": {
         "minted_by": "claude-sonnet-4-6",
         "audited_by": "claude-opus-4-8",
-        "blind_solver_label": "B",
+        "blind_solver_label": "A",
         "blind_solver_agreed": true,
-        "audit_verdict": "revise",
+        "audit_verdict": "approve",
         "audit_scores": {
           "clinical_accuracy": 9,
           "distractor_quality": 8
         },
-        "revisions": 1
+        "revisions": 0,
+        "selftest_passed": true
       }
     },
     {
-      "id": "bq_ee6130bf",
+      "id": "bq_6e62d417",
       "domain": "PROF_RESP",
       "difficulty": "Medium",
       "format": "standalone",
       "case_id": null,
-      "stem": "An occupational therapist is conducting a home visit with a 78-year-old woman who has mild dementia. During the functional assessment, the client discloses that her adult son \"hits her when she does not listen.\" She then adds, \"Please don't tell anyone — he is all I have left.\" The OT observes bilateral upper-arm bruising consistent with the disclosure. What is the MOST appropriate immediate action for the OT?",
-      "correct_label": "C",
-      "correct_rationale": "Where provincial adult-protection legislation applies, a reasonable suspicion of abuse of a vulnerable adult creates a legal and ethical duty to report to the designated provincial authority that overrides a client's request for confidentiality. Informing the client of the impending report respects her dignity, maintains transparency within the therapeutic relationship, and aligns with the CAOT Code of Ethics principles of beneficence and veracity. The physical evidence (bilateral upper-arm bruising) combined with the direct disclosure meets the threshold of reasonable suspicion, making immediate reporting to the designated provincial authority the single most defensible action.",
-      "topic": "Mandatory Reporting — Elder Abuse and Duty to Report",
+      "stem": "An occupational therapist provides home health services to a 72-year-old client with mild cognitive impairment who lives alone. During a session, the client discloses that their adult son has been withdrawing money from the client's bank account without permission. The client becomes tearful and says, \"Please don't tell anyone — he is all I have, and I don't want to get him in trouble.\" The client is alert, oriented to person and place, and demonstrates insight into the situation. What is the OT's most appropriate next action?",
+      "correct_label": "D",
+      "correct_rationale": "Financial exploitation of a vulnerable adult constitutes elder abuse under mandatory reporting statutes in all U.S. jurisdictions. OT practitioners are designated mandated reporters, meaning the legal obligation to report reasonable suspicion of abuse to Adult Protective Services (APS) is triggered regardless of client consent or confidentiality preferences. Informing the client before reporting respects autonomy and therapeutic alliance while fulfilling the legal duty. The client's cognitive status and insight do not remove the OT's reporting obligation; mandatory reporting laws exist precisely because clients in exploitative situations often resist disclosure out of fear or loyalty.",
+      "core_concept": "Mandatory reporting statutes designate OT practitioners as mandated reporters who must report reasonable suspicion of elder abuse, neglect, or financial exploitation to protective authorities. This legal duty is non-discretionary and overrides both client requests for confidentiality and professional deference to other disciplines. Distinguishing when mandatory reporting obligations arise — and acting on them promptly — is a foundational professional responsibility competency.",
+      "explain_differently": "Imagine the law has already made this decision for the clinician. For most clinical choices, the OT weighs evidence and exercises judgment. Mandatory reporting is different: the moment there is reasonable suspicion of abuse of a vulnerable adult, the law removes that discretion and requires action. The client's wish for secrecy and the OT's empathy for the family relationship are real and valid feelings — but they are not factors the law permits the OT to weigh against reporting. The OT can be compassionate in how they explain the report to the client, but the report itself is not optional.",
+      "topic": "Mandatory Reporting of Elder Abuse and Financial Exploitation",
       "cognitive_level": "application",
       "status": "approved",
       "options": [
         {
           "label": "A",
-          "text": "Honor the client's request for confidentiality, thoroughly document the bruising and disclosure in the medical record, and monitor the situation at the next visit.",
-          "incorrect_rationale": "A duty to report under provincial adult-protection legislation supersedes client confidentiality when abuse of a vulnerable adult is reasonably suspected; deferring action to a future visit places the client at continued risk and violates the OT's legal and ethical duty."
+          "text": "Honor the client's request, document the disclosure in the medical record, and monitor the situation during future visits.",
+          "incorrect_rationale": "Mandatory reporting laws supersede client confidentiality in cases of suspected abuse or exploitation; documentation alone does not fulfill the OT's legal duty to report, and delaying action may leave the client at continued risk."
         },
         {
           "label": "B",
-          "text": "Contact the adult son to gather his perspective on the bruising before deciding whether a formal report to authorities is warranted.",
-          "incorrect_rationale": "Alerting the alleged abuser before filing a report can increase the client's risk of harm, compromise any investigation, and constitutes a breach of the OT's duty to report suspected abuse of a vulnerable adult."
+          "text": "Contact the son directly to discuss the client's concerns and attempt to mediate a resolution between them.",
+          "incorrect_rationale": "Alerting an alleged perpetrator can escalate danger to the client, compromise a future protective investigation, and falls outside the OT's professional role; the OT is not a mediator in abuse situations."
         },
         {
           "label": "C",
-          "text": "Report the suspected abuse to the designated provincial authority as required under applicable adult-protection legislation, and inform the client that this report will be made to help keep her safe.",
-          "incorrect_rationale": null
+          "text": "Consult the supervising physician and defer any external reporting until clinical guidance is received.",
+          "incorrect_rationale": "Mandatory reporting is a direct legal obligation of the individual OT practitioner; it is not contingent on physician authorization or interdisciplinary consultation, and deferring the report could cause harmful delay."
         },
         {
           "label": "D",
-          "text": "Refer the client to a social worker and defer the reporting decision to that professional, as elder abuse falls outside occupational therapy's scope of practice.",
-          "incorrect_rationale": "Where a duty to report applies, that duty is individual; the OT cannot transfer or delegate their own legal and ethical duty to report suspected abuse of a vulnerable adult to another professional."
+          "text": "Explain to the client that the situation must be reported to Adult Protective Services, then submit a mandatory report.",
+          "incorrect_rationale": null
         }
       ],
       "provenance": {
@@ -209,37 +218,39 @@
       }
     },
     {
-      "id": "bq_678cdf96",
+      "id": "bq_16cee82b",
       "domain": "EXCELLENCE",
       "difficulty": "Medium",
       "format": "case",
-      "case_id": "bc_aae72ccd",
-      "stem": "Based on Mrs. Chen's performance during today's bathing session and her existing CBS score, which action BEST reflects evidence-based practice and appropriate outcome measurement for addressing her unilateral neglect?",
-      "correct_label": "D",
-      "correct_rationale": "Structured visual scanning training with environmental anchors (e.g., a colored left-edge anchor at the bathing area) is supported by Level I evidence for improving unilateral neglect in ADLs. Pairing the intervention with serial re-administration of the CBS — a validated, ecologically grounded neglect measure — directly operationalizes outcome measurement and allows the team to monitor progress and adjust the plan in advance of discharge, reflecting best practices in evidence-based occupational therapy.",
-      "topic": "Evidence-based intervention and outcome measurement for unilateral neglect in stroke rehabilitation",
+      "case_id": "bc_a8314f2b",
+      "stem": "Based on Mr. Delgado's FIM data showing minimal functional gains and the OT's review of current systematic review evidence, what is the OT's BEST next step in his care?",
+      "correct_label": "A",
+      "correct_rationale": "Evidence-based practice requires integrating the best available research evidence with clinical outcome data and individual client factors. The FIM reveals a functional plateau under the current compensatory approach, and the systematic review directly supports task-specific training with graded repetition for clients with Mr. Delgado's profile. Modifying the treatment plan to align with this evidence is the appropriate professional response and reflects both quality improvement and outcome-driven clinical decision-making.",
+      "core_concept": "Evidence-based practice in OT integrates current best research evidence with standardized outcome measurement and client-specific factors to guide treatment planning. When outcome data indicate insufficient progress, the clinician is professionally obligated to revise the intervention approach rather than continue a plan that is not producing meaningful change.",
+      "explain_differently": "Think of the FIM as the OT's report card on the intervention — and right now the grade is failing. If you also know from research that a different teaching strategy works better for this type of student, the right move is to switch strategies, not to keep using the same one and hope something changes. Clinging to an approach that both the data and the evidence argue against is not reflective practice; it is inertia.",
+      "topic": "Evidence-Based Practice and Outcome-Driven Plan Modification",
       "cognitive_level": "application",
       "status": "approved",
       "options": [
         {
           "label": "A",
-          "text": "Provide verbal cues to the left side throughout each bathing session until the patient consistently self-corrects.",
-          "incorrect_rationale": "Verbal cues alone are a compensatory strategy that does not constitute a structured, protocol-driven intervention and provides no mechanism to measure functional change over time."
+          "text": "Revise the treatment plan to incorporate task-specific training with graded repetition, consistent with the current systematic review evidence.",
+          "incorrect_rationale": "This is the correct answer and does not require an incorrect rationale."
         },
         {
           "label": "B",
-          "text": "Administer the Motor-Free Visual Perception Test (MVPT) to rule out co-occurring visual perceptual deficits before modifying the current plan.",
-          "incorrect_rationale": "The CBS has already established neglect severity and the clinical presentation is consistent with neglect; additional standardized testing is not indicated at this stage without new clinical findings to support it."
+          "text": "Continue the compensatory approach for two additional weeks to allow more time for the current plan to demonstrate effect.",
+          "incorrect_rationale": "Persisting with an approach that outcome data show is ineffective, without incorporating available evidence, does not reflect evidence-based or quality improvement practice."
         },
         {
           "label": "C",
-          "text": "Instruct Mrs. Chen's daughter to complete all left-sided bathing tasks to ensure safety and prevent omissions throughout the inpatient stay.",
-          "incorrect_rationale": "Delegating tasks to the caregiver promotes dependence rather than rehabilitation of the underlying deficit and does not address the therapeutic goal of functional recovery."
+          "text": "Discontinue occupational therapy services and refer Mr. Delgado to home health, given the plateau in functional gains.",
+          "incorrect_rationale": "A plateau under the current approach does not indicate discharge readiness; the client has unmet functional goals and evidence supports a more effective alternative intervention."
         },
         {
           "label": "D",
-          "text": "Implement a structured scanning training protocol using environmental anchors during ADLs and re-administer the CBS in two weeks to measure functional change.",
-          "incorrect_rationale": null
+          "text": "Request a physiatrist consultation to evaluate whether Mr. Delgado's neurological status has changed before making any modifications to the intervention plan.",
+          "incorrect_rationale": "A neurological consultation is not indicated without clinical signs of neurological change; the OT holds professional authority and responsibility to modify intervention approaches based on outcome data and best evidence."
         }
       ],
       "provenance": {
@@ -257,51 +268,52 @@
       }
     },
     {
-      "id": "bq_a75499d1",
+      "id": "bq_2546a64c",
       "domain": "ENGAGEMENT",
       "difficulty": "Easy",
       "format": "case",
-      "case_id": "bc_aae72ccd",
-      "stem": "During Mrs. Chen's discharge planning meeting, the supervising occupational therapist references a recently updated evidence-based protocol for post-stroke unilateral neglect that differs from the unit's current procedure. The observing OT student asks how the supervising therapist stays current with stroke rehabilitation research. Which response BEST exemplifies the Engagement with the Profession competencies in the Competencies for Occupational Therapists in Canada (COTC, 2021)?",
-      "correct_label": "A",
-      "correct_rationale": "The Engagement with the Profession domain of the COTC (2021) identifies active participation in professional networks and communities of practice as a core mechanism for advancing competence beyond the minimum continuing-competency requirements of a provincial regulator. Participating in CAOT's neurosciences community of practice reflects proactive, discipline-specific professional engagement — directly modeling how the supervising therapist identified the updated neglect protocol referenced in Mrs. Chen's meeting. This response demonstrates the ongoing, self-directed professional growth the competencies expect, rather than passive or reactive learning.",
-      "topic": "Professional engagement and continuing competence in occupational therapy practice",
+      "case_id": "bc_a8314f2b",
+      "stem": "During a co-treatment dressing session, the Level II fieldwork student recommends continuing Mr. Delgado's compensatory dressing approach, stating he is \"more comfortable\" with those techniques. The supervising OT notes that Mr. Delgado's FIM self-care scores have plateaued for three consecutive weeks and that the systematic review evidence the team reviewed last week consistently favors task-specific training for motor recovery in patients with ischemic stroke. Which of the following actions BEST reflects the supervising OT's role as a fieldwork educator?",
+      "correct_label": "C",
+      "correct_rationale": "ACOTE standards require Level II fieldwork supervisors to provide direct, ongoing, and formative feedback rather than deferring guidance to scheduled evaluations. Structured post-session feedback anchored to an observable clinical event — the student's preference for compensatory techniques despite a measurable FIM plateau and contradicting systematic-review evidence — develops the student's evidence-based clinical reasoning while protecting Mr. Delgado's right to best-practice care. Collaboratively revising the plan models the OT process and fulfills the educator role more completely than any unilateral or delayed action.",
+      "core_concept": "Level II fieldwork educators are obligated by ACOTE standards to deliver timely, structured, formative feedback tied to observable clinical events, and to guide students in integrating current evidence into client-centered intervention planning.",
+      "explain_differently": "Think of the fieldwork educator's role as a two-track responsibility: keeping the client on the most evidence-supported path while simultaneously teaching the student why that path is correct. When the student's comfort with a familiar technique conflicts with objective outcome data (FIM plateau) and current evidence (systematic review favoring task-specific training), the educator's best move is a structured debrief that makes the student do the reasoning — not a silent override, not a delayed midterm note, and not unsupervised continuation. The feedback must be timely (post-session, not at midterm), structured (linked to specific observable data), and collaborative (the student builds the rationale, not just receives an answer).",
+      "topic": "Fieldwork Education and Professional Supervision in Occupational Therapy",
       "cognitive_level": "application",
-      "status": "approved",
+      "status": "needs_review",
       "options": [
         {
           "label": "A",
-          "text": "\"I participate in CAOT's neurosciences community of practice to stay connected with emerging stroke evidence and practice developments.\"",
-          "incorrect_rationale": null
+          "text": "Direct the student to implement the task-specific training protocol immediately and without discussion so that Mr. Delgado receives the most evidence-supported intervention without further delay.",
+          "incorrect_rationale": "Bypassing the educational dialogue prioritizes immediate protocol compliance over developing the student's clinical reasoning, which is the primary obligation of the fieldwork-educator role and is required for the student to integrate evidence into future independent practice."
         },
         {
           "label": "B",
-          "text": "\"I renew my registration with my provincial regulatory college each year and complete only the continuing-competency hours required to maintain it.\"",
-          "incorrect_rationale": "Fulfilling the minimum continuing-competency requirements to maintain provincial registration reflects passive regulatory compliance rather than the active, self-directed professional engagement described in the Engagement with the Profession competencies of the COTC (2021), which expect practitioners to pursue growth beyond mandatory thresholds."
+          "text": "Defer all feedback on the student's clinical reasoning to the formal midterm evaluation form, allowing the student sufficient independent time to recognize the evidence-practice discrepancy before it is discussed.",
+          "incorrect_rationale": "Withholding timely, formative feedback violates ACOTE Level II fieldwork standards, allows the evidence-practice gap to persist uncorrected across multiple sessions, and places Mr. Delgado at continued risk of a suboptimal functional outcome."
         },
         {
           "label": "C",
-          "text": "\"I consult experienced colleagues on the unit when I am uncertain about a clinical decision for a patient like Mrs. Chen.\"",
-          "incorrect_rationale": "Peer consultation is a valid but reactive and informal strategy; it does not constitute systematic professional engagement or demonstrate the proactive, self-directed pursuit of current evidence that the COTC (2021) Engagement with the Profession competencies require."
+          "text": "Provide structured, post-session feedback that guides the student to reconcile the systematic-review evidence with Mr. Delgado's three-week FIM plateau and collaboratively develop a rationale for revising the intervention plan.",
+          "incorrect_rationale": null
         },
         {
           "label": "D",
-          "text": "\"I apply the neurological rehabilitation principles I studied during my entry-level OT program to guide my stroke practice.\"",
-          "incorrect_rationale": "Relying exclusively on entry-level education represents a static knowledge base and directly contradicts the expectation for ongoing professional development in the COTC (2021) Engagement with the Profession competencies, which require practitioners to continuously update their knowledge as the evidence base evolves."
+          "text": "Allow the student to continue leading dressing sessions with the compensatory approach while the OT monitors unobtrusively from outside the room to avoid undermining the student's developing clinical confidence.",
+          "incorrect_rationale": "Permitting an approach that conflicts with current evidence and an objective plateau in client progress, without direct supervisory feedback, subordinates client safety and evidence-based practice to the student's comfort — the inverse of the fieldwork educator's professional responsibility."
         }
       ],
       "provenance": {
         "minted_by": "claude-sonnet-4-6",
         "audited_by": "claude-opus-4-8",
-        "blind_solver_label": "B",
+        "blind_solver_label": "C",
         "blind_solver_agreed": true,
         "audit_verdict": "revise",
         "audit_scores": {
-          "clinical_accuracy": 8,
-          "distractor_quality": 6
+          "clinical_accuracy": 9,
+          "distractor_quality": 7
         },
-        "revisions": 1,
-        "selftest_passed": true
+        "revisions": 1
       }
     }
   ]

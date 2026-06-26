@@ -12,8 +12,49 @@ import json
 from .gemini_service import clean_json_text, get_client, generate_content
 
 
-def generate_practice_question(domain: str, difficulty: str, 
-                                question_number: int, 
+def serve_bank_question(domain: str, difficulty: str, exclude_ids=None) -> dict:
+    """
+    Pull a vetted, pre-minted question from the premium bank for this
+    domain/difficulty, in the SAME dict shape generate_practice_question returns
+    so the rest of the mock-study flow is unchanged. Returns None when the bank
+    has no (more) matching approved items, so callers fall back to Gemini.
+
+    The returned dict also carries `bank_id` and `source='bank'`, plus the
+    pre-minted learning aids (`core_concept`, `explain_differently`).
+    """
+    from .models import BankQuestion  # local import to avoid circulars
+
+    qs = (BankQuestion.objects
+          .filter(domain=domain, difficulty=difficulty, status='approved')
+          .exclude(id__in=list(exclude_ids or []))
+          .prefetch_related('distractors'))
+    bq = qs.order_by('?').first()
+    if not bq:
+        return None
+
+    distractors = list(bq.distractors.all())
+    options = [{"label": d.label, "text": d.text} for d in distractors]
+    incorrect = {
+        d.label: d.incorrect_rationale
+        for d in distractors
+        if d.incorrect_rationale and d.label.upper() != bq.correct_label.upper()
+    }
+    return {
+        "stem": bq.stem,
+        "options": options,
+        "correct_label": bq.correct_label,
+        "correct_rationale": bq.correct_rationale,
+        "incorrect_rationales": incorrect,
+        "core_concept": bq.core_concept or "",
+        "explain_differently": bq.explain_differently or "",
+        "topic": bq.topic or "",
+        "bank_id": bq.id,
+        "source": "bank",
+    }
+
+
+def generate_practice_question(domain: str, difficulty: str,
+                                question_number: int,
                                 total_questions: int,
                                 topics_covered: list = None) -> dict:
     """

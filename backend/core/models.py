@@ -17,6 +17,84 @@ class ConfidenceLevel(models.TextChoices):
     MED = 'MED', 'Medium'
     HIGH = 'HIGH', 'High'
 
+# --- NOTCE 2026 BLUEPRINT "OTHER CODES / DESCRIPTORS" ---
+# Source: NOTCE Resource Manual (Blueprint - September 2026), "Other codes/descriptors".
+# The exam samples items across these descriptors; we store them per-scenario so the
+# bank's coverage can be tracked the way a real exam form is balanced.
+
+class CognitiveLevel(models.TextChoices):
+    # Manual taxonomy: "knowledge, application, critical thinking"
+    KNOWLEDGE = 'knowledge', 'Knowledge'
+    APPLICATION = 'application', 'Application'
+    CRITICAL_THINKING = 'critical_thinking', 'Critical Thinking'
+
+class ClientType(models.TextChoices):
+    INDIVIDUAL = 'individual', 'Individual'
+    FAMILY = 'family', 'Family'
+    GROUP = 'group', 'Group'
+    COMMUNITY = 'community', 'Community'
+    ORGANIZATION = 'organization', 'Organization'
+    POPULATION = 'population', 'Population'
+
+class PracticeSetting(models.TextChoices):
+    REHAB_CENTRE = 'rehab_centre', 'Rehabilitation Centre'
+    LTC = 'ltc', 'Long-Term Care Facility'
+    PEDIATRIC = 'pediatric', 'Pediatric Facility'
+    HOME_CARE = 'home_care', 'Home Care'
+    COMMUNITY_AGENCY = 'community_agency', 'Community Agency'
+    REGULATORY_GOV = 'regulatory_gov', 'Regulatory/Government Office'
+    CRIMINAL_JUSTICE = 'criminal_justice', 'Criminal Justice'
+    WORKPLACE = 'workplace', 'Workplace'
+    EDUCATION = 'education', 'Education System'
+    HOSPITAL_INPATIENT = 'hospital_inpatient', 'Hospital Inpatient'
+    HOSPITAL_OUTPATIENT = 'hospital_outpatient', 'Hospital Outpatient'
+    MH_INPATIENT = 'mh_inpatient', 'Mental Health Facility Inpatient'
+    MH_OUTPATIENT = 'mh_outpatient', 'Mental Health Facility Outpatient'
+    INSURANCE = 'insurance', 'Insurance (WSIB/WCB/Auto)'
+
+class AgeGroup(models.TextChoices):
+    CHILD = 'child', 'Child'
+    ADOLESCENT = 'adolescent', 'Adolescent'
+    ADULT = 'adult', 'Adult'
+    OLDER_ADULT = 'older_adult', 'Older Adult'
+
+class Pronouns(models.TextChoices):
+    HE = 'he', 'He/Him'
+    SHE = 'she', 'She/Her'
+    THEY = 'they', 'They/Them'
+    NON_BINARY = 'non_binary', 'Non-binary'
+    TRANSGENDER = 'transgender', 'Transgender'
+
+class Representation(models.TextChoices):
+    # Manual descriptor: "Black, Indigenous, Person of Colour"
+    NOT_SPECIFIED = 'not_specified', 'Not specified'
+    BLACK = 'black', 'Black'
+    INDIGENOUS = 'indigenous', 'Indigenous'
+    PERSON_OF_COLOUR = 'person_of_colour', 'Person of Colour'
+
+class DiagnosisCategory(models.TextChoices):
+    NEUROLOGICAL = 'neurological', 'Neurological'
+    MUSCULOSKELETAL = 'musculoskeletal', 'Musculoskeletal'
+    MENTAL_HEALTH = 'mental_health', 'Mental Health'
+    GENERAL_MEDICAL = 'general_medical', 'General Medical'
+
+class BlueprintDescriptors(models.Model):
+    """
+    Abstract mixin holding the NOTCE 2026 Blueprint "other codes/descriptors" that
+    apply to a clinical scenario. All optional (blank=''); used for coverage tracking.
+    Carried on a BankCase (case-based items inherit from their case) and directly on a
+    standalone BankQuestion.
+    """
+    client_type = models.CharField(max_length=16, choices=ClientType.choices, blank=True, default='')
+    practice_setting = models.CharField(max_length=24, choices=PracticeSetting.choices, blank=True, default='')
+    age_group = models.CharField(max_length=16, choices=AgeGroup.choices, blank=True, default='')
+    pronouns = models.CharField(max_length=16, choices=Pronouns.choices, blank=True, default='')
+    representation = models.CharField(max_length=20, choices=Representation.choices, blank=True, default='')
+    diagnosis_category = models.CharField(max_length=20, choices=DiagnosisCategory.choices, blank=True, default='')
+
+    class Meta:
+        abstract = True
+
 # --- CONTENT MODELS ---
 
 class CaseStudy(models.Model):
@@ -137,12 +215,12 @@ class Highlight(models.Model):
 
 # --- PREMIUM QUESTION BANK MODELS ---
 
-class BankCase(models.Model):
+class BankCase(BlueprintDescriptors):
     """A clinical vignette that groups several case-based premium bank questions."""
     id = models.CharField(max_length=64, primary_key=True)  # deterministic hash id
     title = models.CharField(max_length=255)
     vignette = models.TextField()
-    setting = models.CharField(max_length=120)
+    setting = models.CharField(max_length=120)  # free-text label for display; coded form is practice_setting
     domain = models.CharField(max_length=20, choices=DomainTag.choices)
     tags = models.JSONField(default=list, blank=True)
     # Audit trail: minted_by, solver verdicts, audit scores, revision count, timestamps
@@ -154,11 +232,14 @@ class BankCase(models.Model):
         return f"[Case] {self.title}"
 
 
-class BankQuestion(models.Model):
+class BankQuestion(BlueprintDescriptors):
     """
     A pre-minted, independently-solved-and-audited premium question.
     Unlike Question (case-bound, Gemini-live) and MockStudySession (on-the-fly),
     these are vetted, persisted, and reusable across the app.
+
+    Scenario descriptors (from BlueprintDescriptors) are carried directly for
+    standalone questions; case-based questions inherit them from their `case`.
     """
     DIFFICULTY_CHOICES = [('Easy', 'Easy'), ('Medium', 'Medium'), ('Hard', 'Hard')]
     FORMAT_CHOICES = [('standalone', 'Standalone'), ('case', 'Case-based')]
@@ -168,7 +249,6 @@ class BankQuestion(models.Model):
         ('needs_review', 'Needs Review'),
         ('rejected', 'Rejected'),
     ]
-    COGNITIVE_CHOICES = [('recall', 'Recall'), ('application', 'Application'), ('analysis', 'Analysis')]
 
     id = models.CharField(max_length=64, primary_key=True)  # deterministic hash for idempotent import
     domain = models.CharField(max_length=20, choices=DomainTag.choices)
@@ -178,8 +258,13 @@ class BankQuestion(models.Model):
     stem = models.TextField()
     correct_label = models.CharField(max_length=1)  # 'A', 'B', 'C', 'D'
     correct_rationale = models.TextField()
+    # Student learning aids (pre-minted): an alternate framing of the answer and
+    # the underlying OT concept the item tests.
+    explain_differently = models.TextField(blank=True, default='')
+    core_concept = models.TextField(blank=True, default='')
     topic = models.CharField(max_length=160, blank=True)
-    cognitive_level = models.CharField(max_length=12, choices=COGNITIVE_CHOICES, default='application')
+    # NOTCE 2026 cognitive taxonomy: knowledge / application / critical thinking
+    cognitive_level = models.CharField(max_length=20, choices=CognitiveLevel.choices, default=CognitiveLevel.APPLICATION)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='draft', db_index=True)
     # Full pipeline audit trail: minted_by model, blind-solver answer+verdict, audit scores, revisions
     provenance = models.JSONField(default=dict, blank=True)

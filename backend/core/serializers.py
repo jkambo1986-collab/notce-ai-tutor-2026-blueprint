@@ -88,7 +88,11 @@ class BankQuestionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'domain', 'difficulty', 'format', 'case', 'stem',
             'distractors', 'correct_label', 'correct_rationale',
+            'explain_differently', 'core_concept',
             'topic', 'cognitive_level',
+            # NOTCE 2026 Blueprint scenario descriptors
+            'client_type', 'practice_setting', 'age_group', 'pronouns',
+            'representation', 'diagnosis_category',
         ]
 
 
@@ -97,7 +101,12 @@ class BankCaseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BankCase
-        fields = ['id', 'title', 'vignette', 'setting', 'domain', 'tags', 'questions']
+        fields = [
+            'id', 'title', 'vignette', 'setting', 'domain', 'tags', 'questions',
+            # NOTCE 2026 Blueprint scenario descriptors
+            'client_type', 'practice_setting', 'age_group', 'pronouns',
+            'representation', 'diagnosis_category',
+        ]
 
 
 from .models import MockStudySession
