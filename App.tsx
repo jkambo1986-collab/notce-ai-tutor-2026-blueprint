@@ -99,7 +99,14 @@ const MainApp: React.FC = () => {
   
   // Evidence-Link analysis result (AI-identified clinical indicators)
   const [evidenceLinkResult, setEvidenceLinkResult] = useState<EvidenceLinkResult | null>(null);
-  
+
+  // Clear any lingering Evidence-Link analysis when the case changes, so a prior
+  // case's result can't leak onto question 1 of a new one. (It intentionally
+  // persists across questions *within* a case — same id — to show on the next q.)
+  useEffect(() => {
+    setEvidenceLinkResult(null);
+  }, [currentCase?.id]);
+
   // Routing: the current view is derived from the URL (single source of truth).
   const navigate = useNavigate();
   const location = useLocation();
@@ -389,6 +396,7 @@ const MainApp: React.FC = () => {
     setAnswers([]);
     setCurrentQuestionIndex(0);
     setIsCaseComplete(false);
+    setEvidenceLinkResult(null);  // don't carry a prior question's analysis into the restart
     navigate('/study');
     setHighlights([]);
   };
@@ -1130,7 +1138,7 @@ const MainApp: React.FC = () => {
  * @returns The route table for the current auth state.
  */
 const App: React.FC = () => {
-    const { isAuthenticated, loading, refreshProfile } = useAuth();
+    const { isAuthenticated, loading, refreshProfile, user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const toast = useToast();
@@ -1187,9 +1195,11 @@ const App: React.FC = () => {
             const tier = pendingPlan;
             setPendingPlan(null);
             try { localStorage.removeItem('pending_plan'); } catch { /* ignore */ }
+            // Don't bounce an already-paid user into checkout for a stale plan.
+            if (user?.userprofile?.is_paid) return;
             handleSelectPlan(tier);
         }
-    }, [isAuthenticated, pendingPlan]);
+    }, [isAuthenticated, pendingPlan, user]);
 
     // Redeem a deferred org invite: a user who clicked an invite link while logged
     // out is sent through signup with the token stashed; once authenticated, redeem

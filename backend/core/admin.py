@@ -8,6 +8,7 @@ from django.contrib import admin
 from .models import (
     BankCase, BankQuestion, BankDistractor,
     Organization, OrgMembership, OrgInvite,
+    ReviewItem, CohortAssignment,
 )
 
 
@@ -80,3 +81,19 @@ class OrgInviteAdmin(admin.ModelAdmin):
     list_filter = ('role', 'organization')
     search_fields = ('email', 'organization__name')
     autocomplete_fields = ('organization', 'invited_by')
+
+
+@admin.register(ReviewItem)
+class ReviewItemAdmin(admin.ModelAdmin):
+    list_display = ('user', 'item_key', 'source', 'domain', 'box', 'due_at', 'reps', 'lapses')
+    list_filter = ('source', 'box', 'domain')
+    search_fields = ('user__username', 'item_key')
+    raw_id_fields = ('user',)
+
+
+@admin.register(CohortAssignment)
+class CohortAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('title', 'organization', 'domain', 'target_questions', 'due_date', 'is_active', 'created_at')
+    list_filter = ('is_active', 'domain', 'organization')
+    search_fields = ('title', 'organization__name')
+    autocomplete_fields = ('organization', 'created_by')
