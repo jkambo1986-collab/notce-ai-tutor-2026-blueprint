@@ -63,27 +63,46 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
     const [finalScore, setFinalScore] = useState<any>(null);
     const [highlights, setHighlights] = useState<Highlight[]>(initialData.highlights || []);
 
-    // Initialize Timer from a persisted deadline so a refresh doesn't reset the
-    // clock. The first time we see this session, anchor the deadline to now + 4h.
+    // Server-authoritative countdown. The deadline is derived from the backend's
+    // stored exam start time (GET /mock-study/time/), so it survives refreshes,
+    // can't be reset by clearing storage, and is consistent across devices. A
+    // localStorage cache seeds an instant render; the server then corrects it and
+    // we re-sync every 30s. The local 1s tick keeps the display smooth between syncs.
     useEffect(() => {
         if (finalScore) return;
-        let deadline = Number(localStorage.getItem(deadlineKey));
-        if (!deadline || Number.isNaN(deadline)) {
-            deadline = Date.now() + EXAM_DURATION * 1000;
-            localStorage.setItem(deadlineKey, String(deadline));
-        }
+        let cancelled = false;
+        // Fast-path seed from cache (or a fresh 4h) until the server responds.
+        let deadline = Number(localStorage.getItem(deadlineKey)) || (Date.now() + EXAM_DURATION * 1000);
+
         // Warn once as the clock crosses each milestone (60 / 30 / 10 minutes left).
         const MILESTONES: { at: number; label: string }[] = [
             { at: 3600, label: '1 hour remaining' },
             { at: 1800, label: '30 minutes remaining' },
             { at: 600, label: '10 minutes remaining' },
         ];
-        // On (re)mount, silently mark milestones already well past so a mid-exam
-        // refresh doesn't stack several warnings at once.
-        const initialRemaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-        for (const m of MILESTONES) {
-            if (initialRemaining < m.at - 5) firedMilestonesRef.current.add(m.at);
-        }
+        const seedPastMilestones = (remaining: number) => {
+            for (const m of MILESTONES) {
+                if (remaining < m.at - 5) firedMilestonesRef.current.add(m.at);
+            }
+        };
+        seedPastMilestones(Math.max(0, Math.round((deadline - Date.now()) / 1000)));
+
+        // Pull the authoritative remaining time and re-anchor the deadline.
+        const syncWithServer = async () => {
+            try {
+                const t = await api.mockStudy.time(sessionId);
+                if (cancelled) return;
+                if (t.timed && t.remaining_seconds != null) {
+                    deadline = Date.now() + t.remaining_seconds * 1000;
+                    localStorage.setItem(deadlineKey, String(deadline));
+                    if (t.expired) setTimeUp(true);
+                }
+            } catch {
+                /* keep cached/client deadline if the server is unreachable */
+            }
+        };
+        syncWithServer();
+
         const tick = () => {
             const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
             setTimeLeft(remaining);
@@ -97,10 +116,11 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
         };
         tick();
         const timer = setInterval(tick, 1000);
-        return () => clearInterval(timer);
+        const sync = setInterval(syncWithServer, 30000); // re-sync with the server clock
+        return () => { cancelled = true; clearInterval(timer); clearInterval(sync); };
         // `toast` is stable (useCallback); intentionally not a dependency.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [deadlineKey, finalScore]);
+    }, [deadlineKey, finalScore, sessionId]);
 
     // Clear the persisted deadline once the exam is finished.
     useEffect(() => {

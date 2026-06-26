@@ -406,6 +406,21 @@ export const api = {
         }).catch(err => console.warn('Prefetch failed:', err));
     },
 
+    /**
+     * Server-authoritative exam clock for a timed session.
+     * GET /mock-study/time/?session_id=... with Bearer auth.
+     * Returns { timed, remaining_seconds, total_seconds, expired }. The countdown
+     * is computed from the server's stored start time, so it survives refreshes.
+     */
+    async time(sessionId: string): Promise<{ timed: boolean; remaining_seconds: number | null; total_seconds: number | null; expired: boolean }> {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`${API_BASE_URL}/mock-study/time/?session_id=${encodeURIComponent(sessionId)}`, { headers });
+        if (!response.ok) throw new Error(`Failed to fetch exam time: ${response.statusText}`);
+        return response.json();
+    },
+
 
     /**
      * Looks up any in-progress mock-study session for the current user.

@@ -751,7 +751,39 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         if self.request.user.is_authenticated:
             return MockStudySession.objects.filter(user=self.request.user)
         return MockStudySession.objects.none()
-    
+
+    # Fixed exam duration (4 hours), in seconds. Matches the frontend ExamSession.
+    EXAM_SECONDS = 4 * 60 * 60
+
+    @action(detail=False, methods=['get', 'post'])
+    def time(self, request):
+        """Server-authoritative exam clock.
+
+        Returns the seconds remaining in a timed exam, computed from the
+        server-stored ``timer_start`` so the countdown survives client refreshes
+        and can't be gamed locally. ``expired`` flips true at the deadline.
+        Accepts ``session_id`` via query string or POST body.
+        """
+        from django.utils import timezone
+        session_id = request.query_params.get('session_id') or request.data.get('session_id')
+        try:
+            session = MockStudySession.objects.get(id=session_id, user=request.user)
+        except MockStudySession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=404)
+
+        if not session.timer_start:
+            # Untimed (practice) session — no deadline.
+            return Response({"timed": False, "remaining_seconds": None, "total_seconds": None, "expired": False})
+
+        elapsed = (timezone.now() - session.timer_start).total_seconds()
+        remaining = max(0, int(self.EXAM_SECONDS - elapsed))
+        return Response({
+            "timed": True,
+            "remaining_seconds": remaining,
+            "total_seconds": self.EXAM_SECONDS,
+            "expired": remaining <= 0,
+        })
+
     @action(detail=False, methods=['post'])
     def start(self, request):
         """
