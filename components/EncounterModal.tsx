@@ -10,6 +10,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { EncounterPersona, EncounterResult } from '../types';
 import { useToast } from './ui/Feedback';
+import { useVoice } from './VoiceContext';
+import { SpeakButton, MicButton } from './ui';
 
 interface Props { isOpen: boolean; onClose: () => void; }
 interface Turn { role: 'ot' | 'client'; text: string; }
@@ -22,6 +24,10 @@ const RUBRIC_LABELS: Record<string, string> = {
 
 const EncounterModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const toast = useToast();
+  const { speak, cancel, supported: voiceSupported, settings: voiceSettings } = useVoice();
+  // Speak a client line aloud (the spoken-roleplay core). Gated on the master
+  // voice toggle so a user who turned voice off gets a silent text interview.
+  const sayClient = (text: string) => { if (voiceSupported && voiceSettings.enabled) speak(text, { id: 'encounter-client' }); };
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [persona, setPersona] = useState<EncounterPersona | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -38,10 +44,10 @@ const EncounterModal: React.FC<Props> = ({ isOpen, onClose }) => {
     let active = true;
     setSessionId(null); setPersona(null); setTurns([]); setInput(''); setResult(null); setError(false); setStarting(true);
     api.encounter.start()
-      .then(d => { if (active) { setSessionId(d.session_id); setPersona(d.persona); setTurns([{ role: 'client', text: d.opening_line }]); } })
+      .then(d => { if (active) { setSessionId(d.session_id); setPersona(d.persona); setTurns([{ role: 'client', text: d.opening_line }]); sayClient(d.opening_line); } })
       .catch(() => { if (active) setError(true); })
       .finally(() => { if (active) setStarting(false); });
-    return () => { active = false; };
+    return () => { active = false; cancel(); };
   }, [isOpen]);
 
   useEffect(() => {
@@ -59,6 +65,7 @@ const EncounterModal: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       const d = await api.encounter.message(sessionId, msg);
       setTurns(prev => [...prev, { role: 'client', text: d.reply }]);
+      sayClient(d.reply);
     } catch (err: any) {
       // Roll back the optimistic OT turn (the server didn't record it) and
       // restore the text so the user can retry cleanly.
@@ -149,28 +156,34 @@ const EncounterModal: React.FC<Props> = ({ isOpen, onClose }) => {
             <div className="max-w-2xl mx-auto space-y-3">
               {starting && <div className="flex justify-center py-10"><div className="h-10 w-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>}
               {turns.map((t, i) => (
-                <div key={i} className={`flex ${t.role === 'ot' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${t.role === 'ot' ? 'bg-teal-600 text-white rounded-br-sm' : 'bg-white border border-gray-100 text-gray-800 rounded-bl-sm shadow-sm'}`}>
+                <div key={i} className={`flex items-end gap-2 ${t.role === 'ot' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${t.role === 'ot' ? 'bg-brand-600 text-white rounded-br-sm' : 'bg-white border border-gray-100 text-gray-800 rounded-bl-sm shadow-sm'}`}>
                     {t.text}
                   </div>
+                  {t.role === 'client' && <SpeakButton id={`enc-turn-${i}`} text={t.text} size="sm" label="Hear the client" />}
                 </div>
               ))}
               {sending && <div className="flex justify-start"><div className="bg-white border border-gray-100 text-gray-400 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm shadow-sm">…</div></div>}
             </div>
           </div>
           <div className="border-t border-gray-100 bg-white p-4">
-            <div className="max-w-2xl mx-auto flex gap-2">
+            <div className="max-w-2xl mx-auto flex items-center gap-2">
+              <MicButton
+                lang="en-CA"
+                disabled={starting || sending}
+                onTranscript={(t) => setInput(prev => (prev ? prev.trim() + ' ' : '') + t)}
+              />
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                 placeholder="Ask the client a question…"
                 disabled={starting || sending}
-                className="flex-1 border-2 border-gray-200 focus:border-teal-500 rounded-xl px-4 py-3 text-gray-800 outline-none transition"
+                className="flex-1 border-2 border-gray-200 focus:border-brand-500 rounded-xl px-4 py-3 text-gray-800 outline-none transition"
               />
-              <button onClick={send} disabled={!input.trim() || sending || starting} className="px-6 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition disabled:opacity-50">Send</button>
+              <button onClick={send} disabled={!input.trim() || sending || starting} className="px-6 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition disabled:opacity-50">Send</button>
             </div>
-            <p className="max-w-2xl mx-auto text-[11px] text-gray-400 mt-2 text-center">Interview the client, then tap "End &amp; Score" for competency feedback.</p>
+            <p className="max-w-2xl mx-auto text-[11px] text-gray-400 mt-2 text-center">Tap the mic to speak, or type. The client replies aloud — then tap "End &amp; Score" for competency feedback.</p>
           </div>
         </>
       )}

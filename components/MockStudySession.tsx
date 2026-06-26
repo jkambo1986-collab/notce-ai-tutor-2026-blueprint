@@ -10,7 +10,8 @@ import { api } from '../services/api';
 import HighlightableText from './HighlightableText';
 import { Highlight } from '../types';
 import { useToast } from './ui/Feedback';
-import { Button, Badge, LoadingScreen } from './ui';
+import { Button, Badge, LoadingScreen, SpeakButton } from './ui';
+import { useVoice } from './VoiceContext';
 
 /** Score (%) at or above which a session is reported as a pass. */
 const PASS_THRESHOLD = 60;
@@ -36,6 +37,7 @@ interface MockStudySessionProps {
  */
 const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialData, onExit }) => {
     const toast = useToast();
+    const { speak, settings: voiceSettings } = useVoice();
     // Session State
     const [currentQuestion, setCurrentQuestion] = useState(initialData.question);
     const [progress, setProgress] = useState({
@@ -74,6 +76,11 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
         if (!isComplete && sessionId) {
             api.mockStudy.prefetch(sessionId);
         }
+        // Auto-read the new question stem aloud when the user enabled it.
+        if (voiceSettings.autoRead && currentQuestion?.stem && !feedback) {
+            speak(currentQuestion.stem, { id: `mock-q-${currentQuestion?.id ?? 'cur'}` });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentQuestion, isComplete, sessionId]);
 
     // Keyboard support: A–D / 1–4 select an option, Enter submits, then Enter
@@ -442,13 +449,19 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                 )}
                 {/* Question Stem */}
                 <div className="bg-white rounded-3xl shadow-card ring-1 ring-slate-200/70 p-5 md:p-6">
-                     {currentQuestion.vetted && (
-                        <div className="mb-3">
+                     <div className="mb-3 flex items-start justify-between gap-3">
+                        {currentQuestion.vetted ? (
                             <Badge tone="success" icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}>
                                 Vetted · Premium Bank
                             </Badge>
-                        </div>
-                     )}
+                        ) : <span />}
+                        <SpeakButton
+                            id={`mock-q-${progress.current}`}
+                            label="Read question"
+                            size="sm"
+                            text={`${currentQuestion.stem}. ${(currentQuestion.options || []).map((o: any) => `${o.label}. ${o.text}`).join('. ')}`}
+                        />
+                     </div>
                      <p className="text-base md:text-lg leading-relaxed text-ink">
                         {currentQuestion.stem}
                      </p>
@@ -520,6 +533,13 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                             <h3 className={`text-base font-bold ${feedback.is_correct ? 'text-emerald-800' : 'text-red-800'}`}>
                                 {feedback.feedback_message}
                             </h3>
+                            <SpeakButton
+                                id={`mock-fb-${progress.current}`}
+                                label="Read feedback"
+                                size="sm"
+                                className="ml-auto"
+                                text={`${feedback.feedback_message}. ${(feedback.explanation || '').replace(/\*/g, '')}`}
+                            />
                         </div>
                         <div className="bg-white/70 ring-1 ring-white/60 p-4 rounded-2xl">
                              <div className="text-slate-700 text-sm md:text-base leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>

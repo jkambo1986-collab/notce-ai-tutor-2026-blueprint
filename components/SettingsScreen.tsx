@@ -10,6 +10,7 @@ import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
 import { api } from '../services/api';
 import { useToast } from './ui/Feedback';
+import { VoiceSettingsPanel } from './ui';
 import { DomainTag } from '../types';
 import { DOMAIN_INFO } from '../constants';
 
@@ -128,6 +129,13 @@ const SettingsScreen: React.FC = () => {
         >
           {saving ? 'Saving…' : 'Save changes'}
         </button>
+
+        {/* Voice & read-aloud */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-1">Voice &amp; read-aloud</h2>
+          <p className="text-sm text-gray-500 mb-5">Hear questions, feedback, and the simulated client read aloud — and dictate your answers. Uses your device's free built-in voices.</p>
+          <VoiceSettingsPanel />
+        </div>
 
         {/* Join an organization by invite code (G4). */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">

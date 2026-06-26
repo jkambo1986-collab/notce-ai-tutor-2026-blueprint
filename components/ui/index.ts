@@ -13,3 +13,4 @@ export { Dropdown } from './Dropdown';
 export type { DropdownItem } from './Dropdown';
 export { Spinner, Skeleton, SkeletonCard, LoadingScreen, EmptyState } from './Loaders';
 export { FeedbackProvider, useToast, useConfirm } from './Feedback';
+export { SpeakButton, MicButton, useDictation, VoiceSettingsPanel } from './Speech';

@@ -31,6 +31,8 @@ import SettingsScreen from './components/SettingsScreen';
 import AcceptInvite, { PENDING_INVITE_KEY } from './components/AcceptInvite';
 import LegalPage from './components/Legal/LegalPage';
 import { FeedbackProvider, useToast, useConfirm } from './components/ui/Feedback';
+import { VoiceProvider, useVoice } from './components/VoiceContext';
+import { SpeakButton } from './components/ui';
 import { Button, Badge, LoadingScreen, EmptyState } from './components/ui';
 import OnboardingModal from './components/OnboardingModal';
 
@@ -47,6 +49,7 @@ const MainApp: React.FC = () => {
     const { logout, user, refreshProfile } = useAuth();
     const toast = useToast();
     const confirm = useConfirm();
+    const { speak, settings: voiceSettings } = useVoice();
 
   // --- STATE MANAGEMENT ---
 
@@ -669,6 +672,14 @@ const MainApp: React.FC = () => {
   // Current question being displayed
   const currentQuestion = currentCase?.questions[currentQuestionIndex];
 
+  // Auto-read the current question stem aloud when the user has enabled it.
+  useEffect(() => {
+    if (view === 'study' && voiceSettings.autoRead && currentQuestion && !isCaseComplete) {
+      speak(currentQuestion.stem, { id: `study-q-${currentQuestion.id}` });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id, view, voiceSettings.autoRead, isCaseComplete]);
+
 
   // --- RENDER ---
 
@@ -863,6 +874,14 @@ const MainApp: React.FC = () => {
                   <div className="bg-white p-6 rounded-3xl shadow-card ring-1 ring-slate-200/70">
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-xs font-bold text-brand-600 uppercase tracking-widest">{currentQuestion && DOMAIN_INFO[currentQuestion.domain].label}</span>
+                      {currentQuestion && (
+                        <SpeakButton
+                          id={`study-q-${currentQuestion.id}`}
+                          label="Read question"
+                          size="sm"
+                          text={`${currentQuestion.stem}. ${currentQuestion.distractors.map(d => `${d.label}. ${d.text}`).join('. ')}`}
+                        />
+                      )}
                     </div>
                     <h3 className="text-xl font-bold text-ink leading-tight mb-8">{currentQuestion?.stem}</h3>
 
@@ -968,7 +987,10 @@ const MainApp: React.FC = () => {
                               </div>
                             </div>
                             <div className="bg-emerald-50 p-4 rounded-2xl ring-1 ring-emerald-100">
-                              <h4 className="text-sm font-bold text-emerald-800 mb-2">Rationale</h4>
+                              <div className="mb-2 flex items-center justify-between">
+                                <h4 className="text-sm font-bold text-emerald-800">Rationale</h4>
+                                <SpeakButton id={`rationale-${q.id}`} label="Read rationale" size="sm" text={q.correctRationale} />
+                              </div>
                               <p className="text-sm text-emerald-700 leading-relaxed">{q.correctRationale}</p>
                             </div>
                             {!isCorrect && q.distractors.find(d => d.label === ans?.selectedLabel)?.incorrect_rationale && (
@@ -1324,7 +1346,9 @@ export default function AppWrapper() {
     return (
         <AuthProvider>
             <FeedbackProvider>
-                <App />
+                <VoiceProvider>
+                    <App />
+                </VoiceProvider>
             </FeedbackProvider>
         </AuthProvider>
     );
