@@ -53,6 +53,10 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     const [highlights, setHighlights] = useState<Highlight[]>(initialData.highlights || []);
     const [pivotData, setPivotData] = useState<any>(null);
     const [isPivoting, setIsPivoting] = useState(false);
+    // Persistent (non-toast) error for failed submit/next so the user isn't left
+    // staring at an unchanged screen with only a transient toast. We don't
+    // auto-retry (submit/next aren't idempotent) — we offer a clear escape.
+    const [actionError, setActionError] = useState<string | null>(null);
     // Pre-minted learning aids (bank questions only) + collapse state
     const [learning, setLearning] = useState<any>(null);
     const [showConcept, setShowConcept] = useState(false);
@@ -156,6 +160,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     const handleSubmitAnswer = async () => {
         if (!selectedLabel) return;
 
+        setActionError(null);
         setIsLoading(true);
         try {
             const data = await api.mockStudy.submitAnswer(sessionId, selectedLabel);
@@ -192,7 +197,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
             }
         } catch (error) {
             console.error("Failed to submit answer:", error);
-            toast("Failed to submit answer. Please try again.", "error");
+            setActionError("We couldn't submit your answer — check your connection, then tap your answer and submit again.");
         } finally {
             setIsLoading(false);
         }
@@ -203,6 +208,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
      * score; otherwise reset per-question UI state and load the next question.
      */
     const handleNextQuestion = async () => {
+        setActionError(null);
         if (isComplete) {
             // Fetch final results
             setIsLoading(true);
@@ -241,7 +247,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
             }));
         } catch (error) {
             console.error("Failed to fetch next question:", error);
-            toast("Failed to generate next question. Please try again.", "error");
+            setActionError("We couldn't load the next question — check your connection and tap Next again.");
         } finally {
             setIsLoading(false);
         }
@@ -455,6 +461,19 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
 
             {/* Main Content */}
             <main className="flex-1 max-w-6xl mx-auto w-full px-6 lg:px-12 pb-24 pt-6 space-y-6">
+                {/* Persistent action error with a clear escape (A9). */}
+                {actionError && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+                        <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" /></svg>
+                        <div className="flex-1">
+                            <p className="text-sm text-red-700">{actionError}</p>
+                            <div className="mt-2 flex gap-3">
+                                <button onClick={() => setActionError(null)} className="text-sm font-semibold text-red-600 hover:text-red-800">Dismiss</button>
+                                <button onClick={handleSaveAndExit} className="text-sm font-semibold text-gray-500 hover:text-gray-700">Save &amp; Exit</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {/* Question Stem */}
                 <div className="bg-white p-2">
                      {currentQuestion.vetted && (
