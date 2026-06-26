@@ -99,6 +99,31 @@ class TestEmailView(APIView):
             }, status=status.HTTP_200_OK)
 
 
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
+class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Allows logging in with either a username or an email address. SimpleJWT
+    authenticates by username only, so if the supplied identifier looks like an
+    email we resolve it to the matching account's username first. This prevents
+    the common "I entered my email and got 401" login failure.
+    """
+    def validate(self, attrs):
+        login = (attrs.get(self.username_field) or "").strip()
+        if login and "@" in login:
+            match = User.objects.filter(email__iexact=login).order_by("id").first()
+            if match:
+                attrs[self.username_field] = match.username
+        return super().validate(attrs)
+
+
+class EmailOrUsernameTokenObtainPairView(TokenObtainPairView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = EmailOrUsernameTokenObtainPairSerializer
+
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [permissions.AllowAny]
@@ -878,6 +903,12 @@ class BankQuestionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = BankQuestionSerializer
     permission_classes = [IsPaidUser]
 
+    # NOTCE 2026 Blueprint scenario descriptors that can be filtered on directly.
+    DESCRIPTOR_FILTERS = (
+        'cognitive_level', 'client_type', 'practice_setting',
+        'age_group', 'pronouns', 'representation', 'diagnosis_category',
+    )
+
     def get_queryset(self):
         qs = BankQuestion.objects.filter(status='approved').prefetch_related('distractors')
         params = self.request.query_params
@@ -889,15 +920,46 @@ class BankQuestionViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(format=params['format'])
         if params.get('topic'):
             qs = qs.filter(topic__icontains=params['topic'])
+        for field in self.DESCRIPTOR_FILTERS:
+            if params.get(field):
+                qs = qs.filter(**{field: params[field]})
         return qs
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """Coverage summary: counts by domain x difficulty for approved items."""
+        """
+        Coverage summary for approved items: counts by domain x difficulty, by
+        cognitive taxonomy, and by each NOTCE 2026 Blueprint scenario descriptor.
+        Descriptor coverage spans standalone questions plus distinct cases, since
+        case-based questions inherit their scenario from the case.
+        """
         from django.db.models import Count
-        rows = (BankQuestion.objects.filter(status='approved')
-                .values('domain', 'difficulty').annotate(n=Count('id')).order_by('domain', 'difficulty'))
-        return Response({"total": BankQuestion.objects.filter(status='approved').count(), "breakdown": list(rows)})
+        approved = BankQuestion.objects.filter(status='approved')
+
+        rows = (approved.values('domain', 'difficulty')
+                .annotate(n=Count('id')).order_by('domain', 'difficulty'))
+        by_cognitive = (approved.values('cognitive_level')
+                        .annotate(n=Count('id')).order_by('cognitive_level'))
+
+        # Per-descriptor coverage over scenarios = standalone questions + cases.
+        descriptor_fields = ('client_type', 'practice_setting', 'age_group',
+                             'pronouns', 'representation', 'diagnosis_category')
+        standalone = approved.filter(format='standalone')
+        cases = BankCase.objects.all()
+        descriptors = {}
+        for field in descriptor_fields:
+            counts = {}
+            for qs in (standalone, cases):
+                for row in qs.exclude(**{field: ''}).values(field).annotate(n=Count('id')):
+                    counts[row[field]] = counts.get(row[field], 0) + row['n']
+            descriptors[field] = [{"value": k, "n": v} for k, v in sorted(counts.items())]
+
+        return Response({
+            "total": approved.count(),
+            "breakdown": list(rows),
+            "by_cognitive_level": list(by_cognitive),
+            "by_descriptor": descriptors,
+        })
 
 
 class BankCaseViewSet(viewsets.ReadOnlyModelViewSet):
