@@ -317,6 +317,12 @@ class MeView(APIView):
             profile.target_exam_date = parse_date(raw) if raw else None
             profile.save(update_fields=['target_exam_date'])
 
+        if 'onboarding_completed' in request.data:
+            # Persist the onboarding-dismissed flag server-side so it follows the
+            # user across devices (replaces the old localStorage-only flag).
+            profile.onboarding_completed = bool(request.data.get('onboarding_completed'))
+            profile.save(update_fields=['onboarding_completed'])
+
         if 'goal_domains' in request.data:
             from .models import AgentMemory
             AgentMemory.objects.update_or_create(
@@ -562,20 +568,50 @@ from .serializers import AgentMemorySerializer
 
 class AgentMemoryViewSet(viewsets.ModelViewSet):
     """
-    API endpoint for the agent to store/retrieve persistent memory.
+    Per-user key/value persistence store. Originally for AI-agent state, it now
+    also backs durable client preferences/flags that used to live in the
+    browser's localStorage (UI prefs, per-case study flags, etc.), so they follow
+    the user across devices. Optional ``?key=`` / ``?category=`` filters narrow
+    the list; the ``set`` action upserts by key.
     """
     queryset = AgentMemory.objects.all()
     serializer_class = AgentMemorySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Users only see their own memories? Or global agent memories?
-        # For this prototype, return user's memories.
-        return AgentMemory.objects.filter(user=self.request.user)
+        # Only ever expose the caller's own memories; support optional filtering
+        # by key (exact) and category so the client can fetch a single pref.
+        qs = AgentMemory.objects.filter(user=self.request.user)
+        key = self.request.query_params.get('key')
+        category = self.request.query_params.get('category')
+        if key:
+            qs = qs.filter(key=key)
+        if category:
+            qs = qs.filter(category=category)
+        return qs
 
     def perform_create(self, serializer):
         # Stamp ownership server-side so callers can't write memories for others.
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['post'])
+    def set(self, request):
+        """Upsert a memory entry by key (POST /memory/set/).
+
+        Body: ``{ "key": "...", "value": <any-json>, "category": "..." }``.
+        Idempotent per (user, key) so a preference write doesn't pile up rows.
+        """
+        key = request.data.get('key')
+        if not key:
+            return Response({'error': 'key is required'}, status=status.HTTP_400_BAD_REQUEST)
+        obj, _ = AgentMemory.objects.update_or_create(
+            user=request.user, key=key,
+            defaults={
+                'value': request.data.get('value'),
+                'category': request.data.get('category', 'general'),
+            },
+        )
+        return Response(AgentMemorySerializer(obj).data)
 
 class UserAnswerViewSet(viewsets.ModelViewSet):
     """Records and auto-grades a user's answers to case-study questions.
@@ -697,8 +733,13 @@ class HighlightViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Only ever expose the caller's own highlights.
-        return Highlight.objects.filter(user=self.request.user)
+        # Only ever expose the caller's own highlights; optionally scope to one
+        # case so study mode can hydrate just that vignette's highlights.
+        qs = Highlight.objects.filter(user=self.request.user)
+        case_id = self.request.query_params.get('case_study')
+        if case_id:
+            qs = qs.filter(case_study_id=case_id)
+        return qs
 
     def perform_create(self, serializer):
         # Force ownership to the authenticated user.

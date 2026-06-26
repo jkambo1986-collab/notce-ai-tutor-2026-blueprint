@@ -664,6 +664,90 @@ export const api = {
   },
 
   /**
+   * Durable per-user preference/flag store backed by Django's /memory/ endpoint
+   * (AgentMemory). Replaces ad-hoc browser localStorage so device UI prefs and
+   * study flags follow the user across devices. Values are arbitrary JSON.
+   */
+  memory: {
+    /** Reads a single memory value by key, or null if unset. GET /memory/?key=... */
+    async get<T = any>(key: string): Promise<T | null> {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return null;
+      const response = await fetch(`${API_BASE_URL}/memory/?key=${encodeURIComponent(key)}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) return null;
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length ? (rows[0].value as T) : null;
+    },
+
+    /** Upserts a memory value by key. POST /memory/set/ { key, value, category }. */
+    async set(key: string, value: any, category = 'general'): Promise<void> {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      await fetch(`${API_BASE_URL}/memory/set/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ key, value, category }),
+      }).catch(err => console.warn('memory.set failed:', err));
+    },
+  },
+
+  /**
+   * Per-case vignette highlights persisted to Django (/highlights/), so a
+   * learner's marked passages survive refresh and follow them across devices.
+   */
+  highlights: {
+    /** Lists the user's highlights for one case. GET /highlights/?case_study=... */
+    async list(caseId: string): Promise<{ id: string; start: number; end: number; text: string }[]> {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return [];
+      const response = await fetch(`${API_BASE_URL}/highlights/?case_study=${encodeURIComponent(caseId)}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) return [];
+      const rows = await response.json();
+      // Map the snake_case offsets onto the frontend Highlight shape.
+      return (rows || []).map((h: any) => ({ id: h.id, start: h.start_index, end: h.end_index, text: h.text }));
+    },
+
+    /** Persists one highlight. POST /highlights/. Best-effort; never throws. */
+    async create(caseId: string, h: { id: string; start: number; end: number; text: string }): Promise<void> {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      await fetch(`${API_BASE_URL}/highlights/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ id: h.id, case_study: caseId, start_index: h.start, end_index: h.end, text: h.text }),
+      }).catch(err => console.warn('highlight create failed:', err));
+    },
+
+    /** Removes one highlight by id. DELETE /highlights/{id}/. Best-effort. */
+    async remove(id: string): Promise<void> {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      await fetch(`${API_BASE_URL}/highlights/${encodeURIComponent(id)}/`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      }).catch(err => console.warn('highlight remove failed:', err));
+    },
+  },
+
+  /**
+   * Updates onboarding/profile flags. PATCH /auth/me/ — extends updateProfile
+   * with the server-persisted onboarding flag (replaces the localStorage flag).
+   */
+  async setOnboardingCompleted(completed: boolean): Promise<void> {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    await fetch(`${API_BASE_URL}/auth/me/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ onboarding_completed: completed }),
+    }).catch(err => console.warn('setOnboardingCompleted failed:', err));
+  },
+
+  /**
    * B2B organization (tenant) API — RBAC member management, invites, cohort
    * analytics, and seat billing. All calls require a Bearer token; the backend
    * enforces tenant isolation + role checks, so these never expose another org.
