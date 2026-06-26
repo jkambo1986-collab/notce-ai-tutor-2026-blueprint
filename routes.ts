@@ -17,6 +17,7 @@ export const VIEW_TO_PATH: Record<ShellView, string> = {
   'mock-study': '/mock-study',
   'exam-mode': '/exam',
   'org': '/org',             // B2B org console (admin/instructor)
+  'settings': '/settings',   // account / study-profile settings
   'payment-success': '/payment/success',
   'payment-cancel': '/payment/cancel',
 };

@@ -27,6 +27,7 @@ import LandingPage from './components/Landing/LandingPage';
 import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
 import AppShell, { ShellView } from './components/AppShell';
 import OrgConsole from './components/OrgConsole';
+import SettingsScreen from './components/SettingsScreen';
 import AcceptInvite, { PENDING_INVITE_KEY } from './components/AcceptInvite';
 import { FeedbackProvider, useToast, useConfirm } from './components/ui/Feedback';
 import OnboardingModal, { ONBOARDING_DISMISSED_KEY } from './components/OnboardingModal';
@@ -1059,6 +1060,9 @@ const MainApp: React.FC = () => {
         {/* B2B organization console (admin/instructor): seats, members, cohort
             analytics. OrgConsole self-gates by the caller's membership role. */}
         {view === 'org' && <OrgConsole />}
+
+        {/* Account / study-profile settings (edit exam date + focus domains). */}
+        {view === 'settings' && <SettingsScreen />}
 
         {/* Full timed exam simulation (premium); also requires a live session */}
         {view === 'exam-mode' && mockSessionId && mockSessionData && (
