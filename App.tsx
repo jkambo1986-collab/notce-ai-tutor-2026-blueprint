@@ -456,19 +456,19 @@ const MainApp: React.FC = () => {
             toast(premiumGateMessage('Smart Drill'), 'info');
             return;
         }
+        // Resolve the weakest covered domain; if performance can't load, fall back
+        // to a default rather than blocking. handleLaunchMockStudy owns the
+        // session-start errors/loading state, so we don't double-handle them here.
+        let domain = 'OT_EXP';
         try {
-            setIsGenerating(true);
             const perf = await api.getPerformance();
-            const domain = perf.recommended_drill?.domain || 'OT_EXP';
-            const label = (DOMAIN_INFO as Record<string, { label: string }>)[domain]?.label || domain;
-            toast(`Smart Drill: targeting ${label}.`, 'info');
-            await handleLaunchMockStudy(domain, 'Medium', 10);
+            domain = perf.recommended_drill?.domain || 'OT_EXP';
         } catch (err) {
-            console.error('Smart Drill failed:', err);
-            toast('Could not start Smart Drill. Please try again.', 'error');
-        } finally {
-            setIsGenerating(false);
+            console.warn('Smart Drill: could not load performance, using default domain:', err);
         }
+        const label = (DOMAIN_INFO as Record<string, { label: string }>)[domain]?.label || domain;
+        toast(`Smart Drill: targeting ${label}.`, 'info');
+        await handleLaunchMockStudy(domain, 'Medium', 10);
     };
 
     /**
@@ -635,7 +635,7 @@ const MainApp: React.FC = () => {
         <OnboardingModal
             isOpen={
                 !!user?.userprofile &&
-                !user.userprofile.target_exam_date &&
+                !user?.userprofile?.target_exam_date &&
                 !onboardingClosed &&
                 (() => { try { return localStorage.getItem(ONBOARDING_DISMISSED_KEY) !== 'true'; } catch { return true; } })()
             }

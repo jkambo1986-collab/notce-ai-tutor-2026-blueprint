@@ -87,6 +87,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, onCo
               <input
                 type="date"
                 value={examDate}
+                min={new Date().toISOString().slice(0, 10)}
                 onChange={e => setExamDate(e.target.value)}
                 className="w-full border-2 border-gray-200 focus:border-teal-500 rounded-xl p-4 text-gray-800 outline-none transition"
               />

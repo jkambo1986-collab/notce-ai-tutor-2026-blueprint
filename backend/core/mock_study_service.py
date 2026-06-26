@@ -31,14 +31,24 @@ def serve_bank_question(domain: str, difficulty: str, exclude_ids=None) -> dict:
         A question dict shaped like ``generate_practice_question`` output, or
         ``None`` when no matching approved bank item remains.
     """
-    from .models import BankQuestion  # local import to avoid circulars
+    from .models import BankQuestion, DomainTag  # local import to avoid circulars
 
-    # Match approved items for this domain/difficulty, skipping any already used,
-    # and prefetch distractors to avoid N+1 queries when building the payload.
+    # Match approved items, skipping already-used ones, and prefetch distractors
+    # to avoid N+1 queries when building the payload. Exam mode passes a
+    # pseudo-domain ('MIXED'/'ALL') and/or a non-standard difficulty ('Exam') to
+    # mean "any approved question" — so apply each filter only when it's a real
+    # value, otherwise treat it as a wildcard.
+    valid_domains = {d.value for d in DomainTag}
+    valid_difficulties = {'Easy', 'Medium', 'Hard'}
+
     qs = (BankQuestion.objects
-          .filter(domain=domain, difficulty=difficulty, status='approved')
+          .filter(status='approved')
           .exclude(id__in=list(exclude_ids or []))
           .prefetch_related('distractors'))
+    if domain in valid_domains:
+        qs = qs.filter(domain=domain)
+    if difficulty in valid_difficulties:
+        qs = qs.filter(difficulty=difficulty)
     # order_by('?') picks a random matching question (DB-level RANDOM()).
     bq = qs.order_by('?').first()
     if not bq:

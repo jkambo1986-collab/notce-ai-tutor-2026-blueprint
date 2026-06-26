@@ -29,8 +29,10 @@ const NotebookModal: React.FC<NotebookModalProps> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (!isOpen) return;
+    let active = true;
     setItems(null); setError(false);
-    api.getNotebook().then(r => setItems(r.items)).catch(() => setError(true));
+    api.getNotebook().then(r => { if (active) setItems(r.items); }).catch(() => { if (active) setError(true); });
+    return () => { active = false; };
   }, [isOpen]);
 
   if (!isOpen) return null;

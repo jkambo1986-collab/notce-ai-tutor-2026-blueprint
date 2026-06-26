@@ -421,6 +421,24 @@ export const api = {
         return response.json();
     },
 
+    /**
+     * Finalizes a session immediately (e.g. exam timed out / ended early) and
+     * returns its score. POST /mock-study/finish/ with Bearer auth.
+     * Unanswered questions count as not-correct; `answered` reports attempts.
+     */
+    async finish(sessionId: string): Promise<{ is_complete: boolean; final_score: { correct: number; total: number; percentage: number; answered: number } }> {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`${API_BASE_URL}/mock-study/finish/`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ session_id: sessionId })
+        });
+        if (!response.ok) throw new Error(`Failed to finish session: ${response.statusText}`);
+        return response.json();
+    },
+
 
     /**
      * Looks up any in-progress mock-study session for the current user.

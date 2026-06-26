@@ -665,7 +665,7 @@ class UserAnswerViewSet(viewsets.ModelViewSet):
             
             # Resolve the correct option's display text (fall back to the label
             # itself if the matching distractor row is missing).
-            correct_distractor = question.distractor_set.filter(label=question.correct_label).first()
+            correct_distractor = question.distractors.filter(label=question.correct_label).first()
             correct_answer_text = correct_distractor.text if correct_distractor else question.correct_label
 
             # AI call: score the user's highlighted evidence against expert
@@ -924,8 +924,8 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             "total_questions": session.total_questions,
             "current_question": session.current_question,
             "question": {
-                "stem": session.current_question_data.get("stem"),
-                "options": session.current_question_data.get("options", [])
+                "stem": (session.current_question_data or {}).get("stem"),
+                "options": (session.current_question_data or {}).get("options", [])
             },
             "highlights": session.highlights,
             "progress": {
@@ -1056,7 +1056,41 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             return Response({"error": "Failed to generate pivot"}, status=503)
             
         return Response(pivot_data)
-    
+
+    @action(detail=False, methods=['post'])
+    def finish(self, request):
+        """Finalize a session immediately and return its score.
+
+        Used when an exam times out (or the user ends early): marks the session
+        complete and scores the correct count over the FULL total, so unanswered
+        questions count as not-correct (realistic exam behavior). `answered`
+        reports how many were actually attempted.
+        Expects: { "session_id": 1 }
+        """
+        from django.utils import timezone
+        session_id = request.data.get('session_id')
+        try:
+            session = MockStudySession.objects.get(id=session_id, user=request.user)
+        except MockStudySession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=404)
+
+        if session.is_active:
+            session.is_active = False
+            session.completed_at = timezone.now()
+            session.save()
+
+        total = session.total_questions or 0
+        answered = len(session.session_history or [])
+        return Response({
+            "is_complete": True,
+            "final_score": {
+                "correct": session.correct_count,
+                "total": total,
+                "percentage": int((session.correct_count / total) * 100) if total else 0,
+                "answered": answered,
+            }
+        })
+
     @action(detail=False, methods=['post'])
     def next(self, request):
         """

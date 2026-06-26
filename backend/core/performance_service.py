@@ -163,14 +163,23 @@ def compute_performance(user):
     # --- Smart Drill recommendation ---
     # Pick the domain to drill next: the lowest-accuracy domain among those with
     # enough attempts to be meaningful; if none qualify yet, steer the user to the
-    # least-practiced domain to broaden coverage.
+    # least-practiced domain to broaden coverage. Crucially, only recommend a
+    # domain that actually has approved 'Medium' bank questions, since Smart Drill
+    # auto-starts a Medium mock there — otherwise the drill would 404.
+    from .models import BankQuestion
     ATTEMPT_FLOOR = 3
-    practiced = [d for d in by_domain if d["answered"] >= ATTEMPT_FLOOR]
+    covered = set(
+        BankQuestion.objects
+        .filter(difficulty='Medium', status='approved')
+        .values_list('domain', flat=True).distinct()
+    )
+    candidates = [d for d in by_domain if d["domain"] in covered] or by_domain
+    practiced = [d for d in candidates if d["answered"] >= ATTEMPT_FLOOR]
     if practiced:
         target = min(practiced, key=lambda d: d["accuracy"])
         reason = f"Your weakest area — {target['accuracy']}% so far."
     else:
-        target = min(by_domain, key=lambda d: d["answered"])
+        target = min(candidates, key=lambda d: d["answered"])
         reason = "You've practiced this the least."
     recommended_drill = {
         "domain": target["domain"],

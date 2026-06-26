@@ -122,6 +122,17 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [deadlineKey, finalScore, sessionId]);
 
+    // When the clock expires, finalize the exam server-side and show the score
+    // (unanswered questions count as not-correct) rather than just locking the UI.
+    useEffect(() => {
+        if (!timeUp || finalScore) return;
+        let cancelled = false;
+        api.mockStudy.finish(sessionId)
+            .then(data => { if (!cancelled && data?.final_score) setFinalScore(data.final_score); })
+            .catch(err => console.warn('Failed to finalize timed-out exam:', err));
+        return () => { cancelled = true; };
+    }, [timeUp, finalScore, sessionId]);
+
     // Clear the persisted deadline once the exam is finished.
     useEffect(() => {
         if (finalScore) localStorage.removeItem(deadlineKey);

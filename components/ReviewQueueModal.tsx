@@ -30,10 +30,12 @@ const ReviewQueueModal: React.FC<ReviewQueueModalProps> = ({ isOpen, onClose }) 
 
   useEffect(() => {
     if (!isOpen) return;
+    let active = true;
     setItems(null); setError(false); setIndex(0); setRevealed(false); setSaved(new Set());
     api.getReviewQueue()
-      .then(q => setItems(q.items))
-      .catch(() => setError(true));
+      .then(q => { if (active) setItems(q.items); })
+      .catch(() => { if (active) setError(true); });
+    return () => { active = false; };
   }, [isOpen]);
 
   const saveCurrent = async (it: ReviewItem) => {
