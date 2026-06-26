@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView, BankQuestionViewSet, BankCaseViewSet, EmailOrUsernameTokenObtainPairView, PerformanceView
+from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView, BankQuestionViewSet, BankCaseViewSet, EmailOrUsernameTokenObtainPairView, PerformanceView, ReviewQueueView
 from .org_views import OrganizationViewSet
 
 # DRF router: auto-generates list/detail (and other) routes for each ViewSet.
@@ -35,6 +35,7 @@ urlpatterns = [
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # exchange refresh -> new access token
     path('auth/me/', MeView.as_view(), name='auth_me'),  # current user + profile
     path('performance/', PerformanceView.as_view(), name='performance'),  # cross-session analytics (Performance Hub)
+    path('review-queue/', ReviewQueueView.as_view(), name='review_queue'),  # adaptive weak-item review
     # Router-generated resource endpoints (cases, answers, bank/*, etc.).
     path('', include(router.urls)),
     # --- Stripe billing ---

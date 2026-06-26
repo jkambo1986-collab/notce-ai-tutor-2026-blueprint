@@ -270,3 +270,26 @@ export interface Performance {
     /** One-tap "Smart Drill" target: the domain to practice next. */
     recommended_drill: { domain: string; reason: string; accuracy: number; answered: number };
 }
+
+/**
+ * --- ADAPTIVE REVIEW QUEUE ---
+ * Weak item to revisit, returned by GET /api/review-queue/.
+ * Mirrors backend/core/review_service.compute_review_queue().
+ */
+export interface ReviewItem {
+    id: string;
+    source: 'case' | 'bank';
+    stem: string;
+    domain: string;
+    options: { label: string; text: string }[];
+    your_label: string | null;
+    correct_label: string;
+    correct_text: string;
+    rationale: string;
+    reason: 'incorrect' | 'low_confidence';
+}
+
+export interface ReviewQueue {
+    count: number;
+    items: ReviewItem[];
+}

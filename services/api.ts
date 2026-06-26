@@ -10,7 +10,7 @@
  * transformers at the bottom of the file.
  */
 
-import { CaseStudy, User, Performance, Organization, OrgMember, OrgAnalytics, OrgRole } from '../types';
+import { CaseStudy, User, Performance, ReviewQueue, Organization, OrgMember, OrgAnalytics, OrgRole } from '../types';
 
 // Base URL for all API requests. Prefers the Vite-injected env var (set per
 // deployment), and falls back to the local dev backend when it's not defined.
@@ -104,6 +104,22 @@ export const api = {
     const response = await fetch(`${API_BASE_URL}/performance/`, { headers });
     if (!response.ok) {
       throw new Error(`Failed to fetch performance: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Fetches the Adaptive Review Queue (weak items to revisit) for the user.
+   * GET /review-queue/ (auth required). Throws on a non-OK response.
+   */
+  async getReviewQueue(): Promise<ReviewQueue> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/review-queue/`, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch review queue: ${response.statusText}`);
     }
     return response.json();
   },

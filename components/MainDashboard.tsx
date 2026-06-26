@@ -13,6 +13,7 @@ import { DomainStats } from '../types';
 import CaseGeneratorModal from './CaseGeneratorModal';
 import AnalyticsModal from './AnalyticsModal';
 import SavedProgressModal from './SavedProgressModal';
+import ReviewQueueModal from './ReviewQueueModal';
 import { useToast } from './ui/Feedback';
 
 /**
@@ -74,8 +75,18 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
     const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
     const [isProgressOpen, setIsProgressOpen] = useState(false);
+    const [isReviewOpen, setIsReviewOpen] = useState(false);
+    // Number of weak items due for review (badge on the Daily Review card).
+    const [reviewCount, setReviewCount] = useState<number | null>(null);
     // True while the post-checkout payment sync request is in flight.
     const [isSyncing, setIsSyncing] = useState(false);
+
+    // Best-effort fetch of the review-queue size for the dashboard badge.
+    useEffect(() => {
+        let active = true;
+        api.getReviewQueue().then(q => { if (active) setReviewCount(q.count); }).catch(() => {});
+        return () => { active = false; };
+    }, []);
 
     // Open the generator when the parent bumps the signal (skip the initial 0).
     // Lets the sidebar's "New Case" action drive this child without a shared ref.
@@ -258,6 +269,25 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                         <p className="text-gray-500 text-sm mt-2">Resume exactly where you left off. Your clinical reasoning journey is safe.</p>
                         <div className="mt-4 text-green-600 text-sm font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                             <span>View Sessions</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </div>
+                    </button>
+
+                    {/* Daily Review Card (Adaptive Review Queue) */}
+                    <button
+                        onClick={() => setIsReviewOpen(true)}
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-left hover:shadow-lg hover:border-violet-200 transition-all group cursor-pointer relative"
+                    >
+                        {reviewCount !== null && reviewCount > 0 && (
+                            <span className="absolute top-4 right-4 px-2.5 py-1 rounded-full text-xs font-bold bg-violet-100 text-violet-700">{reviewCount} due</span>
+                        )}
+                        <div className="h-12 w-12 bg-gradient-to-br from-violet-100 to-indigo-100 text-violet-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7M19 16l2 2-2 2m2-2h-4" /></svg>
+                        </div>
+                        <h3 className="font-bold text-gray-800 text-lg group-hover:text-violet-700 transition">Daily Review</h3>
+                        <p className="text-gray-500 text-sm mt-2">Revisit the items you missed or weren't sure about — spaced to stick.</p>
+                        <div className="mt-4 text-violet-600 text-sm font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <span>Start Review</span>
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </div>
                     </button>
@@ -445,6 +475,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 onClose={() => setIsProgressOpen(false)}
                 onResumeSession={(caseId) => onResumeCase?.(caseId)}
                 currentCaseId={currentCaseId}
+            />
+
+            <ReviewQueueModal
+                isOpen={isReviewOpen}
+                onClose={() => setIsReviewOpen(false)}
             />
 
             {/* Mock Study Components will be lifted to App.tsx for session state, but entry point is here */}

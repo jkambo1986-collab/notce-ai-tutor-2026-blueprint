@@ -1125,6 +1125,23 @@ class PerformanceView(APIView):
             return Response({"error": "Failed to compute performance"}, status=500)
 
 
+class ReviewQueueView(APIView):
+    """
+    Adaptive Review Queue: weak items the user should revisit, computed live from
+    their answer history (wrong + low-confidence case answers, wrong mock/exam
+    items). Read-only and self-scoped. See `review_service.compute_review_queue`.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .review_service import compute_review_queue
+        try:
+            return Response(compute_review_queue(request.user))
+        except Exception:
+            logger.exception("Failed to compute review queue for %s", request.user)
+            return Response({"error": "Failed to compute review queue"}, status=500)
+
+
 class BankQuestionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Serves the vetted premium question bank. Approved items only.
