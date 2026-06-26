@@ -8,8 +8,9 @@
  */
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { ttsSupported, sttSupported, loadVoices, bestVoice } from '../services/speech';
+import { ttsSupported, sttSupported, loadVoices, bestVoice, DEFAULT_NEURAL_VOICE } from '../services/speech';
 import { getCachedPreference, loadPreference, savePreference } from '../services/preferences';
+import { api } from '../services/api';
 
 export interface VoiceSettings {
   /** Master on/off for all read-aloud UI. */
@@ -44,7 +45,10 @@ interface VoiceContextValue {
 const VoiceContext = createContext<VoiceContextValue | null>(null);
 
 export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const supported = ttsSupported();
+  const browserTts = ttsSupported();
+  // Voice UI is available in any browser: the natural server voice works
+  // everywhere, with browser speechSynthesis as the offline fallback.
+  const supported = typeof window !== 'undefined';
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -53,6 +57,11 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ...getCachedPreference<Partial<VoiceSettings>>(PREF_KEY, {}),
   }));
   const keepAlive = useRef<number | null>(null);
+  // Active natural-voice audio element + its object URL, and a monotonic token so
+  // a newer speak() supersedes an in-flight fetch from an older one.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const reqToken = useRef(0);
 
   // Load available voices (async in most browsers) once.
   useEffect(() => {
@@ -68,50 +77,95 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Stop any speech if the tab is hidden or the provider unmounts.
+  // Stop any speech (natural audio + browser) if the tab is hidden or the
+  // provider unmounts.
   useEffect(() => {
-    const onHide = () => { if (document.hidden && supported) window.speechSynthesis.cancel(); };
-    document.addEventListener('visibilitychange', onHide);
-    return () => {
-      document.removeEventListener('visibilitychange', onHide);
-      if (supported) window.speechSynthesis.cancel();
+    const stopAll = () => {
+      reqToken.current++;
+      if (audioRef.current) { try { audioRef.current.pause(); } catch { /* ignore */ } }
+      if (browserTts) window.speechSynthesis.cancel();
+      setSpeaking(false);
+      setSpeakingId(null);
     };
-  }, [supported]);
+    const onHide = () => { if (document.hidden) stopAll(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => { document.removeEventListener('visibilitychange', onHide); stopAll(); };
+  }, [browserTts]);
 
   const stopKeepAlive = () => {
     if (keepAlive.current !== null) { clearInterval(keepAlive.current); keepAlive.current = null; }
   };
 
+  const stopAudio = () => {
+    if (audioRef.current) { try { audioRef.current.pause(); } catch { /* ignore */ } audioRef.current.src = ''; audioRef.current = null; }
+    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
+  };
+
   const cancel = useCallback(() => {
-    if (supported) window.speechSynthesis.cancel();
+    reqToken.current++; // invalidate any in-flight natural-voice fetch
+    stopAudio();
+    if (browserTts) window.speechSynthesis.cancel();
     stopKeepAlive();
     setSpeaking(false);
     setSpeakingId(null);
-  }, [supported]);
+  }, [browserTts]);
+
+  // Offline / fallback path: the browser's built-in (robotic) speechSynthesis.
+  const browserSpeak = useCallback((text: string, id: string | null) => {
+    if (!browserTts) { setSpeaking(false); setSpeakingId(null); return; }
+    const synth = window.speechSynthesis;
+    const start = () => {
+      if (synth.paused) synth.resume();
+      const live = synth.getVoices();
+      const u = new SpeechSynthesisUtterance(text);
+      const v = bestVoice(live.length ? live : voices, null);
+      if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = 'en-US'; }
+      u.rate = settings.rate; u.pitch = 1;
+      u.onstart = () => { setSpeaking(true); setSpeakingId(id); };
+      const done = () => { stopKeepAlive(); setSpeaking(false); setSpeakingId(null); };
+      u.onend = done; u.onerror = done;
+      synth.speak(u);
+      keepAlive.current = window.setInterval(() => {
+        if (synth.speaking && !synth.paused) { synth.pause(); synth.resume(); }
+      }, 10000);
+    };
+    stopKeepAlive();
+    if (synth.speaking || synth.pending || synth.paused) { synth.cancel(); window.setTimeout(start, 90); }
+    else { start(); }
+  }, [browserTts, voices, settings.rate]);
 
   const speak = useCallback((text: string, opts?: { id?: string; force?: boolean }) => {
-    if (!supported || !text?.trim()) return;
+    if (!text?.trim()) return;
     if (!settings.enabled && !opts?.force) return;
-    const synth = window.speechSynthesis;
-    synth.cancel(); // never overlap reads
+    const id = opts?.id ?? null;
+
+    // Stop anything playing and claim this request.
+    stopAudio();
+    if (browserTts) window.speechSynthesis.cancel();
     stopKeepAlive();
+    const token = ++reqToken.current;
+    // Optimistically light up the control (the natural fetch adds ~1s latency).
+    setSpeaking(true);
+    setSpeakingId(id);
 
-    const u = new SpeechSynthesisUtterance(text);
-    const v = bestVoice(voices, settings.voiceURI);
-    if (v) { u.voice = v; u.lang = v.lang; }
-    u.rate = settings.rate;
-    u.pitch = 1;
-    u.onstart = () => { setSpeaking(true); setSpeakingId(opts?.id ?? null); };
-    const done = () => { stopKeepAlive(); setSpeaking(false); setSpeakingId(null); };
-    u.onend = done;
-    u.onerror = done;
-    synth.speak(u);
+    const online = typeof navigator === 'undefined' ? true : navigator.onLine;
+    if (!online) { browserSpeak(text, id); return; }
 
-    // Chrome silently stops utterances after ~15s — nudge it to keep going.
-    keepAlive.current = window.setInterval(() => {
-      if (synth.speaking && !synth.paused) { synth.pause(); synth.resume(); }
-    }, 10000);
-  }, [supported, settings.enabled, settings.voiceURI, settings.rate, voices]);
+    // Natural neural voice from the backend; fall back to browser TTS on any miss.
+    api.tts(text, settings.voiceURI || DEFAULT_NEURAL_VOICE, settings.rate).then(blob => {
+      if (token !== reqToken.current) return; // superseded by a newer speak()/cancel()
+      if (!blob) { browserSpeak(text, id); return; }
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audioUrlRef.current = url;
+      audio.onplay = () => { if (token === reqToken.current) { setSpeaking(true); setSpeakingId(id); } };
+      audio.onended = () => { if (token === reqToken.current) { stopAudio(); setSpeaking(false); setSpeakingId(null); } };
+      audio.onerror = () => { if (token === reqToken.current) { stopAudio(); browserSpeak(text, id); } };
+      // play() can reject under autoplay policy (e.g. auto-read with no gesture) → fall back.
+      audio.play().catch(() => { if (token === reqToken.current) { stopAudio(); browserSpeak(text, id); } });
+    }).catch(() => { if (token === reqToken.current) browserSpeak(text, id); });
+  }, [settings.enabled, settings.voiceURI, settings.rate, browserSpeak, browserTts]);
 
   const toggle = useCallback((text: string, id?: string) => {
     if (speaking && speakingId === (id ?? null)) cancel();
@@ -119,14 +173,14 @@ export const VoiceProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [speaking, speakingId, cancel, speak]);
 
   const update = useCallback((patch: Partial<VoiceSettings>) => {
+    // Turning voice off mid-read should stop it (audio + browser) immediately.
+    if (patch.enabled === false) cancel();
     setSettings(prev => {
       const next = { ...prev, ...patch };
       savePreference(PREF_KEY, next, 'voice');
-      // Turning voice off mid-read should stop it immediately.
-      if (patch.enabled === false && supported) window.speechSynthesis.cancel();
       return next;
     });
-  }, [supported]);
+  }, [cancel]);
 
   return (
     <VoiceContext.Provider value={{

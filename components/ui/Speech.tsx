@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useId, useRef, useState } from 'react';
 import { useVoice } from '../VoiceContext';
-import { createRecognition, sttSupported } from '../../services/speech';
+import { createRecognition, sttSupported, NEURAL_VOICES, DEFAULT_NEURAL_VOICE } from '../../services/speech';
 import { cn } from './cn';
 
 // --- Speak (TTS) ---------------------------------------------------------
@@ -173,18 +173,15 @@ const Toggle: React.FC<{ on: boolean; onChange: (v: boolean) => void; label: str
 
 /** Voice preferences panel for the Settings screen. */
 export const VoiceSettingsPanel: React.FC = () => {
-  const { supported, recognitionSupported, voices, settings, update, speak } = useVoice();
+  const { supported, recognitionSupported, settings, update, speak } = useVoice();
 
   if (!supported) {
     return (
       <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800 ring-1 ring-amber-100">
-        Your browser doesn't support read-aloud. Try the latest Chrome, Edge, or Safari.
+        Read-aloud isn't available here. Try the latest Chrome, Edge, or Safari.
       </div>
     );
   }
-
-  const english = voices.filter(v => /^en/i.test(v.lang || ''));
-  const list = english.length ? english : voices;
 
   return (
     <div className="space-y-5">
@@ -205,16 +202,18 @@ export const VoiceSettingsPanel: React.FC = () => {
           />
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-ink">Voice</label>
+            <div className="mb-2 flex items-center gap-2">
+              <label className="text-sm font-semibold text-ink">Voice</label>
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-100">Natural AI</span>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
-                value={settings.voiceURI ?? ''}
-                onChange={e => update({ voiceURI: e.target.value || null })}
-                className="min-w-[14rem] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-ink outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15"
+                value={settings.voiceURI ?? DEFAULT_NEURAL_VOICE}
+                onChange={e => update({ voiceURI: e.target.value })}
+                className="min-w-[16rem] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-ink outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15"
               >
-                <option value="">Auto — best natural voice</option>
-                {list.map(v => (
-                  <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
+                {NEURAL_VOICES.map(v => (
+                  <option key={v.id} value={v.id}>{v.label}</option>
                 ))}
               </select>
               <button
@@ -225,6 +224,9 @@ export const VoiceSettingsPanel: React.FC = () => {
                 Test voice
               </button>
             </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Natural neural voices — free, no account, and they sound human in every browser. (If you're offline, your device's built-in voice is used instead.)
+            </p>
           </div>
 
           <div>
@@ -243,8 +245,8 @@ export const VoiceSettingsPanel: React.FC = () => {
       )}
 
       <p className="text-xs text-slate-400">
-        Voices come from your device/browser (free, no account). {recognitionSupported
-          ? 'Voice dictation is available in this browser.'
+        {recognitionSupported
+          ? 'Voice dictation (speak your answers) is available in this browser.'
           : 'Voice dictation isn’t supported in this browser (try Chrome or Edge).'}
       </p>
     </div>

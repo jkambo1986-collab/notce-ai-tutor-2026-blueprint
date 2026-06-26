@@ -1762,3 +1762,68 @@ class SyncPaymentView(APIView):
         })
 
 
+
+
+# Curated set of free Microsoft "neural" voices (natural-sounding, no API key).
+# Restricting to a known set keeps the voice id from being attacker-controlled.
+TTS_ALLOWED_VOICES = {
+    'en-CA-ClaraNeural', 'en-CA-LiamNeural',
+    'en-US-AriaNeural', 'en-US-JennyNeural', 'en-US-GuyNeural', 'en-US-MichelleNeural',
+    'en-GB-SoniaNeural', 'en-GB-RyanNeural', 'en-AU-NatashaNeural',
+}
+TTS_DEFAULT_VOICE = 'en-CA-ClaraNeural'
+
+
+class TTSView(APIView):
+    """Free, natural text-to-speech via Microsoft `edge-tts` (no API key).
+
+    POST /tts/ with ``{ text, voice?, rate? }`` -> ``audio/mpeg``. Gives genuinely
+    natural neural voices in EVERY browser (unlike the robotic browser-native
+    speechSynthesis voices), at no cost. Auth-required and length-capped to limit
+    abuse. The client falls back to browser TTS if this is unavailable/offline.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        import asyncio
+        from django.http import HttpResponse
+
+        text = (request.data.get('text') or '').strip()
+        if not text:
+            return Response({'error': 'text is required'}, status=status.HTTP_400_BAD_REQUEST)
+        text = text[:1600]  # cap length
+
+        voice = request.data.get('voice') or TTS_DEFAULT_VOICE
+        if voice not in TTS_ALLOWED_VOICES:
+            voice = TTS_DEFAULT_VOICE
+
+        # Map the client's 0.5–1.5 rate multiplier to edge-tts' "+N%/-N%" form.
+        try:
+            mult = float(request.data.get('rate') or 1.0)
+        except (TypeError, ValueError):
+            mult = 1.0
+        mult = max(0.5, min(1.5, mult))
+        pct = round((mult - 1.0) * 100)
+        rate_str = f"+{pct}%" if pct >= 0 else f"{pct}%"
+
+        async def _synth():
+            import edge_tts
+            communicate = edge_tts.Communicate(text, voice, rate=rate_str)
+            buf = bytearray()
+            async for chunk in communicate.stream():
+                if chunk.get('type') == 'audio':
+                    buf += chunk['data']
+            return bytes(buf)
+
+        try:
+            audio = asyncio.run(_synth())
+        except Exception as e:  # network / upstream failure -> let client fall back
+            logger.warning("TTS synthesis failed: %s", e)
+            return Response({'error': 'TTS unavailable'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        if not audio:
+            return Response({'error': 'No audio produced'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        resp = HttpResponse(audio, content_type='audio/mpeg')
+        resp['Cache-Control'] = 'private, max-age=86400'
+        return resp

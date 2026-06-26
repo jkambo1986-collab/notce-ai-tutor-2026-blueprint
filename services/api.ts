@@ -497,8 +497,13 @@ export const api = {
     /** Any in-progress session for the current user. GET /mock-study/get_active/. Null if none. */
     async getActiveSession(): Promise<any> {
       const response = await request('/mock-study/get_active/');
-      if (response.status === 200) return response.json();
-      return null;
+      if (!response.ok) return null;
+      // "No active session" can come back as an empty body (204/empty 200), which
+      // would make response.json() throw "Unexpected end of JSON input" and break
+      // the whole initial-data load. Parse defensively.
+      const text = await response.text();
+      if (!text) return null;
+      try { return JSON.parse(text); } catch { return null; }
     },
 
     /** Persists the session's in-progress highlights. POST /mock-study/save_progress/. */
@@ -523,6 +528,21 @@ export const api = {
     });
     if (!response.ok) throw new Error('Checkout session creation failed');
     return response.json();
+  },
+
+  /**
+   * Free natural neural text-to-speech. POST /tts/ → MP3 audio Blob (or null on
+   * failure, so the caller can fall back to browser speechSynthesis).
+   */
+  async tts(text: string, voice?: string | null, rate?: number): Promise<Blob | null> {
+    try {
+      const res = await request('/tts/', { method: 'POST', body: body({ text, voice: voice || undefined, rate: rate ?? 1 }) });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return blob.size > 0 ? blob : null;
+    } catch {
+      return null;
+    }
   },
 
   /** Reconciles payment/subscription status with Stripe. POST /sync-payment/. */

@@ -475,8 +475,16 @@ const MainApp: React.FC = () => {
      */
     const handleStartMockStudySetup = () => {
         if (!user?.userprofile?.is_paid) {
-            toast(premiumGateMessage('Adaptive Mock Study'), 'info');
-            navigate(HOME_PATH);
+            // Adaptive Mock Study is premium, but Study Mode (the vetted bank
+            // cases) IS available on the trial — send them there so "Start
+            // Practice" actually does something instead of a dead-end toast.
+            if (currentCase) {
+                toast('Adaptive Mock Study is premium — starting your Study session.', 'info');
+                navigate('/study');
+            } else {
+                toast('Adaptive Mock Study is premium. Upgrade to unlock timed drills.', 'info');
+                navigate(HOME_PATH);
+            }
             return;
         }
         setIsMockSetupOpen(true);

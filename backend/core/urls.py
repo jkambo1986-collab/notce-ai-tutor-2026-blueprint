@@ -7,7 +7,7 @@ Stripe, email-verification, and diagnostics use explicit path() entries.
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView, BankQuestionViewSet, BankCaseViewSet, EmailOrUsernameTokenObtainPairView, PerformanceView, ReviewQueueView, NotebookView, CookieTokenRefreshView, LogoutView, CsrfView
+from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView, BankQuestionViewSet, BankCaseViewSet, EmailOrUsernameTokenObtainPairView, PerformanceView, ReviewQueueView, NotebookView, CookieTokenRefreshView, LogoutView, CsrfView, TTSView
 from .org_views import OrganizationViewSet
 from .differentiator_views import (
     ErrorAnalysisView, ReasoningCoachView,
@@ -40,6 +40,7 @@ urlpatterns = [
     path('performance/', PerformanceView.as_view(), name='performance'),  # cross-session analytics (Performance Hub)
     path('review-queue/', ReviewQueueView.as_view(), name='review_queue'),  # adaptive weak-item review
     path('notebook/', NotebookView.as_view(), name='notebook'),  # saved rationales notebook
+    path('tts/', TTSView.as_view(), name='tts'),  # free natural neural text-to-speech (edge-tts)
     # --- AI differentiator features ---
     path('error-analysis/', ErrorAnalysisView.as_view(), name='error_analysis'),       # cognitive-error / trap insights
     path('reasoning/evaluate/', ReasoningCoachView.as_view(), name='reasoning_eval'),  # grade free-text clinical reasoning
