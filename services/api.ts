@@ -10,7 +10,7 @@
  * transformers at the bottom of the file.
  */
 
-import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, Organization, OrgMember, OrgAnalytics, OrgRole } from '../types';
+import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, ExamState, Organization, OrgMember, OrgAnalytics, OrgRole } from '../types';
 
 // Base URL for all API requests. Prefers the Vite-injected env var (set per
 // deployment), and falls back to the local dev backend when it's not defined.
@@ -436,6 +436,62 @@ export const api = {
             body: JSON.stringify({ session_id: sessionId })
         });
         if (!response.ok) throw new Error(`Failed to finish session: ${response.statusText}`);
+        return response.json();
+    },
+
+    /**
+     * Exam navigator: full state for (re)hydrating after a refresh.
+     * GET /mock-study/exam_state/?session_id=... with Bearer auth.
+     */
+    async examState(sessionId: string): Promise<ExamState> {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`${API_BASE_URL}/mock-study/exam_state/?session_id=${encodeURIComponent(sessionId)}`, { headers });
+        if (!response.ok) throw new Error(`Failed to load exam state: ${response.statusText}`);
+        return response.json();
+    },
+
+    /**
+     * Exam navigator: record/clear one answer (label='' clears). Fire-and-forget
+     * sync — the authoritative answers map is also sent on submit.
+     * POST /mock-study/exam_answer/.
+     */
+    examAnswer(sessionId: string, index: number, label: string | null): void {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+        fetch(`${API_BASE_URL}/mock-study/exam_answer/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ session_id: sessionId, index, label })
+        }).catch(err => console.warn('exam_answer sync failed:', err));
+    },
+
+    /** Exam navigator: set/clear a flag on a question. POST /mock-study/exam_flag/. */
+    examFlag(sessionId: string, index: number, flagged: boolean): void {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+        fetch(`${API_BASE_URL}/mock-study/exam_flag/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ session_id: sessionId, index, flagged })
+        }).catch(err => console.warn('exam_flag sync failed:', err));
+    },
+
+    /**
+     * Exam navigator: grade + finalize. Sends the authoritative answers map.
+     * POST /mock-study/exam_submit/. Returns the score + per-question results.
+     */
+    async examSubmit(sessionId: string, answers: Record<string, string>): Promise<{ is_complete: boolean; final_score: { correct: number; total: number; percentage: number; answered: number }; results: { index: number; selected_label: string | null; correct_label: string; is_correct: boolean }[] }> {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`${API_BASE_URL}/mock-study/exam_submit/`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ session_id: sessionId, answers })
+        });
+        if (!response.ok) throw new Error(`Failed to submit exam: ${response.statusText}`);
         return response.json();
     },
 

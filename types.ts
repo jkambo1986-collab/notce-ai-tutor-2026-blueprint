@@ -307,3 +307,28 @@ export interface NoteEntry {
     rationale: string;
     source: string;
 }
+
+/**
+ * --- EXAM NAVIGATOR ---
+ * The full, pre-generated exam returned by start (exam mode) / exam_state.
+ * Questions are answer-free; answers/flags are tracked by index.
+ */
+export interface ExamQuestion {
+    index: number;
+    stem: string;
+    options: { label: string; text: string }[];
+    domain: string;
+}
+
+export interface ExamState {
+    session_id: string;
+    mode: 'exam';
+    total_questions: number;
+    questions: ExamQuestion[];
+    answers: Record<string, string>;
+    flags: number[];
+    is_active: boolean;
+    timed: boolean;
+    remaining_seconds: number | null;
+    highlights: any[];
+}

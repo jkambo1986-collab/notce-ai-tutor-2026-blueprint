@@ -137,6 +137,9 @@ const MainApp: React.FC = () => {
         if ((view === 'mock-study' || view === 'exam-mode') && !mockSessionId) {
             if (view === 'mock-study' && activeMockSession) {
                 handleResumeMockStudy();
+            } else if (view === 'exam-mode' && activeMockSession?.session_id) {
+                // The server clock keeps running, so rehydrate an in-progress exam.
+                handleResumeExam(activeMockSession.session_id);
             } else {
                 navigate(HOME_PATH, { replace: true });
             }
@@ -481,6 +484,25 @@ const MainApp: React.FC = () => {
             setMockSessionData(activeMockSession);
             navigate('/mock-study');
         }
+    };
+
+    /**
+     * Rehydrate an in-progress exam after a refresh/deep-link. The full question
+     * set + saved answers/flags + server-remaining time come from exam_state; if
+     * the session isn't an active exam, fall back to home.
+     */
+    const handleResumeExam = async (sessionId: string) => {
+        try {
+            const state = await api.mockStudy.examState(sessionId);
+            if (state && state.is_active) {
+                setMockSessionId(state.session_id);
+                setMockSessionData(state);
+                return; // stay on /exam
+            }
+        } catch (err) {
+            console.warn('Exam resume failed:', err);
+        }
+        navigate(HOME_PATH, { replace: true });
     };
 
     /**
@@ -1027,7 +1049,13 @@ const MainApp: React.FC = () => {
             <ExamSession
                 sessionId={mockSessionId}
                 initialData={mockSessionData}
-                onExit={() => navigate(HOME_PATH)}
+                onExit={async () => {
+                    navigate(HOME_PATH);
+                    setMockSessionId(null);
+                    setMockSessionData(null);
+                    // Refresh active-session state so a finished exam stops resuming.
+                    try { setActiveMockSession(await api.mockStudy.getActiveSession()); } catch { /* ignore */ }
+                }}
             />
         )}
 

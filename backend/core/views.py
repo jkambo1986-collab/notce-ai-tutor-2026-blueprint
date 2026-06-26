@@ -29,7 +29,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from .models import CaseStudy, Question, UserAnswer, Highlight, DomainTag, UserSession
 from .serializers import CaseStudySerializer, UserAnswerSerializer, HighlightSerializer, UserSessionSerializer, UserSerializer
-from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario, serve_bank_question
+from .mock_study_service import generate_practice_question, generate_answer_feedback, generate_pivot_scenario, serve_bank_question, build_exam_question_set
 import logging
 import uuid
 import traceback
@@ -829,6 +829,36 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             timer_start=timezone.now() if mode == 'exam' else None
         )
         
+        # --- Exam mode: pre-generate the FULL question set for free navigation ---
+        # The exam UI needs every question upfront (skip/revisit/flag/navigator),
+        # so build the whole set now, store it (with answers, server-side only),
+        # and return an answer-free list. answers/flags live alongside in exam_config.
+        if mode == 'exam':
+            questions = build_exam_question_set(domain, difficulty, total_questions)
+            if not questions:
+                session.delete()
+                return Response({"error": "No questions are available for an exam yet."}, status=404)
+            session.total_questions = len(questions)
+            session.current_question = 1
+            session.exam_config = {**exam_config, "questions": questions, "answers": {}, "flags": []}
+            session.save()
+            # Client-safe payload: stems/options/domain only — never the answers.
+            client_questions = [
+                {"index": i, "stem": q["stem"], "options": q["options"], "domain": q["domain"]}
+                for i, q in enumerate(questions)
+            ]
+            return Response({
+                "session_id": session.id,
+                "mode": "exam",
+                "total_questions": len(questions),
+                "questions": client_questions,
+                "answers": {},
+                "flags": [],
+                "timed": True,
+                "remaining_seconds": self.EXAM_SECONDS,
+                "highlights": session.highlights,
+            }, status=201)
+
         # Serve ONLY vetted, pre-minted bank questions (no live AI generation).
         question_data = serve_bank_question(domain, difficulty)
 
@@ -1089,6 +1119,170 @@ class MockStudyViewSet(viewsets.ModelViewSet):
                 "percentage": int((session.correct_count / total) * 100) if total else 0,
                 "answered": answered,
             }
+        })
+
+    # ----- Exam navigator (mode='exam'): the full question set is pre-generated -----
+    # at start and stored in exam_config['questions']; answers/flags live alongside.
+    # These actions let the client navigate/answer/flag freely and submit at the end.
+
+    def _get_exam_session(self, request, require_active=False):
+        """Fetch the caller's exam session (optionally requiring it still active)."""
+        session_id = request.query_params.get('session_id') or request.data.get('session_id')
+        kwargs = {"id": session_id, "user": request.user, "mode": "exam"}
+        if require_active:
+            kwargs["is_active"] = True
+        return MockStudySession.objects.get(**kwargs)
+
+    def _exam_client_questions(self, cfg):
+        """Strip answers from the stored set → answer-free client payload."""
+        return [
+            {"index": i, "stem": q.get("stem"), "options": q.get("options", []), "domain": q.get("domain")}
+            for i, q in enumerate(cfg.get("questions", []))
+        ]
+
+    def _exam_remaining(self, session):
+        if not session.timer_start:
+            return None
+        elapsed = (timezone.now() - session.timer_start).total_seconds()
+        return max(0, int(self.EXAM_SECONDS - elapsed))
+
+    @action(detail=False, methods=['get', 'post'])
+    def exam_state(self, request):
+        """Full exam state for (re)hydrating the navigator after a refresh."""
+        try:
+            session = self._get_exam_session(request)
+        except MockStudySession.DoesNotExist:
+            return Response({"error": "Exam session not found"}, status=404)
+        cfg = session.exam_config or {}
+        return Response({
+            "session_id": session.id,
+            "mode": "exam",
+            "total_questions": session.total_questions,
+            "questions": self._exam_client_questions(cfg),
+            "answers": cfg.get("answers", {}),
+            "flags": cfg.get("flags", []),
+            "is_active": session.is_active,
+            "timed": True,
+            "remaining_seconds": self._exam_remaining(session),
+            "highlights": session.highlights,
+        })
+
+    @action(detail=False, methods=['post'])
+    def exam_answer(self, request):
+        """Record/clear a single answer by question index (no grading feedback)."""
+        try:
+            session = self._get_exam_session(request, require_active=True)
+        except MockStudySession.DoesNotExist:
+            return Response({"error": "Exam session not found"}, status=404)
+        cfg = session.exam_config or {}
+        questions = cfg.get("questions", [])
+        try:
+            idx = int(request.data.get("index"))
+        except (TypeError, ValueError):
+            return Response({"error": "Invalid index"}, status=400)
+        if idx < 0 or idx >= len(questions):
+            return Response({"error": "Index out of range"}, status=400)
+
+        label = request.data.get("label")
+        answers = cfg.get("answers", {})
+        if not label:
+            answers.pop(str(idx), None)  # clearing an answer
+        else:
+            valid = {o["label"] for o in questions[idx].get("options", [])}
+            if label not in valid:
+                return Response({"error": "Invalid option"}, status=400)
+            answers[str(idx)] = label
+        cfg["answers"] = answers
+        session.exam_config = cfg
+        session.save(update_fields=["exam_config"])
+        return Response({"ok": True, "answered": len(answers)})
+
+    @action(detail=False, methods=['post'])
+    def exam_flag(self, request):
+        """Set/clear the flag-for-review state on a question index."""
+        try:
+            session = self._get_exam_session(request, require_active=True)
+        except MockStudySession.DoesNotExist:
+            return Response({"error": "Exam session not found"}, status=404)
+        cfg = session.exam_config or {}
+        try:
+            idx = int(request.data.get("index"))
+        except (TypeError, ValueError):
+            return Response({"error": "Invalid index"}, status=400)
+        flags = set(cfg.get("flags", []))
+        if request.data.get("flagged"):
+            flags.add(idx)
+        else:
+            flags.discard(idx)
+        cfg["flags"] = sorted(flags)
+        session.exam_config = cfg
+        session.save(update_fields=["exam_config"])
+        return Response({"ok": True, "flags": cfg["flags"]})
+
+    @action(detail=False, methods=['post'])
+    def exam_submit(self, request):
+        """Grade the whole exam, persist history (for analytics) and finalize.
+
+        Accepts an optional ``answers`` map (client-authoritative) and otherwise
+        grades the stored answers. Unanswered questions count as not-correct.
+        Writes session_history so the Performance Hub / Review Queue include exam
+        results, and returns the score plus per-question results.
+        """
+        try:
+            session = self._get_exam_session(request)
+        except MockStudySession.DoesNotExist:
+            return Response({"error": "Exam session not found"}, status=404)
+        cfg = session.exam_config or {}
+        questions = cfg.get("questions", [])
+
+        answers = request.data.get("answers")
+        if not isinstance(answers, dict):
+            answers = cfg.get("answers", {})
+
+        correct_count = 0
+        history, results = [], []
+        for i, q in enumerate(questions):
+            sel = answers.get(str(i))
+            is_correct = sel is not None and str(sel).upper() == str(q.get("correct_label", "")).upper()
+            if is_correct:
+                correct_count += 1
+            history.append({
+                "question_number": i + 1,
+                "stem": q.get("stem"),
+                "selected_label": sel,
+                "correct_label": q.get("correct_label"),
+                "is_correct": is_correct,
+                "bank_id": q.get("bank_id"),
+                "domain": q.get("domain") or session.domain,
+                "timestamp": timezone.now().isoformat(),
+            })
+            results.append({
+                "index": i,
+                "selected_label": sel,
+                "correct_label": q.get("correct_label"),
+                "is_correct": is_correct,
+            })
+
+        session.correct_count = correct_count
+        session.session_history = history
+        cfg["answers"] = answers
+        session.exam_config = cfg
+        session.is_active = False
+        session.completed_at = timezone.now()
+        session.current_question = len(questions)
+        session.save()
+
+        total = len(questions)
+        answered = sum(1 for i in range(total) if answers.get(str(i)))
+        return Response({
+            "is_complete": True,
+            "final_score": {
+                "correct": correct_count,
+                "total": total,
+                "percentage": int((correct_count / total) * 100) if total else 0,
+                "answered": answered,
+            },
+            "results": results,
         })
 
     @action(detail=False, methods=['post'])

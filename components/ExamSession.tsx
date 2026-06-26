@@ -1,489 +1,424 @@
 /**
  * @file ExamSession.tsx
- * @description Full timed exam-mode session (NOTCE simulation). Unlike the practice
- * Mock Study flow, this is a strict 4-hour timed run with NO per-question feedback:
- * the user answers and immediately advances, only seeing a pass/fail result at the end.
- * Handles the persisted countdown timer, question advancement, highlighting, and the
- * final score screen.
+ * @description Full timed NOTCE exam simulation with a free-navigation engine:
+ * the entire question set is pre-generated server-side and delivered up front, so
+ * the candidate can answer in any order, skip, revisit, change answers, and flag
+ * items for review — exactly like the real exam. No per-question feedback; a
+ * server-authoritative countdown drives an auto-submit at expiry. On submit the
+ * backend grades everything (unanswered = incorrect) and returns per-question
+ * results. Answers/flags are synced to the server so a refresh resumes cleanly.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import HighlightableText from './HighlightableText';
-import { Highlight } from '../types';
-import { useToast } from './ui/Feedback';
+import { Highlight, ExamQuestion } from '../types';
+import { useToast, useConfirm } from './ui/Feedback';
+import { DOMAIN_INFO } from '../constants';
 
 /** Score (%) at or above which the exam is reported as a pass. */
 const PASS_THRESHOLD = 60;
 /** Total exam duration in seconds (4 hours). */
 const EXAM_DURATION = 4 * 60 * 60;
 
+const domainLabel = (code: string) =>
+  (DOMAIN_INFO as Record<string, { label: string }>)[code]?.label || code;
+
 interface ExamSessionProps {
-    /** Backend session identifier used for all answer/next/prefetch calls. */
-    sessionId: string;
-    /** First question + progress/highlights payload fetched before mounting. */
-    initialData: any;
-    /** Called to leave the exam (e.g. after completion or time-up). */
-    onExit: () => void;
+  /** Backend session id used for all exam_* calls. */
+  sessionId: string;
+  /** The exam start (or exam_state) payload: questions/answers/flags/remaining. */
+  initialData: any;
+  /** Called to leave the exam (after completion / exit). */
+  onExit: () => void;
 }
 
-/**
- * ExamSession Component
- *
- * Drives the timed exam: renders the current question, captures a single answer,
- * submits-and-advances without showing feedback, and surfaces the final score.
- * The countdown is anchored to a persisted deadline so it survives page refreshes.
- *
- * @param {ExamSessionProps} props - Component props
- * @returns {JSX.Element} The exam view, loading state, or completion screen
- */
 const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExit }) => {
-    const toast = useToast();
-    // Session State
-    const [currentQuestion, setCurrentQuestion] = useState(initialData.question);
-    const [progress, setProgress] = useState({
-        current: initialData.current_question,
-        total: initialData.total_questions,
-        correct: 0
+  const toast = useToast();
+  const confirm = useConfirm();
+
+  const questions: ExamQuestion[] = initialData.questions || [];
+  const total = questions.length;
+
+  const [answers, setAnswers] = useState<Record<string, string>>(initialData.answers || {});
+  const [flags, setFlags] = useState<Set<number>>(new Set<number>(initialData.flags || []));
+  const [current, setCurrent] = useState(0);
+  const [highlights, setHighlights] = useState<Highlight[]>(initialData.highlights || []);
+  const [navOpen, setNavOpen] = useState(false); // mobile navigator sheet
+
+  const [finalScore, setFinalScore] = useState<any>(null);
+  const [results, setResults] = useState<any[] | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // --- Server-authoritative countdown (same model as before) ---
+  const deadlineKey = `exam_deadline_${sessionId}`;
+  const [timeLeft, setTimeLeft] = useState<number>(initialData.remaining_seconds ?? EXAM_DURATION);
+  const [timeUp, setTimeUp] = useState(false);
+  const firedMilestonesRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (finalScore) return;
+    let cancelled = false;
+    let deadline = Number(localStorage.getItem(deadlineKey)) || (Date.now() + (initialData.remaining_seconds ?? EXAM_DURATION) * 1000);
+
+    const MILESTONES: { at: number; label: string }[] = [
+      { at: 3600, label: '1 hour remaining' },
+      { at: 1800, label: '30 minutes remaining' },
+      { at: 600, label: '10 minutes remaining' },
+    ];
+    for (const m of MILESTONES) {
+      if (Math.max(0, Math.round((deadline - Date.now()) / 1000)) < m.at - 5) firedMilestonesRef.current.add(m.at);
+    }
+
+    const syncWithServer = async () => {
+      try {
+        const t = await api.mockStudy.time(sessionId);
+        if (cancelled) return;
+        if (t.timed && t.remaining_seconds != null) {
+          deadline = Date.now() + t.remaining_seconds * 1000;
+          localStorage.setItem(deadlineKey, String(deadline));
+          if (t.expired) setTimeUp(true);
+        }
+      } catch { /* keep cached deadline if offline */ }
+    };
+    syncWithServer();
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) setTimeUp(true);
+      for (const m of MILESTONES) {
+        if (remaining <= m.at && remaining > 0 && !firedMilestonesRef.current.has(m.at)) {
+          firedMilestonesRef.current.add(m.at);
+          toast(`⏳ ${m.label} — pace yourself.`, 'warning', { duration: 6000 });
+        }
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    const sync = setInterval(syncWithServer, 30000);
+    return () => { cancelled = true; clearInterval(timer); clearInterval(sync); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deadlineKey, finalScore, sessionId]);
+
+  useEffect(() => {
+    if (finalScore) localStorage.removeItem(deadlineKey);
+  }, [finalScore, deadlineKey]);
+
+  // Warn before refresh/close mid-exam (server clock keeps running).
+  useEffect(() => {
+    if (finalScore) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [finalScore]);
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // --- Answer / flag / navigation ---
+  const answeredCount = Object.keys(answers).length;
+
+  const selectAnswer = (label: string) => {
+    if (finalScore || timeUp) return;
+    setAnswers(prev => ({ ...prev, [String(current)]: label }));
+    api.mockStudy.examAnswer(sessionId, current, label);
+  };
+
+  const clearAnswer = () => {
+    if (finalScore || timeUp) return;
+    setAnswers(prev => { const n = { ...prev }; delete n[String(current)]; return n; });
+    api.mockStudy.examAnswer(sessionId, current, null);
+  };
+
+  const toggleFlag = () => {
+    setFlags(prev => {
+      const n = new Set(prev);
+      const on = n.has(current);
+      if (on) n.delete(current); else n.add(current);
+      api.mockStudy.examFlag(sessionId, current, !on);
+      return n;
     });
+  };
 
-    // Timer State (persisted so it survives refresh — the deadline, not the count).
-    const deadlineKey = `exam_deadline_${sessionId}`;
-    const [timeLeft, setTimeLeft] = useState<number>(EXAM_DURATION);
-    const [timeUp, setTimeUp] = useState(false);
-    // Remaining-time milestones (in seconds) that should warn the user once each.
-    // The ≤5-min mark already has a visual pulse, so these cover the earlier marks.
-    const firedMilestonesRef = React.useRef<Set<number>>(new Set());
+  const goTo = (i: number) => { setCurrent(Math.max(0, Math.min(total - 1, i))); setNavOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
-    // UI State
-    const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState('');
-    const [isComplete, setIsComplete] = useState(false);
-    const [finalScore, setFinalScore] = useState<any>(null);
-    const [highlights, setHighlights] = useState<Highlight[]>(initialData.highlights || []);
+  const addHighlight = (h: Highlight) => setHighlights(prev => [...prev, h]);
+  const removeHighlight = (id: string) => setHighlights(prev => prev.filter(h => h.id !== id));
 
-    // Server-authoritative countdown. The deadline is derived from the backend's
-    // stored exam start time (GET /mock-study/time/), so it survives refreshes,
-    // can't be reset by clearing storage, and is consistent across devices. A
-    // localStorage cache seeds an instant render; the server then corrects it and
-    // we re-sync every 30s. The local 1s tick keeps the display smooth between syncs.
-    useEffect(() => {
-        if (finalScore) return;
-        let cancelled = false;
-        // Fast-path seed from cache (or a fresh 4h) until the server responds.
-        let deadline = Number(localStorage.getItem(deadlineKey)) || (Date.now() + EXAM_DURATION * 1000);
-
-        // Warn once as the clock crosses each milestone (60 / 30 / 10 minutes left).
-        const MILESTONES: { at: number; label: string }[] = [
-            { at: 3600, label: '1 hour remaining' },
-            { at: 1800, label: '30 minutes remaining' },
-            { at: 600, label: '10 minutes remaining' },
-        ];
-        const seedPastMilestones = (remaining: number) => {
-            for (const m of MILESTONES) {
-                if (remaining < m.at - 5) firedMilestonesRef.current.add(m.at);
-            }
-        };
-        seedPastMilestones(Math.max(0, Math.round((deadline - Date.now()) / 1000)));
-
-        // Pull the authoritative remaining time and re-anchor the deadline.
-        const syncWithServer = async () => {
-            try {
-                const t = await api.mockStudy.time(sessionId);
-                if (cancelled) return;
-                if (t.timed && t.remaining_seconds != null) {
-                    deadline = Date.now() + t.remaining_seconds * 1000;
-                    localStorage.setItem(deadlineKey, String(deadline));
-                    if (t.expired) setTimeUp(true);
-                }
-            } catch {
-                /* keep cached/client deadline if the server is unreachable */
-            }
-        };
-        syncWithServer();
-
-        const tick = () => {
-            const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-            setTimeLeft(remaining);
-            if (remaining <= 0) setTimeUp(true);
-            for (const m of MILESTONES) {
-                if (remaining <= m.at && remaining > 0 && !firedMilestonesRef.current.has(m.at)) {
-                    firedMilestonesRef.current.add(m.at);
-                    toast(`⏳ ${m.label} — pace yourself.`, 'warning', { duration: 6000 });
-                }
-            }
-        };
-        tick();
-        const timer = setInterval(tick, 1000);
-        const sync = setInterval(syncWithServer, 30000); // re-sync with the server clock
-        return () => { cancelled = true; clearInterval(timer); clearInterval(sync); };
-        // `toast` is stable (useCallback); intentionally not a dependency.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [deadlineKey, finalScore, sessionId]);
-
-    // When the clock expires, finalize the exam server-side and show the score
-    // (unanswered questions count as not-correct) rather than just locking the UI.
-    useEffect(() => {
-        if (!timeUp || finalScore) return;
-        let cancelled = false;
-        api.mockStudy.finish(sessionId)
-            .then(data => { if (!cancelled && data?.final_score) setFinalScore(data.final_score); })
-            .catch(err => console.warn('Failed to finalize timed-out exam:', err));
-        return () => { cancelled = true; };
-    }, [timeUp, finalScore, sessionId]);
-
-    // Clear the persisted deadline once the exam is finished.
-    useEffect(() => {
-        if (finalScore) localStorage.removeItem(deadlineKey);
-    }, [finalScore, deadlineKey]);
-
-    // Warn before refresh/close mid-exam (the timer keeps running on the server-side deadline).
-    useEffect(() => {
-        if (finalScore) return;
-        const handler = (e: BeforeUnloadEvent) => {
-            e.preventDefault();
-            e.returnValue = '';
-        };
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [finalScore]);
-
-    /** Format a duration in seconds as HH:MM:SS for the exam countdown display. */
-    const formatTime = (seconds: number) => {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    };
-
-    // Scroll to top upon new question & trigger prefetch
-    useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-        // Background prefetch the next question to reduce latency
-        if (!isComplete) {
-            api.mockStudy.prefetch(sessionId);
-        }
-    }, [currentQuestion, isComplete]);
-
-
-    /** Append a user-created highlight to local state. */
-    const addHighlight = (h: Highlight) => setHighlights(prev => [...prev, h]);
-    /** Remove a user highlight by id (clicking an existing highlight). */
-    const removeHighlight = (id: string) => setHighlights(prev => prev.filter(h => h.id !== id));
-
-    /**
-     * Submit the selected answer and immediately advance — exam mode shows no
-     * per-question feedback. If the backend reports completion, fetch and store
-     * the final score instead of another question.
-     */
-    const handleSubmitAndNext = async () => {
-        if (!selectedLabel) return;
-
-        // Optimistic UI update: show loading immediately
-        setLoadingMessage('Saving & Advancing...');
-        setIsLoading(true);
-
-        try {
-            // 1. Submit Answer
-            const submitData = await api.mockStudy.submitAnswer(sessionId, selectedLabel);
-
-            // If that was the last question, pull the final score and stop here.
-            if (submitData.is_complete) {
-                setIsComplete(true);
-                // Fetch final results if complete
-                const nextData = await api.mockStudy.nextQuestion(sessionId);
-                if (nextData.is_complete) {
-                    setFinalScore(nextData.final_score);
-                }
-                setIsLoading(false);
-                return;
-            }
-
-            // 2. Fetch Next Question immediately (no feedback step in exam mode)
-            const nextData = await api.mockStudy.nextQuestion(sessionId);
-            
-            // Update UI
-            setCurrentQuestion(nextData.question);
-            setProgress(prev => ({
-                ...prev,
-                current: nextData.current_question
-            }));
-            setSelectedLabel(null);
-
-        } catch (error) {
-            console.error("Exam Error:", error);
-            toast("Error communicating with server. Please try again.", "error");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // --- RENDER: LOADING STATE ---
-    if (isLoading && !currentQuestion && !finalScore) {
-         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
-                <div className="text-2xl font-bold animate-pulse">Loading Exam Content...</div>
-            </div>
-        );
+  // --- Submit / auto-submit ---
+  const doSubmit = async (auto: boolean) => {
+    if (submitting || finalScore) return;
+    if (!auto) {
+      const unanswered = total - answeredCount;
+      const ok = await confirm({
+        title: 'Submit your exam?',
+        message: `${answeredCount} answered, ${unanswered} unanswered. Unanswered questions count as incorrect, and you can't change answers after submitting.`,
+        confirmLabel: 'Submit exam',
+        cancelLabel: 'Keep working',
+        tone: unanswered > 0 ? 'danger' : 'default',
+      });
+      if (!ok) return;
     }
-
-    // --- RENDER: COMPLETION SCREEN ---
-    if (finalScore) {
-        const passed = finalScore.percentage >= PASS_THRESHOLD;
-        return (
-            <div className="min-h-screen bg-gray-50 flex flex-col">
-                {/* Gradient Header */}
-                <div className={`p-12 text-center text-white bg-gradient-to-r ${passed ? 'from-cyan-400 to-emerald-400' : 'from-amber-400 to-orange-500'}`}>
-                    <h2 className="text-4xl font-extrabold mb-2">Exam Complete</h2>
-                    <p className="text-white/90 text-xl">
-                        {passed
-                            ? `You scored ${finalScore.percentage}% — above the ${PASS_THRESHOLD}% pass line.`
-                            : `You scored ${finalScore.percentage}%. The pass line is ${PASS_THRESHOLD}%.`}
-                    </p>
-                </div>
-
-                <main className="flex-1 max-w-2xl mx-auto w-full p-6 space-y-6 -mt-8">
-                    {/* Your Result Card */}
-                    <div className="bg-white rounded-2xl shadow-sm p-8 space-y-8">
-                        <h3 className="text-xl font-bold text-gray-800 text-center">Your Result</h3>
-
-                        {/* Status Icon (reflects pass/fail) */}
-                        <div className="flex justify-center">
-                            <div className={`w-32 h-32 rounded-full flex items-center justify-center relative ${passed ? 'bg-cyan-100' : 'bg-amber-100'}`}>
-                                <div className={`w-24 h-24 rounded-full flex items-center justify-center text-white ${passed ? 'bg-cyan-400' : 'bg-amber-400'}`}>
-                                    {passed ? (
-                                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
-                                    ) : (
-                                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Accuracy Bar */}
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-end mb-1">
-                                <span className="text-sm font-bold text-emerald-500">{finalScore.percentage}%</span>
-                                <span className="text-sm font-bold text-red-400">{100 - finalScore.percentage}%</span>
-                            </div>
-                            <div className="h-2 w-full bg-gray-100 rounded-full flex overflow-hidden">
-                                <div className="h-full bg-emerald-400" style={{ width: `${finalScore.percentage}%` }} />
-                                <div className="h-full bg-red-400" style={{ width: `${100 - finalScore.percentage}%` }} />
-                            </div>
-                            
-                            {/* Legend */}
-                            <div className="flex flex-col gap-2 pt-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-3 bg-emerald-400 rounded" />
-                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Correct Answers</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-3 bg-red-400 rounded" />
-                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Incorrect Answers</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Question Summary TABLE */}
-                    <div className="bg-white rounded-2xl shadow-sm p-8 space-y-6">
-                        <h3 className="text-xl font-bold text-gray-800 text-center">Question Summary</h3>
-                        
-                        <div className="space-y-3">
-                            <div className="bg-emerald-400/10 p-4 rounded-lg flex justify-between items-center text-emerald-800">
-                                <div className="flex items-center gap-3 font-bold">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    Total Questions
-                                </div>
-                                <span className="font-mono text-xl">{finalScore.total.toString().padStart(2, '0')}</span>
-                            </div>
-                            <div className="bg-emerald-400 text-white p-4 rounded-lg flex justify-between items-center">
-                                <div className="flex items-center gap-3 font-bold">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    Correct Answers
-                                </div>
-                                <span className="font-mono text-xl">{finalScore.correct.toString().padStart(2, '0')}</span>
-                            </div>
-                            <div className="bg-red-400/10 p-4 rounded-lg flex justify-between items-center text-red-800">
-                                <div className="flex items-center gap-3 font-bold">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    Wrong Answers
-                                </div>
-                                <span className="font-mono text-xl">{(finalScore.total - finalScore.correct).toString().padStart(2, '0')}</span>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-4 pt-4">
-                            <button 
-                                onClick={onExit}
-                                className="flex-1 py-4 bg-cyan-500 text-white font-bold rounded-xl"
-                            >
-                                Exit Exam
-                            </button>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        );
+    setSubmitting(true);
+    try {
+      const data = await api.mockStudy.examSubmit(sessionId, answers);
+      setFinalScore(data.final_score);
+      setResults(data.results);
+    } catch (err) {
+      console.error('Exam submit failed:', err);
+      toast('Failed to submit exam. Please try again.', 'error');
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    // --- RENDER: EXAM VIEW ---
+  // Auto-submit when the clock expires.
+  useEffect(() => {
+    if (timeUp && !finalScore && !submitting) doSubmit(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeUp]);
+
+  // --- RENDER: empty/guard ---
+  if (total === 0 && !finalScore) {
     return (
-        <div className="min-h-screen bg-white flex flex-col">
-            {/* Header: Gradient + Step Indicators */}
-            <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-6 text-white relative">
-                <div className="max-w-6xl mx-auto">
-                    <div className="flex justify-between items-center mb-8">
-                        <h1 className="text-2xl font-bold">Exam Mode</h1>
-                        <div className={`flex items-center gap-2 rounded-full px-3 py-1 ${timeLeft <= 300 ? 'bg-red-600/90 animate-pulse' : 'opacity-90'}`}>
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="font-mono text-lg font-bold">Time left - {formatTime(timeLeft)}</span>
-                        </div>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">No exam questions available</h2>
+        <p className="text-gray-500 mb-6">The question bank doesn't have enough approved items for an exam yet.</p>
+        <button onClick={onExit} className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold">Exit</button>
+      </div>
+    );
+  }
+
+  // --- RENDER: COMPLETION SCREEN ---
+  if (finalScore) {
+    const passed = finalScore.percentage >= PASS_THRESHOLD;
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className={`p-12 text-center text-white bg-gradient-to-r ${passed ? 'from-cyan-400 to-emerald-400' : 'from-amber-400 to-orange-500'}`}>
+          <h2 className="text-4xl font-extrabold mb-2">Exam Complete</h2>
+          <p className="text-white/90 text-xl">
+            {passed
+              ? `You scored ${finalScore.percentage}% — above the ${PASS_THRESHOLD}% pass line.`
+              : `You scored ${finalScore.percentage}%. The pass line is ${PASS_THRESHOLD}%.`}
+          </p>
+        </div>
+
+        <main className="flex-1 max-w-2xl mx-auto w-full p-6 space-y-6 -mt-8">
+          <div className="bg-white rounded-2xl shadow-sm p-8 space-y-6">
+            <h3 className="text-xl font-bold text-gray-800 text-center">Your Result</h3>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-emerald-50 rounded-xl p-4">
+                <p className="text-2xl font-black text-emerald-600">{finalScore.correct}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Correct</p>
+              </div>
+              <div className="bg-red-50 rounded-xl p-4">
+                <p className="text-2xl font-black text-red-500">{finalScore.total - finalScore.correct}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Wrong</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-2xl font-black text-gray-700">{finalScore.answered}/{finalScore.total}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Answered</p>
+              </div>
+            </div>
+            <div className="h-2 w-full bg-gray-100 rounded-full flex overflow-hidden">
+              <div className="h-full bg-emerald-400" style={{ width: `${finalScore.percentage}%` }} />
+              <div className="h-full bg-red-400" style={{ width: `${100 - finalScore.percentage}%` }} />
+            </div>
+          </div>
+
+          {/* Per-question review */}
+          {results && (
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Question Review</h3>
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                {results.map(r => {
+                  const q = questions[r.index];
+                  const skipped = !r.selected_label;
+                  return (
+                    <div key={r.index} className={`p-3 rounded-xl border ${r.is_correct ? 'border-emerald-200 bg-emerald-50/50' : skipped ? 'border-gray-200 bg-gray-50' : 'border-red-200 bg-red-50/50'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-gray-400">Q{r.index + 1} · {domainLabel(q?.domain || '')}</span>
+                        <span className={`text-xs font-bold ${r.is_correct ? 'text-emerald-600' : skipped ? 'text-gray-400' : 'text-red-500'}`}>
+                          {r.is_correct ? 'Correct' : skipped ? 'Skipped' : 'Incorrect'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-1 line-clamp-2">{q?.stem}</p>
+                      <p className="text-xs text-gray-500 mt-1">Your answer: <b>{r.selected_label || '—'}</b> · Correct: <b className="text-emerald-700">{r.correct_label}</b></p>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-                    {/* Step Indicators */}
-                    <div className="flex items-center justify-center relative">
-                        {/* Connecting Line */}
-                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/30 -translate-y-1/2 mx-[10%]" />
-                        
-                        <div className="flex justify-between w-full max-w-sm relative z-10">
-                            {(() => {
-                                // Show a sliding window of at most 5 step bubbles centered on the
-                                // current question, clamped to the [1, total] range so the count
-                                // stays constant near the start and end of the exam.
-                                const maxVisible = 5;
-                                let start = Math.max(1, progress.current - Math.floor(maxVisible / 2));
-                                let end = Math.min(progress.total, start + maxVisible - 1);
+          <button onClick={onExit} className="w-full py-4 bg-cyan-500 text-white font-bold rounded-xl hover:bg-cyan-600 transition">Exit Exam</button>
+        </main>
+      </div>
+    );
+  }
 
-                                if (end - start + 1 < maxVisible) {
-                                    start = Math.max(1, end - maxVisible + 1);
-                                }
+  // --- RENDER: EXAM (navigator) ---
+  const q = questions[current];
+  const selected = answers[String(current)];
+  const isFlagged = flags.has(current);
 
-                                return Array.from({ length: end - start + 1 }).map((_, i) => {
-                                    const stepNum = start + i;
-                                    const isPassed = progress.current > stepNum;
-                                    const isCurrent = progress.current === stepNum;
-                                    
-                                    return (
-                                        <div key={stepNum} className="flex flex-col items-center">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-lg ${
-                                                isCurrent ? 'bg-blue-600 text-white border-2 border-white' : 
-                                                isPassed ? 'bg-emerald-500 text-white' : 
-                                                'bg-white text-cyan-500'
-                                            }`}>
-                                                {stepNum}
-                                                {isCurrent && <div className="absolute -bottom-1 w-1.5 h-1.5 bg-red-500 rounded-full" />}
-                                            </div>
-                                        </div>
-                                    );
-                                });
-                            })()}
-                        </div>
-                    </div>
-                </div>
+  const navigator = (
+    <div className="space-y-4">
+      <div className="grid grid-cols-6 sm:grid-cols-8 lg:grid-cols-5 gap-2">
+        {questions.map((_, i) => {
+          const ans = !!answers[String(i)];
+          const fl = flags.has(i);
+          const cur = i === current;
+          return (
+            <button
+              key={i}
+              onClick={() => goTo(i)}
+              className={`relative h-9 rounded-lg text-xs font-bold transition ${
+                cur ? 'ring-2 ring-offset-1 ring-blue-600 bg-blue-600 text-white'
+                  : ans ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {i + 1}
+              {fl && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border border-white" />}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500 inline-block" /> Answered</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-gray-200 inline-block" /> Unanswered</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-400 inline-block" /> Flagged</span>
+      </div>
+      <button
+        onClick={() => doSubmit(false)}
+        disabled={submitting}
+        className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition disabled:opacity-60"
+      >
+        {submitting ? 'Submitting…' : `Submit Exam (${answeredCount}/${total})`}
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-white flex items-center justify-between sticky top-0 z-30">
+        <div>
+          <h1 className="text-xl font-bold leading-none">Exam Simulation</h1>
+          <p className="text-white/70 text-xs mt-1">{answeredCount} of {total} answered{flags.size ? ` · ${flags.size} flagged` : ''}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setNavOpen(true)} className="lg:hidden px-3 py-1.5 bg-white/15 rounded-lg text-sm font-bold">Navigator</button>
+          <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 ${timeLeft <= 300 ? 'bg-red-600 animate-pulse' : 'bg-white/15'}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span className="font-mono text-base font-bold">{formatTime(timeLeft)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 w-full max-w-6xl mx-auto px-4 lg:px-8 py-6 flex gap-6">
+        {/* Question column */}
+        <main className="flex-1 min-w-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
+                Question {current + 1} of {total} · {domainLabel(q?.domain || '')}
+              </span>
+              <button
+                onClick={toggleFlag}
+                className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide transition ${isFlagged ? 'text-amber-600' : 'text-gray-400 hover:text-amber-600'}`}
+              >
+                <svg className="w-4 h-4" fill={isFlagged ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 2H21l-3 6 3 6h-8.5l-1-2H5a2 2 0 00-2 2z" /></svg>
+                {isFlagged ? 'Flagged' : 'Flag'}
+              </button>
             </div>
 
-            {/* Sub-Header: Context */}
-            <div className="bg-white px-6 py-4 flex justify-between items-center border-b border-gray-100">
-                <div className="text-gray-400 font-bold text-sm">
-                    {progress.current}. Question
-                </div>
-                <div className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-                    NOTCE Simulation
-                </div>
+            <div className="text-lg leading-relaxed text-gray-800 mb-6">
+              <HighlightableText
+                text={q?.stem || ''}
+                highlights={highlights}
+                onAddHighlight={addHighlight}
+                onRemoveHighlight={removeHighlight}
+              />
             </div>
 
-            {/* Main Content */}
-            <main className="flex-1 max-w-6xl mx-auto w-full px-6 lg:px-12 pb-24 pt-6 space-y-6">
-                {/* Question Stem */}
-                <div className="bg-white p-2">
-                     <div className="text-lg leading-relaxed text-gray-700">
-                        <span className="font-bold mr-2">{progress.current}.</span>
-                        <HighlightableText 
-                            text={currentQuestion.stem}
-                            highlights={highlights}
-                            onAddHighlight={addHighlight}
-                            onRemoveHighlight={removeHighlight}
-                        />
-                     </div>
-                </div>
+            <div className="space-y-3" role="radiogroup" aria-label="Answer options">
+              {(q?.options || []).map(option => {
+                const isSelected = selected === option.label;
+                return (
+                  <button
+                    key={option.label}
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => selectAnswer(option.label)}
+                    className={`w-full text-left p-4 flex items-center gap-4 rounded-xl border-2 transition ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50/50 hover:border-blue-200'}`}
+                  >
+                    <span className={`flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold ${isSelected ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 text-gray-400'}`}>{option.label}</span>
+                    <span className={`text-base ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>{option.text}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-                {/* Options List (single-select; radio semantics) */}
-                <div className="space-y-3" role="radiogroup" aria-label="Answer options">
-                    {currentQuestion.options.map((option: any) => {
-                        const isSelected = selectedLabel === option.label;
-
-                        let cardClasses = "w-full text-left p-4 flex items-center gap-4 transition-all rounded-xl border-2 ";
-                        cardClasses += isSelected ? "border-emerald-400 bg-emerald-50" : "border-transparent bg-gray-100/50 hover:border-emerald-200";
-
-                        return (
-                            <button
-                                key={option.label}
-                                role="radio"
-                                aria-checked={isSelected}
-                                disabled={timeUp}
-                                onClick={() => setSelectedLabel(option.label)}
-                                className={cardClasses}
-                            >
-                                <div className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                    isSelected ? 'border-emerald-500' : 'border-gray-300'
-                                }`}>
-                                    {isSelected && <div className="w-3 h-3 rounded-full bg-emerald-500" />}
-                                </div>
-                                <span className={`text-lg ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
-                                    {option.label}. {option.text}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
-            </main>
-
-            {/* Time-up overlay: locks the exam and routes the user out. */}
-            {timeUp && !finalScore && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Time's up</h3>
-                        <p className="text-gray-500 mb-6">Your 4-hour exam window has closed. Answers submitted up to now have been recorded.</p>
-                        <button onClick={onExit} className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition">View Results &amp; Exit</button>
-                    </div>
-                </div>
+            {selected && (
+              <button onClick={clearAnswer} className="mt-4 text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wide">Clear answer</button>
             )}
 
-            {/* Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-40">
-                <div className="max-w-6xl mx-auto px-6 lg:px-12 flex justify-end">
-                    <button
-                        onClick={handleSubmitAndNext}
-                        disabled={!selectedLabel || isLoading}
-                        className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-600 text-white px-12 py-4 rounded font-bold text-lg transition-all flex items-center justify-center gap-2"
-                    >
-                        {isLoading ? (
-                            <>
-                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Saving...
-                            </>
-                        ) : (
-                            <>
-                                Next
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                            </>
-                        )}
-                    </button>
-                </div>
+            {/* Prev / Next */}
+            <div className="mt-8 flex items-center justify-between">
+              <button onClick={() => goTo(current - 1)} disabled={current === 0} className="px-5 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition disabled:opacity-40">← Previous</button>
+              {current < total - 1 ? (
+                <button onClick={() => goTo(current + 1)} className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition">Next →</button>
+              ) : (
+                <button onClick={() => doSubmit(false)} disabled={submitting} className="px-6 py-3 rounded-xl font-bold text-white bg-gray-900 hover:bg-gray-800 transition disabled:opacity-60">Review &amp; Submit</button>
+              )}
             </div>
+          </div>
+        </main>
+
+        {/* Desktop navigator */}
+        <aside className="hidden lg:block w-64 flex-shrink-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-24">
+            <h3 className="text-sm font-bold text-gray-700 mb-4">Question Navigator</h3>
+            {navigator}
+          </div>
+        </aside>
+      </div>
+
+      {/* Mobile navigator sheet */}
+      {navOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 flex">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setNavOpen(false)} />
+          <div className="relative ml-auto w-80 max-w-[85vw] h-full bg-white p-5 overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-700">Question Navigator</h3>
+              <button onClick={() => setNavOpen(false)} aria-label="Close" className="text-gray-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+            {navigator}
+          </div>
         </div>
-    );
+      )}
+
+      {/* Time-up overlay (auto-submit in flight) */}
+      {timeUp && !finalScore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Time's up</h3>
+            <p className="text-gray-500">Submitting your exam and tallying your score…</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default ExamSession;

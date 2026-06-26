@@ -80,6 +80,42 @@ def serve_bank_question(domain: str, difficulty: str, exclude_ids=None) -> dict:
     }
 
 
+def build_exam_question_set(domain: str, difficulty: str, count: int) -> list:
+    """
+    Pick up to ``count`` distinct, random approved bank questions for a full exam.
+
+    Unlike the one-at-a-time practice flow, an exam needs every question upfront so
+    the client can navigate/skip/revisit freely. Returns the FULL server-side shape
+    (includes correct_label + rationale + domain) — the view strips answers before
+    sending to the client. As with serve_bank_question, a pseudo-domain
+    ('MIXED'/'ALL') or non-standard difficulty acts as a wildcard ("any approved").
+    The list may be shorter than ``count`` if the bank has fewer approved items.
+    """
+    from .models import BankQuestion, DomainTag
+
+    valid_domains = {d.value for d in DomainTag}
+    valid_difficulties = {'Easy', 'Medium', 'Hard'}
+
+    qs = BankQuestion.objects.filter(status='approved').prefetch_related('distractors')
+    if domain in valid_domains:
+        qs = qs.filter(domain=domain)
+    if difficulty in valid_difficulties:
+        qs = qs.filter(difficulty=difficulty)
+
+    questions = []
+    for bq in qs.order_by('?')[:count]:
+        distractors = list(bq.distractors.all())
+        questions.append({
+            "bank_id": bq.id,
+            "stem": bq.stem,
+            "options": [{"label": d.label, "text": d.text} for d in distractors],
+            "correct_label": bq.correct_label,
+            "correct_rationale": bq.correct_rationale,
+            "domain": bq.domain,
+        })
+    return questions
+
+
 def generate_practice_question(domain: str, difficulty: str,
                                 question_number: int,
                                 total_questions: int,
