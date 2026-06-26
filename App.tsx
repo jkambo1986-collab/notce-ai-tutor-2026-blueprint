@@ -357,8 +357,8 @@ const MainApp: React.FC = () => {
       // Confirm the answer landed; study mode defers correctness to the end summary.
       toast('Answer recorded.', 'success');
       setCurrentQuestionIndex(prev => prev + 1);
-      // Clear evidence link result for next question (user will see briefly)
-      setTimeout(() => setEvidenceLinkResult(null), 5000);
+      // Keep the Evidence-Link analysis visible until the user dismisses it (or
+      // submits the next answer) rather than yanking it away on a 5s timer.
     } else {
       setIsCaseComplete(true);
     }
@@ -369,8 +369,17 @@ const MainApp: React.FC = () => {
 
   /**
    * Resets the entire application state for a fresh attempt at the case.
+   * Confirms first, since it discards the current answers and highlights.
    */
-  const resetCase = () => {
+  const resetCase = async () => {
+    const ok = await confirm({
+      title: 'Restart this case?',
+      message: 'This clears your answers and highlights for this case and starts it over from question 1.',
+      confirmLabel: 'Restart',
+      cancelLabel: 'Keep my progress',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setAnswers([]);
     setCurrentQuestionIndex(0);
     setIsCaseComplete(false);
@@ -696,12 +705,19 @@ const MainApp: React.FC = () => {
                       </svg>
                       <h4 className="font-bold text-indigo-800">Evidence-Link Analysis</h4>
                       <span className={`ml-auto px-2 py-1 rounded-full text-xs font-bold ${
-                        evidenceLinkResult.score >= 70 ? 'bg-green-100 text-green-700' : 
-                        evidenceLinkResult.score >= 40 ? 'bg-yellow-100 text-yellow-700' : 
+                        evidenceLinkResult.score >= 70 ? 'bg-green-100 text-green-700' :
+                        evidenceLinkResult.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
                         'bg-red-100 text-red-700'
                       }`}>
                         {evidenceLinkResult.score}% Match
                       </span>
+                      <button
+                        onClick={() => setEvidenceLinkResult(null)}
+                        aria-label="Dismiss analysis"
+                        className="ml-1 text-indigo-400 hover:text-indigo-700 transition"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
                     </div>
                     
                     <p className="text-indigo-700 text-sm mb-3">{evidenceLinkResult.perceptualTip}</p>
