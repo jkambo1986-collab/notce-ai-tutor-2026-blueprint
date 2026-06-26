@@ -392,10 +392,10 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
     return (
         <div className="min-h-screen bg-white flex flex-col">
             {/* Header: Gradient + Step Indicators */}
-            <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-6 text-white relative">
+            <div className="bg-gradient-to-r from-cyan-400 to-emerald-400 p-4 md:p-6 text-white relative">
                 <div className="max-w-6xl mx-auto">
-                    <div className="flex justify-between items-center mb-8">
-                        <h1 className="text-2xl font-bold">Multichoice MCQ</h1>
+                    <div className="flex justify-between items-center gap-3 mb-6 md:mb-8">
+                        <h1 className="text-lg md:text-2xl font-bold">Multichoice MCQ</h1>
                         <div className="flex items-center gap-2 opacity-90">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -427,7 +427,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                                     
                                     return (
                                         <div key={stepNum} className="flex flex-col items-center">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-lg ${
+                                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-xs md:text-sm transition-all shadow-lg ${
                                                 isCurrent ? 'bg-blue-600 text-white border-2 border-white' : 
                                                 isPassed ? 'bg-emerald-500 text-white' : 
                                                 'bg-white text-cyan-500'
@@ -482,7 +482,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                             Vetted · Premium Bank
                         </span>
                      )}
-                     <p className="text-lg leading-relaxed text-gray-700">
+                     <p className="text-base md:text-lg leading-relaxed text-gray-700">
                         {currentQuestion.stem}
                      </p>
                 </div>
@@ -535,7 +535,7 @@ const MockStudySession: React.FC<MockStudySessionProps> = ({ sessionId, initialD
                                         isSelected && <div className="w-3 h-3 rounded-full bg-emerald-500" />
                                     )}
                                 </div>
-                                <span className={`text-lg ${isSelected || isTheCorrect ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
+                                <span className={`text-base md:text-lg ${isSelected || isTheCorrect ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
                                     {option.label}. {option.text}
                                 </span>
                             </button>
