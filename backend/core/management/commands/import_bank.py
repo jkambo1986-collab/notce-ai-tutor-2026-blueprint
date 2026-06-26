@@ -85,9 +85,9 @@ class Command(BaseCommand):
                     obj, created = BankCase.objects.update_or_create(
                         id=c['id'],
                         defaults={
-                            'title': c['title'],
+                            'title': c['title'][:255],
                             'vignette': c['vignette'],
-                            'setting': c.get('setting', ''),
+                            'setting': c.get('setting', '')[:120],
                             'domain': c['domain'],
                             'tags': c.get('tags', []),
                             'provenance': c.get('provenance', {}),
@@ -111,11 +111,11 @@ class Command(BaseCommand):
                             'format': q.get('format', 'standalone'),
                             'case_id': q.get('case_id'),
                             'stem': q['stem'],
-                            'correct_label': q['correct_label'].upper(),
+                            'correct_label': q['correct_label'].upper()[:1],
                             'correct_rationale': q['correct_rationale'],
                             'explain_differently': q.get('explain_differently', ''),
                             'core_concept': q.get('core_concept', ''),
-                            'topic': q.get('topic', ''),
+                            'topic': (q.get('topic', '') or '')[:160],
                             'cognitive_level': q.get('cognitive_level', 'application'),
                             'status': status,
                             'provenance': q.get('provenance', {}),
@@ -129,8 +129,8 @@ class Command(BaseCommand):
                     BankDistractor.objects.bulk_create([
                         BankDistractor(
                             bank_question=obj,
-                            label=o['label'].upper(),
-                            text=o['text'],
+                            label=o['label'].upper()[:1],
+                            text=o['text'][:600],
                             incorrect_rationale=o.get('incorrect_rationale'),
                         )
                         for o in q.get('options', [])
