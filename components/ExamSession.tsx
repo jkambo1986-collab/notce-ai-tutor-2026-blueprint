@@ -147,6 +147,28 @@ const ExamSession: React.FC<ExamSessionProps> = ({ sessionId, initialData, onExi
 
   const goTo = (i: number) => { setCurrent(Math.max(0, Math.min(total - 1, i))); setNavOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
+  // Keyboard: A–D/1–4 select, ←/→ navigate, F flags, Enter advances (or submits
+  // on the last item). Matches the candidate-friendly shortcuts of a real exam.
+  useEffect(() => {
+    if (finalScore || timeUp) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const opts = questions[current]?.options || [];
+      const byLetter = opts.find((o: any) => o.label?.toUpperCase() === e.key.toUpperCase());
+      const num = parseInt(e.key, 10);
+      if (byLetter) { selectAnswer(byLetter.label); e.preventDefault(); return; }
+      if (!Number.isNaN(num) && num >= 1 && num <= opts.length) { selectAnswer(opts[num - 1].label); e.preventDefault(); return; }
+      if (e.key === 'ArrowLeft') { goTo(current - 1); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { goTo(current + 1); e.preventDefault(); }
+      else if (e.key === 'f' || e.key === 'F') { toggleFlag(); e.preventDefault(); }
+      else if (e.key === 'Enter') { e.preventDefault(); current < total - 1 ? goTo(current + 1) : doSubmit(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, total, finalScore, timeUp, questions]);
+
   const addHighlight = (h: Highlight) => setHighlights(prev => [...prev, h]);
   const removeHighlight = (id: string) => setHighlights(prev => prev.filter(h => h.id !== id));
 
