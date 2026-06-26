@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 
+/** A single resumable session row, flattened from a case + its saved session. */
 interface Session {
   id: string;
   caseTitle: string;
@@ -18,13 +19,26 @@ interface Session {
 }
 
 interface SavedProgressModalProps {
+  /** Controls modal visibility; renders nothing when false. */
   isOpen: boolean;
+  /** Dismiss the modal. */
   onClose: () => void;
+  /** Resume the chosen case's session. */
   onResumeSession: (caseId: string) => void;
+  /** Case currently open, if any — its row is badged as "Current". */
   currentCaseId?: string;
 }
 
-const SavedProgressModal: React.FC<SavedProgressModalProps> = ({ 
+/**
+ * SavedProgressModal Component
+ *
+ * Lists the user's recent cases that have saved sessions and lets them resume
+ * an in-progress one. Sessions are loaded on open.
+ *
+ * @param {SavedProgressModalProps} props - Component props
+ * @returns {JSX.Element | null} The modal, or null when closed
+ */
+const SavedProgressModal: React.FC<SavedProgressModalProps> = ({
   isOpen, 
   onClose, 
   onResumeSession,
@@ -39,18 +53,25 @@ const SavedProgressModal: React.FC<SavedProgressModalProps> = ({
     }
   }, [isOpen]);
 
+  /**
+   * Load the 10 most recent cases and resolve their saved sessions in parallel,
+   * dropping any case that has no session. See the inline note re: avoiding the
+   * old N+1 sequential waterfall.
+   */
   const loadSessions = async () => {
     setIsLoading(true);
     try {
-      // Get all cases and sessions
+      // Get all cases, then fetch their sessions concurrently (was an N+1
+      // sequential waterfall that made the modal slow to open).
       const cases = await api.getCases();
-      const sessionsData: Session[] = [];
-      
-      for (const caseItem of cases.slice(0, 10)) { // Limit to 10 recent
-        try {
-          const session = await api.getSession(caseItem.id);
-          if (session) {
-            sessionsData.push({
+      const recent = cases.slice(0, 10); // Limit to 10 recent
+
+      const results = await Promise.all(
+        recent.map(async (caseItem): Promise<Session | null> => {
+          try {
+            const session = await api.getSession(caseItem.id);
+            if (!session) return null;
+            return {
               id: caseItem.id,
               caseTitle: caseItem.title || 'Untitled Case',
               caseId: caseItem.id,
@@ -58,14 +79,14 @@ const SavedProgressModal: React.FC<SavedProgressModalProps> = ({
               totalQuestions: caseItem.questions?.length || 3,
               isCompleted: session.isCompleted || false,
               lastAccessed: new Date().toLocaleDateString()
-            });
+            };
+          } catch (e) {
+            return null; // No session for this case
           }
-        } catch (e) {
-          // No session for this case
-        }
-      }
-      
-      setSessions(sessionsData);
+        })
+      );
+
+      setSessions(results.filter((s): s is Session => s !== null));
     } catch (err) {
       console.error('Failed to load sessions:', err);
     } finally {
@@ -75,6 +96,7 @@ const SavedProgressModal: React.FC<SavedProgressModalProps> = ({
 
   if (!isOpen) return null;
 
+  /** Percentage of questions completed, rounded for the progress bar width. */
   const getProgressPercent = (current: number, total: number) => {
     return Math.round((current / total) * 100);
   };

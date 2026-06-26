@@ -1,10 +1,27 @@
+"""
+Database models for the NOTCE AI Tutor backend.
+
+This module defines the persistent data layer of the app, grouped into:
+  * Enums (TextChoices) mirroring the frontend ``types.ts`` and the NOTCE 2026
+    Blueprint taxonomy used to balance exam-form coverage.
+  * Content models (CaseStudy / Question / Distractor) for the live, Gemini-backed
+    case study experience.
+  * User-data models (UserProfile, sessions, answers, highlights) tracking each
+    learner's subscription, progress, and activity.
+  * Premium question-bank models (BankCase / BankQuestion / BankDistractor) holding
+    pre-minted, independently audited items.
+  * Mock study models for on-the-fly practice/exam sessions.
+"""
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
 # --- ENUMS (Mapped from types.ts) ---
+# TextChoices enums shared with the frontend; the string values are persisted in
+# the DB while the second tuple element is the human-readable display label.
 
 class DomainTag(models.TextChoices):
+    # The six NOTCE competency domains every question is tagged against.
     OT_EXP = 'OT_EXP', 'OT Expertise'
     CEJ_JUSTICE = 'CEJ_JUSTICE', 'Culture/Equity/Justice'
     COMM_COLLAB = 'COMM_COLLAB', 'Comm & Collab'
@@ -13,6 +30,7 @@ class DomainTag(models.TextChoices):
     ENGAGEMENT = 'ENGAGEMENT', 'Engagement in OT'
 
 class ConfidenceLevel(models.TextChoices):
+    # Self-reported confidence a learner attaches to each answer.
     LOW = 'LOW', 'Low'
     MED = 'MED', 'Medium'
     HIGH = 'HIGH', 'High'
@@ -98,22 +116,30 @@ class BlueprintDescriptors(models.Model):
 # --- CONTENT MODELS ---
 
 class CaseStudy(models.Model):
+    """
+    A clinical case study: a patient/practice vignette plus its related questions.
+    This is the core unit of the standard (non-premium) study experience.
+    """
     id = models.CharField(max_length=50, primary_key=True)  # Using manual ID to match 'case-001' format
     title = models.CharField(max_length=255)
     vignette = models.TextField()
     setting = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    tags = models.JSONField(default=list, blank=True)
+    tags = models.JSONField(default=list, blank=True)  # free-form list of topic/keyword strings
 
     def __str__(self):
         return self.title
 
 class AgentMemory(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    """
+    Key/value memory store for the AI tutor agent. Lets the agent persist arbitrary
+    state (preferences, learned facts, context) per user across sessions.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)  # null = global/anonymous memory
     key = models.CharField(max_length=255, db_index=True)
-    value = models.JSONField()
-    category = models.CharField(max_length=50, default='general')
+    value = models.JSONField()  # arbitrary JSON payload the agent stores under `key`
+    category = models.CharField(max_length=50, default='general')  # namespace/grouping for memories
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -126,10 +152,14 @@ class AgentMemory(models.Model):
         return f"{self.key} ({self.user})"
 
 class Question(models.Model):
+    """
+    A single multiple-choice question belonging to a CaseStudy. The correct option
+    is stored here; the wrong options live in related Distractor rows.
+    """
     id = models.CharField(max_length=50, primary_key=True) # e.g., 'q-1'
-    case_study = models.ForeignKey(CaseStudy, related_name='questions', on_delete=models.CASCADE)
+    case_study = models.ForeignKey(CaseStudy, related_name='questions', on_delete=models.CASCADE)  # parent vignette
     stem = models.TextField()
-    domain = models.CharField(max_length=20, choices=DomainTag.choices)
+    domain = models.CharField(max_length=20, choices=DomainTag.choices)  # NOTCE competency domain tag
     correct_label = models.CharField(max_length=1)  # 'A', 'B', 'C', 'D'
     correct_rationale = models.TextField()
     
@@ -137,13 +167,17 @@ class Question(models.Model):
         return f"{self.id} - {self.stem[:50]}..."
 
 class Distractor(models.Model):
+    """
+    One selectable answer option for a Question. Includes the correct option too;
+    `incorrect_rationale` explains why a wrong option is wrong (blank for the right one).
+    """
     question = models.ForeignKey(Question, related_name='distractors', on_delete=models.CASCADE)
     label = models.CharField(max_length=1)  # 'A', 'B', 'C', 'D'
     text = models.CharField(max_length=500)
     incorrect_rationale = models.TextField(blank=True, null=True) # Optional, as correct answer wont have one
 
     class Meta:
-        unique_together = ('question', 'label')
+        unique_together = ('question', 'label')  # each label appears once per question
         ordering = ['label']
 
     def __str__(self):
@@ -152,16 +186,22 @@ class Distractor(models.Model):
 # --- USER DATA MODELS ---
 
 class UserProfile(models.Model):
+    """
+    Extends Django's built-in User with app-specific data: billing/subscription
+    state (Stripe), trial tracking, email verification, and study preferences.
+    One-to-one with User.
+    """
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.TextField(blank=True)
-    target_exam_date = models.DateField(null=True, blank=True)
-    stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
+    target_exam_date = models.DateField(null=True, blank=True)  # learner's goal exam date
+    stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)  # links to the Stripe customer for billing
     subscription_tier = models.CharField(max_length=50, default='free') # 'free', 'crammer', 'guarantee', 'beta'
-    is_paid = models.BooleanField(default=False)
-    trial_start_date = models.DateTimeField(null=True, blank=True)
+    is_paid = models.BooleanField(default=False)  # True once the user has an active paid subscription
+    trial_start_date = models.DateTimeField(null=True, blank=True)  # set when a free trial begins; drives is_trial_active
 
     @property
     def is_trial_active(self):
+        # Trial is active for 7 days from trial_start_date, and only while not paid.
         if self.is_paid:
             return False
         if not self.trial_start_date:
@@ -174,39 +214,64 @@ class UserProfile(models.Model):
         if not self.trial_start_date:
             return None
         return self.trial_start_date + timezone.timedelta(days=7)
-    email_verified = models.BooleanField(default=False)
-    verification_token = models.CharField(max_length=100, blank=True, null=True)
+    email_verified = models.BooleanField(default=False)  # True after the user confirms their email
+    verification_token = models.CharField(max_length=100, blank=True, null=True)  # one-time token emailed for verification
 
 class UserSession(models.Model):
+    """
+    Tracks a user's progress through a specific CaseStudy (which question they are on
+    and whether they finished). One row per (user, case_study) pair.
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     case_study = models.ForeignKey(CaseStudy, on_delete=models.CASCADE)
-    current_question_index = models.IntegerField(default=0)
+    # Tenant denormalization: the org the user belonged to when this activity was
+    # created. Set at write time so cohort analytics stay accurate even if the
+    # student later leaves the org. Null = individual (B2C) activity.
+    organization = models.ForeignKey(
+        'Organization', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='user_sessions'
+    )
+    current_question_index = models.IntegerField(default=0)  # resume position within the case's questions
     is_completed = models.BooleanField(default=False)
     last_accessed = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('user', 'case_study')
+        unique_together = ('user', 'case_study')  # one progress record per user per case
 
     def __str__(self):
         return f"{self.user.username} - {self.case_study.title} ({self.current_question_index})"
 
 class UserAnswer(models.Model):
+    """
+    A record of one answer a user submitted to a Question, including their chosen
+    option, self-rated confidence, and whether it was correct. Used for analytics
+    and review.
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    selected_label = models.CharField(max_length=1)
-    confidence = models.CharField(max_length=4, choices=ConfidenceLevel.choices)
+    # Tenant denormalization (see UserSession.organization). Null = B2C activity.
+    organization = models.ForeignKey(
+        'Organization', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='user_answers'
+    )
+    selected_label = models.CharField(max_length=1)  # the option the user picked ('A'-'D')
+    confidence = models.CharField(max_length=4, choices=ConfidenceLevel.choices)  # learner's self-rated confidence
     timestamp = models.DateTimeField(auto_now_add=True)
-    is_correct = models.BooleanField()
+    is_correct = models.BooleanField()  # computed at submit time vs. the question's correct_label
 
     def __str__(self):
         return f"{self.user.username} - {self.question.id} - {self.is_correct}"
 
 class Highlight(models.Model):
+    """
+    A text passage a user highlighted within a CaseStudy vignette. Stores the
+    selected text plus its character offsets so the highlight can be re-rendered.
+    """
     id = models.CharField(max_length=50, primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     case_study = models.ForeignKey(CaseStudy, on_delete=models.CASCADE) # Context for the highlight
-    start_index = models.IntegerField()
-    end_index = models.IntegerField()
+    start_index = models.IntegerField()  # char offset where the highlight begins
+    end_index = models.IntegerField()    # char offset where the highlight ends
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -280,13 +345,17 @@ class BankQuestion(BlueprintDescriptors):
 
 
 class BankDistractor(models.Model):
+    """
+    An answer option for a BankQuestion (the question-bank equivalent of Distractor).
+    Includes the correct option; `incorrect_rationale` is set only for wrong options.
+    """
     bank_question = models.ForeignKey(BankQuestion, related_name='distractors', on_delete=models.CASCADE)
     label = models.CharField(max_length=1)  # 'A', 'B', 'C', 'D'
     text = models.CharField(max_length=600)
     incorrect_rationale = models.TextField(blank=True, null=True)
 
     class Meta:
-        unique_together = ('bank_question', 'label')
+        unique_together = ('bank_question', 'label')  # each label appears once per bank question
         ordering = ['label']
 
     def __str__(self):
@@ -302,6 +371,11 @@ class MockStudySession(models.Model):
     on-the-fly without a connecting vignette narrative.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    # Tenant denormalization (see UserSession.organization). Null = B2C activity.
+    organization = models.ForeignKey(
+        'Organization', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='mock_sessions'
+    )
     domain = models.CharField(max_length=50)
     difficulty = models.CharField(max_length=20)  # Easy, Medium, Hard
     total_questions = models.IntegerField()
@@ -330,4 +404,127 @@ class MockStudySession(models.Model):
     def __str__(self):
         status = "Active" if self.is_active else "Completed"
         return f"{self.user.username if self.user else 'Anonymous'} [{self.mode}] - {self.domain} ({self.current_question}/{self.total_questions}) [{status}]"
+
+
+# --- B2B MULTI-TENANCY MODELS ---
+# An Organization is the tenant (a school / OT program / exam-prep cohort buyer).
+# Students remain individual Django Users; they join an org via OrgMembership,
+# which carries their RBAC role. Premium entitlement can be inherited from the
+# org's seat license (see core/entitlements.py) in addition to the per-user
+# Stripe path, so org students get premium without an individual subscription.
+
+class OrgRole(models.TextChoices):
+    OWNER = 'owner', 'Owner'            # billing + everything admin can do
+    ADMIN = 'admin', 'Admin'           # manage members/seats/roles, all analytics
+    INSTRUCTOR = 'instructor', 'Instructor'  # view cohort analytics; no seat/billing control
+    MEMBER = 'member', 'Member'         # student: consumes content, sees only own data
+
+
+class MembershipStatus(models.TextChoices):
+    INVITED = 'invited', 'Invited'   # invite issued, not yet accepted (placeholder membership)
+    ACTIVE = 'active', 'Active'      # full member, counts against a seat
+    REMOVED = 'removed', 'Removed'   # soft-removed; frees a seat, keeps history
+
+
+class Organization(models.Model):
+    """A B2B tenant: a school / program / cohort buyer that purchases seats.
+
+    The seat license (seats_total + license_active + license_expires_at) is what
+    grants premium access to its members. It can be set manually via Django admin
+    or, once payments are enabled, by the Stripe seat-subscription flow.
+    """
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=80, unique=True)  # stable url-safe handle
+    # Seat license
+    seats_total = models.PositiveIntegerField(default=0)  # purchased seats; active members must not exceed this
+    license_tier = models.CharField(max_length=50, default='org')  # label for the org plan
+    license_active = models.BooleanField(default=False)  # master on/off for inherited premium
+    license_expires_at = models.DateTimeField(null=True, blank=True)  # null = no expiry
+    # Billing linkage (used in Phase 4)
+    stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
+    stripe_subscription_id = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def seats_used(self):
+        # A seat is consumed by each active membership.
+        return self.memberships.filter(status=MembershipStatus.ACTIVE).count()
+
+    @property
+    def seats_available(self):
+        return max(self.seats_total - self.seats_used, 0)
+
+    @property
+    def has_active_license(self):
+        # Premium is inherited only while the license is on and unexpired.
+        if not self.license_active:
+            return False
+        if self.license_expires_at and self.license_expires_at < timezone.now():
+            return False
+        return True
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
+
+
+class OrgMembership(models.Model):
+    """Links a User to an Organization and carries their RBAC role.
+
+    One row per (organization, user). `status` distinguishes a pending invite
+    placeholder from an active, seat-consuming member.
+    """
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='org_memberships')
+    role = models.CharField(max_length=16, choices=OrgRole.choices, default=OrgRole.MEMBER)
+    status = models.CharField(max_length=10, choices=MembershipStatus.choices, default=MembershipStatus.ACTIVE)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('organization', 'user')  # a user has at most one membership per org
+        indexes = [models.Index(fields=['organization', 'status'])]
+
+    @property
+    def is_admin(self):
+        return self.role in (OrgRole.OWNER, OrgRole.ADMIN)
+
+    @property
+    def can_view_analytics(self):
+        return self.role in (OrgRole.OWNER, OrgRole.ADMIN, OrgRole.INSTRUCTOR)
+
+    def __str__(self):
+        return f"{self.user.username} @ {self.organization.slug} [{self.role}]"
+
+
+class OrgInvite(models.Model):
+    """A pending email invitation to join an Organization with a given role.
+
+    The invitee may not have an account yet, so invites are keyed by email and
+    redeemed via a one-time token after sign-up/login.
+    """
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='invites')
+    email = models.EmailField()
+    role = models.CharField(max_length=16, choices=OrgRole.choices, default=OrgRole.MEMBER)
+    token = models.CharField(max_length=64, unique=True, db_index=True)  # one-time redemption token
+    invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_invites')
+    expires_at = models.DateTimeField(null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)  # null = still pending
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # At most one live invite per (org, email); re-inviting reuses the row.
+        unique_together = ('organization', 'email')
+        ordering = ['-created_at']
+
+    @property
+    def is_pending(self):
+        if self.accepted_at:
+            return False
+        if self.expires_at and self.expires_at < timezone.now():
+            return False
+        return True
+
+    def __str__(self):
+        state = 'accepted' if self.accepted_at else 'pending'
+        return f"invite {self.email} -> {self.organization.slug} [{state}]"
 

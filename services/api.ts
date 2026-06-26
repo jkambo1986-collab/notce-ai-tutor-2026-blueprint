@@ -1,11 +1,27 @@
 
-import { CaseStudy, User } from '../types';
+/**
+ * @file api.ts
+ * @description Frontend HTTP client for the NOTCE backend (Django REST) API.
+ * Exposes a single `api` object whose methods wrap `fetch` calls to the backend
+ * REST endpoints (case studies, AI rationale/case generation, auth, sessions,
+ * mock-study flow, Stripe checkout, payment sync). Most authenticated requests
+ * read a JWT from `localStorage` ('auth_token') and attach it as a Bearer token.
+ * Raw backend payloads are normalized into the app's typed models via the data
+ * transformers at the bottom of the file.
+ */
 
+import { CaseStudy, User, Performance, Organization, OrgMember, OrgAnalytics, OrgRole } from '../types';
+
+// Base URL for all API requests. Prefers the Vite-injected env var (set per
+// deployment), and falls back to the local dev backend when it's not defined.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export const api = {
   /**
    * Fetches all available case studies.
+   * GET /cases/ (no auth). Sends nothing.
+   * Returns the list mapped through `transformCaseStudy` into typed CaseStudy objects.
+   * Throws on a non-OK response.
    */
   async getCases(): Promise<CaseStudy[]> {
     const response = await fetch(`${API_BASE_URL}/cases/`);
@@ -18,6 +34,8 @@ export const api = {
 
   /**
    * Fetches a single case study by ID.
+   * GET /cases/{id}/ (no auth). Sends the `id` in the URL path.
+   * Returns the normalized CaseStudy. Throws on a non-OK response.
    */
   async getCase(id: string): Promise<CaseStudy> {
     const response = await fetch(`${API_BASE_URL}/cases/${id}/`);
@@ -29,17 +47,21 @@ export const api = {
   },
 
   /**
-   * Requests an evolving rationale from the AI.
+   * Requests an evolving rationale (AI tutoring feedback) from the AI.
+   * POST /answers/get_rationale/ with optional Bearer auth.
+   * Sends the question id plus context about the user's previous answer/streak.
+   * Returns the rationale string; on failure returns '' (does not throw) so the UI keeps working.
    */
-  async getRationale(context: { 
-    question_id: string; 
+  async getRationale(context: {
+    question_id: string;
     previous_answer?: { is_correct: boolean; selected_label: string };
-    all_previous_correct: boolean; 
+    all_previous_correct: boolean;
   }): Promise<string> {
+    // Attach the JWT from localStorage as a Bearer token when the user is signed in.
     const token = localStorage.getItem('auth_token');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    
+
     const response = await fetch(`${API_BASE_URL}/answers/get_rationale/`, {
       method: 'POST',
       headers,
@@ -54,13 +76,50 @@ export const api = {
   },
 
   /**
-   * Triggers the generation of a new AI case study.
+   * Persists a case-study answer for cross-session analytics (Performance Hub).
+   * POST /answers/ (auth required). The backend re-grades server-side, so a
+   * client-supplied correctness is neither sent nor trusted.
+   * Fire-and-forget: best-effort, never throws, so it can't break the study flow.
+   */
+  recordAnswer(questionId: string, selectedLabel: string, confidence: string): void {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return; // analytics requires an authed user
+    fetch(`${API_BASE_URL}/answers/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ question: questionId, selected_label: selectedLabel, confidence })
+    }).catch(err => console.warn('Failed to record answer:', err));
+  },
+
+  /**
+   * Fetches the cross-session Performance Hub payload for the signed-in user.
+   * GET /performance/ (auth required). Returns the aggregated analytics object.
+   * Throws on a non-OK response so the caller can render an error state.
+   */
+  async getPerformance(): Promise<Performance> {
+    const token = localStorage.getItem('auth_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/performance/`, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch performance: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Triggers the generation of a new AI case study and waits for the result.
+   * POST /cases/generate/ with optional Bearer auth.
+   * Sends { domain, difficulty }. Returns the freshly generated, normalized CaseStudy.
+   * Throws on a non-OK response.
    */
   async generateCase(domain: string, difficulty: string): Promise<CaseStudy> {
+    // Attach the JWT from localStorage as a Bearer token when present.
     const token = localStorage.getItem('auth_token');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    
+
     const response = await fetch(`${API_BASE_URL}/cases/generate/`, {
         method: 'POST',
         headers,
@@ -75,13 +134,17 @@ export const api = {
   },
   
   /**
-   * Prefetches a new case study in the background.
+   * Warms the backend cache by prefetching a new case study in the background.
+   * POST /cases/prefetch/ with optional Bearer auth. Sends { domain, difficulty }.
+   * Fire-and-forget: returns immediately without awaiting the response; errors are only logged.
    */
   async prefetchCase(domain: string, difficulty: string): Promise<void> {
+    // Attach the JWT from localStorage as a Bearer token when present.
     const token = localStorage.getItem('auth_token');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    
+
+    // Intentionally not awaited (fire-and-forget); swallow/log any error so it never breaks the UI.
     fetch(`${API_BASE_URL}/cases/prefetch/`, {
         method: 'POST',
         headers,
@@ -91,7 +154,8 @@ export const api = {
 
   /**
    * Register a new user.
-
+   * POST /auth/register/ (no auth). Sends { username, email, password }.
+   * Returns nothing on success; on failure throws an Error containing the backend's JSON error body.
    */
   async register(username: string, email: string, password: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/auth/register/`, {
@@ -106,7 +170,9 @@ export const api = {
   },
 
   /**
-   * Verify email with token.
+   * Verify a user's email address using the token from the verification link.
+   * POST /verify-email/ (no auth). Sends { token } (the email-verification token, not a JWT).
+   * Returns nothing on success; throws with the backend's error message on failure.
    */
   async verifyEmail(token: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/verify-email/`, {
@@ -121,7 +187,10 @@ export const api = {
   },
 
   /**
-   * Log in and retrieve tokens.
+   * Log in and retrieve JWT tokens.
+   * POST /auth/login/ (no auth). Sends { username, password }.
+   * Returns { access, refresh } JWTs; the caller is responsible for storing `access`
+   * (as 'auth_token' in localStorage) for use by the authenticated methods. Throws on failure.
    */
   async login(username: string, password: string): Promise<{ access: string, refresh: string }> {
     const response = await fetch(`${API_BASE_URL}/auth/login/`, { // Changed to specific login path if needed, but using standard JWT endpoint usually
@@ -136,7 +205,10 @@ export const api = {
   },
 
   /**
-   * Saves the user's progress for a specific case.
+   * Saves the user's progress (current question index / completion) for a specific case.
+   * POST /sessions/save_progress/ with optional Bearer auth.
+   * Sends { case_study_id, current_index, is_completed }. Returns nothing.
+   * If the user is unauthenticated (401/403) it silently no-ops instead of throwing.
    */
   async saveSession(caseId: string, index: number, isCompleted: boolean): Promise<void> {
     const token = localStorage.getItem('auth_token'); // Mock auth support
@@ -153,6 +225,7 @@ export const api = {
         })
     });
     
+    // Treat "not authenticated" as a non-error: just skip server-side persistence.
     if (response.status === 401 || response.status === 403) {
         console.warn("User not logged in, progress not saved to server.");
         return;
@@ -160,7 +233,9 @@ export const api = {
   },
 
   /**
-   * Resumes the last session for a specific case.
+   * Resumes the last saved session for a specific case.
+   * GET /sessions/resume/?case_id={caseId} with Bearer auth (required).
+   * Returns { currentIndex, isCompleted } if a server session exists, otherwise null.
    */
   async getSession(caseId: string): Promise<{ currentIndex: number, isCompleted: boolean } | null> {
     const token = localStorage.getItem('auth_token');
@@ -183,7 +258,11 @@ export const api = {
   },
 
   /**
-   * Analyzes user highlights against expert clinical indicators.
+   * Analyzes the user's text highlights against expert clinical indicators ("evidence linking").
+   * POST /answers/evidence_link/ with optional Bearer auth.
+   * Sends { vignette, question_id, user_highlights[] }.
+   * Returns expert highlights, match/miss counts, a perceptual tip, and a score.
+   * On failure returns a safe empty/default result (does not throw) so the UI stays functional.
    */
   async getEvidenceLink(params: {
     vignette: string;
@@ -196,10 +275,11 @@ export const api = {
     perceptual_tip: string;
     score: number;
   }> {
+    // Attach the JWT from localStorage as a Bearer token when present.
     const token = localStorage.getItem('auth_token');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    
+
     const response = await fetch(`${API_BASE_URL}/answers/evidence_link/`, {
       method: 'POST',
       headers,
@@ -222,9 +302,17 @@ export const api = {
 
 
   /**
-   * Mock Study Flow API
+   * Mock Study Flow API — grouped endpoints for the timed practice/exam mode.
+   * Every method attaches the localStorage JWT as a Bearer token (when present)
+   * and talks to the backend's /mock-study/* routes.
    */
   mockStudy: {
+    /**
+     * Starts a new mock-study session.
+     * POST /mock-study/start/ with optional Bearer auth.
+     * Sends { domain, difficulty, total_questions, mode } (mode defaults to 'practice').
+     * Returns the new session payload (untyped). Throws on failure.
+     */
     async start(domain: string, difficulty: string, total_questions: number, mode: 'practice' | 'exam' = 'practice'): Promise<any> {
         const token = localStorage.getItem('auth_token');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -239,6 +327,11 @@ export const api = {
         return response.json();
     },
 
+    /**
+     * Submits the user's answer for the current question in a session.
+     * POST /mock-study/submit/ with optional Bearer auth.
+     * Sends { session_id, selected_label }. Returns the grading result (untyped). Throws on failure.
+     */
     async submitAnswer(sessionId: string, selectedLabel: string): Promise<any> {
         const token = localStorage.getItem('auth_token');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -253,6 +346,11 @@ export const api = {
         return response.json();
     },
 
+    /**
+     * Advances to and fetches the next question in a session.
+     * POST /mock-study/next/ with optional Bearer auth.
+     * Sends { session_id }. Returns the next question payload (untyped). Throws on failure.
+     */
     async nextQuestion(sessionId: string): Promise<any> {
         const token = localStorage.getItem('auth_token');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -267,6 +365,11 @@ export const api = {
         return response.json();
     },
 
+    /**
+     * Asks the backend to prepare the next question ahead of time.
+     * POST /mock-study/prefetch/ with optional Bearer auth. Sends { session_id }.
+     * Fire-and-forget: not awaited, errors are only logged.
+     */
     async prefetch(sessionId: string): Promise<void> {
         const token = localStorage.getItem('auth_token');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -281,14 +384,19 @@ export const api = {
     },
 
 
+    /**
+     * Looks up any in-progress mock-study session for the current user.
+     * GET /mock-study/get_active/ with Bearer auth (required).
+     * Returns the active session payload (untyped), or null when unauthenticated / none exists.
+     */
     async getActiveSession(): Promise<any> {
         const token = localStorage.getItem('auth_token');
         if (!token) return null;
-        
+
         const response = await fetch(`${API_BASE_URL}/mock-study/get_active/`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (response.status === 200) {
             const data = await response.json();
             return data;
@@ -296,6 +404,11 @@ export const api = {
         return null; // No active session
     },
 
+    /**
+     * Persists the user's in-progress highlights for a session.
+     * POST /mock-study/save_progress/ with optional Bearer auth.
+     * Sends { session_id, highlights[] }. Returns nothing and does not check the response status.
+     */
     async saveSession(sessionId: string, highlights: any[]): Promise<void> {
         const token = localStorage.getItem('auth_token');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -308,6 +421,11 @@ export const api = {
         });
     },
 
+    /**
+     * Requests an alternative ("pivot") variant of the current question.
+     * POST /mock-study/pivot/ with optional Bearer auth.
+     * Sends { session_id }. Returns the pivoted question payload (untyped). Throws on failure.
+     */
     async pivotQuestion(sessionId: string): Promise<any> {
         const token = localStorage.getItem('auth_token');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -318,12 +436,18 @@ export const api = {
             headers,
             body: JSON.stringify({ session_id: sessionId })
         });
-        
+
         if (!response.ok) throw new Error('Failed to generate pivot');
         return response.json();
     }
   },
 
+  /**
+   * Creates a Stripe Checkout session for a subscription tier.
+   * POST /stripe/checkout/ with optional Bearer auth.
+   * Sends { tier, success_url, cancel_url } (success/cancel URLs are built from the current origin).
+   * Returns { url } — the Stripe-hosted checkout page to redirect the user to. Throws on failure.
+   */
   async createCheckoutSession(tier: string): Promise<{ url: string }> {
     const token = localStorage.getItem('auth_token');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -345,6 +469,11 @@ export const api = {
     return response.json();
   },
 
+  /**
+   * Fetches the currently authenticated user's profile.
+   * GET /auth/me/ with Bearer auth. Sends nothing.
+   * Returns the typed User object. Throws on a non-OK response.
+   */
   async getMe(): Promise<User> {
     const token = localStorage.getItem('auth_token');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -358,6 +487,11 @@ export const api = {
     return response.json();
   },
 
+  /**
+   * Reconciles the user's payment/subscription status with Stripe.
+   * POST /sync-payment/ with Bearer auth. Sends nothing.
+   * Returns { success, updated, is_paid, tier } reflecting the refreshed status. Throws on failure.
+   */
   async syncPayment(): Promise<{ success: boolean; updated: boolean; is_paid: boolean; tier: string }> {
     const token = localStorage.getItem('auth_token');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -369,11 +503,110 @@ export const api = {
     });
     if (!response.ok) throw new Error('Payment sync failed');
     return response.json();
+  },
+
+  /**
+   * B2B organization (tenant) API — RBAC member management, invites, cohort
+   * analytics, and seat billing. All calls require a Bearer token; the backend
+   * enforces tenant isolation + role checks, so these never expose another org.
+   */
+  organizations: {
+    async _headers(): Promise<Record<string, string>> {
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      return headers;
+    },
+
+    /** GET /organizations/ — orgs the caller belongs to (staff: all). */
+    async list(): Promise<Organization[]> {
+      const response = await fetch(`${API_BASE_URL}/organizations/`, { headers: await this._headers() });
+      if (!response.ok) throw new Error('Failed to load organizations');
+      return response.json();
+    },
+
+    /** GET /organizations/{id}/ — one org's seat/license state + caller role. */
+    async get(orgId: number): Promise<Organization> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/`, { headers: await this._headers() });
+      if (!response.ok) throw new Error('Failed to load organization');
+      return response.json();
+    },
+
+    /** GET /organizations/{id}/members/ — roster (instructor/admin/owner). */
+    async members(orgId: number): Promise<OrgMember[]> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/members/`, { headers: await this._headers() });
+      if (!response.ok) throw new Error('Failed to load members');
+      return response.json();
+    },
+
+    /** GET /organizations/{id}/analytics/ — per-student + rollup performance. */
+    async analytics(orgId: number): Promise<OrgAnalytics> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/analytics/`, { headers: await this._headers() });
+      if (!response.ok) throw new Error('Failed to load analytics');
+      return response.json();
+    },
+
+    /** GET /organizations/{id}/pending_invites/ — open invites (admin+). */
+    async pendingInvites(orgId: number): Promise<any[]> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/pending_invites/`, { headers: await this._headers() });
+      if (!response.ok) throw new Error('Failed to load invites');
+      return response.json();
+    },
+
+    /** POST /organizations/{id}/invite/ — invite a member by email (admin+). */
+    async invite(orgId: number, email: string, role: OrgRole = 'member'): Promise<any> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/invite/`, {
+        method: 'POST', headers: await this._headers(), body: JSON.stringify({ email, role }),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Invite failed');
+      return response.json();
+    },
+
+    /** POST /organizations/{id}/set_role/ — change a member's role (admin+). */
+    async setRole(orgId: number, userId: number, role: OrgRole): Promise<any> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/set_role/`, {
+        method: 'POST', headers: await this._headers(), body: JSON.stringify({ user_id: userId, role }),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Role update failed');
+      return response.json();
+    },
+
+    /** POST /organizations/{id}/remove_member/ — soft-remove a member (admin+). */
+    async removeMember(orgId: number, userId: number): Promise<void> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/remove_member/`, {
+        method: 'POST', headers: await this._headers(), body: JSON.stringify({ user_id: userId }),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Remove failed');
+    },
+
+    /** POST /organizations/accept_invite/ — redeem an invite token (any user). */
+    async acceptInvite(token: string): Promise<Organization> {
+      const response = await fetch(`${API_BASE_URL}/organizations/accept_invite/`, {
+        method: 'POST', headers: await this._headers(), body: JSON.stringify({ token }),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Could not accept invitation');
+      return response.json();
+    },
+
+    /** POST /organizations/{id}/checkout_seats/ — start Stripe seat checkout (admin+). */
+    async checkoutSeats(orgId: number, seats: number): Promise<{ url: string }> {
+      const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/checkout_seats/`, {
+        method: 'POST', headers: await this._headers(), body: JSON.stringify({ seats }),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Checkout failed');
+      return response.json();
+    },
   }
 };
 
 // --- DATA TRANSFORMERS ---
 
+/**
+ * Normalizes a raw backend case-study payload into the app's typed CaseStudy model.
+ * Maps snake_case API fields to camelCase, and folds each distractor's
+ * `incorrect_rationale` into a label -> rationale lookup (`incorrectRationales`).
+ * Pure helper (no network/auth); used by getCases/getCase/generateCase.
+ */
 function transformCaseStudy(data: any): CaseStudy {
   return {
     id: data.id,

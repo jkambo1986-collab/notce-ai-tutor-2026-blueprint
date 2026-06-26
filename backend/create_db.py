@@ -1,16 +1,28 @@
+"""One-off helper to create the local PostgreSQL database for development.
+
+Connects to the server's default `postgres` database and creates the
+`notce_db` database if it does not already exist (so Django migrations have a
+target to run against). Local-dev only — connection details are hard-coded and
+production uses a managed database via DATABASE_URL.
+
+Run from the backend directory before the first migration:
+    python create_db.py
+"""
 
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 def create_database():
     try:
-        # Connect to default 'postgres' database
+        # Connect to the server's default 'postgres' maintenance database, since
+        # the target database may not exist yet.
         con = psycopg2.connect(
             dbname='postgres',
             user='postgres',
             host='localhost',
             password='Dexter1'
         )
+        # CREATE DATABASE cannot run inside a transaction block, so use autocommit.
         con.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cur = con.cursor()
         

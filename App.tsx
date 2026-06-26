@@ -17,6 +17,7 @@ import LoginPage from './components/Auth/LoginPage';
 import RegisterPage from './components/Auth/RegisterPage';
 import { api } from './services/api';
 import Dashboard from './components/Dashboard';
+import PerformanceHub from './components/PerformanceHub';
 import { validateCaseStudy } from './services/geminiService';
 import MockStudySession from './components/MockStudySession';
 import MockStudySetupModal from './components/MockStudySetupModal';
@@ -25,12 +26,34 @@ import ExamSession from './components/ExamSession';
 import LandingPage from './components/Landing/LandingPage';
 import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
 import AppShell, { ShellView } from './components/AppShell';
+import OrgConsole from './components/OrgConsole';
+import AcceptInvite, { PENDING_INVITE_KEY } from './components/AcceptInvite';
+import { FeedbackProvider, useToast, useConfirm } from './components/ui/Feedback';
 
-// The main application logic, assumed to be authenticated
+/**
+ * MainApp
+ * The authenticated experience. Mounted once behind a catch-all route so that
+ * in-memory study/mock/exam state survives client-side navigation. The active
+ * "view" is derived from the URL (see `view` below) rather than local state,
+ * making the URL the single source of truth for which screen renders.
+ * @returns The AppShell wrapping the currently-selected view.
+ */
 const MainApp: React.FC = () => {
+    // Auth + global UX helpers (toast notifications, confirm dialogs).
     const { logout, user, refreshProfile } = useAuth();
+    const toast = useToast();
+    const confirm = useConfirm();
 
   // --- STATE MANAGEMENT ---
+
+  // Signal to open the Case Generator modal from anywhere (sidebar/top-bar
+  // "New Case"). Incrementing the nonce triggers MainDashboard to open it, so
+  // both "New Case" entry points behave identically (open the picker).
+  const [generatorNonce, setGeneratorNonce] = useState(0);
+
+  // Items the user flags for later review during a study case (local to the
+  // current case bundle). A real cross-session queue is a backend feature.
+  const [flaggedItems, setFlaggedItems] = useState<Set<string>>(new Set());
 
   // Current case study being worked on
   const [currentCase, setCurrentCase] = useState<CaseStudy | null>(null);
@@ -85,12 +108,17 @@ const MainApp: React.FC = () => {
     // the ?session_id Stripe appends; we don't need to read it here.
     useEffect(() => {
         if (view === 'payment-success') {
+            toast('Confirming your payment…', 'info');
             api.syncPayment().then(() => {
                 refreshProfile();
+                toast("You're all set — Premium unlocked!", 'success');
             }).catch(err => {
                 console.error("Failed to sync payment:", err);
+                toast('Payment received, but syncing your account failed. Refresh in a moment.', 'warning', { duration: 8000 });
             });
         }
+        // `toast` is stable (useCallback); excluded to keep this a view-change effect.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view, refreshProfile]);
 
     // Route guards: keep the URL and the in-memory app state consistent.
@@ -134,7 +162,12 @@ const MainApp: React.FC = () => {
                 if (session) {
                     console.log("Found saved session:", session);
                     setCurrentQuestionIndex(session.currentIndex);
-                    if (session.isCompleted) setIsCaseComplete(true);
+                    if (session.isCompleted) {
+                        setIsCaseComplete(true);
+                    } else if (session.currentIndex > 0) {
+                        // Let the user know their place was restored from a prior visit.
+                        toast(`Welcome back — resumed at question ${session.currentIndex + 1}.`, 'info');
+                    }
                 }
             } catch (e) {
                 console.warn("Failed to check for saved session", e);
@@ -201,10 +234,63 @@ const MainApp: React.FC = () => {
 
 
 
+  /**
+   * Keyboard navigation for Study Mode: A–D or 1–4 select an option, and Enter
+   * submits when an option + confidence are chosen. Ignored while typing in a
+   * field so it never fights real inputs.
+   */
+  useEffect(() => {
+    if (view !== 'study' || !currentCase || isCaseComplete) return;
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+
+      const question = currentCase.questions[currentQuestionIndex];
+      if (!question) return;
+
+      const key = e.key.toUpperCase();
+      // Letter keys (A–D) map directly to labels.
+      const byLetter = question.distractors.find(d => d.label.toUpperCase() === key);
+      // Number keys (1–4) map to option position.
+      const numIdx = '123456789'.indexOf(e.key);
+      const byNumber = numIdx >= 0 ? question.distractors[numIdx] : undefined;
+      const picked = byLetter || byNumber;
+
+      if (picked) {
+        e.preventDefault();
+        setSelectedLabel(picked.label);
+      } else if (e.key === 'Enter' && selectedLabel && selectedConfidence && !isSubmitting) {
+        e.preventDefault();
+        handleNext();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, currentCase, currentQuestionIndex, isCaseComplete, selectedLabel, selectedConfidence, isSubmitting]);
+
+
   // --- ACTIONS ---
 
+  /** Append a new user highlight to the vignette. */
   const addHighlight = (h: Highlight) => setHighlights(prev => [...prev, h]);
+  /** Remove a user highlight by its id. */
   const removeHighlight = (id: string) => setHighlights(prev => prev.filter(h => h.id !== id));
+
+  /** Toggle a question's flagged-for-review state (local to the current case). */
+  const toggleFlag = (questionId: string) => {
+    setFlaggedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(questionId)) {
+        next.delete(questionId);
+        toast("Flag removed.", "info");
+      } else {
+        next.add(questionId);
+        toast("Item flagged for review.", "success");
+      }
+      return next;
+    });
+  };
 
   /**
    * Handles submission of an answer.
@@ -228,7 +314,13 @@ const MainApp: React.FC = () => {
 
     const newAnswers = [...answers, newAnswer];
     setAnswers(newAnswers);
-    
+
+    // Persist the answer server-side for the cross-session Performance Hub
+    // (best-effort, fire-and-forget — never blocks the study flow).
+    api.recordAnswer(currentQuestion.id, selectedLabel, selectedConfidence);
+
+    const hadHighlights = highlights.length > 0;
+
     // Call Evidence-Link API for clinical reasoning feedback
     try {
       const evidenceResult = await api.getEvidenceLink({
@@ -237,6 +329,15 @@ const MainApp: React.FC = () => {
         user_highlights: highlights.map(h => ({ start: h.start, end: h.end, text: h.text }))
       });
       setEvidenceLinkResult(evidenceResult);
+      // Only summarise when the user actually highlighted (avoids a misleading
+      // "0% match" toast when they didn't engage the Evidence-Link mechanic).
+      if (hadHighlights && evidenceResult && typeof evidenceResult.score === 'number') {
+        const score = evidenceResult.score;
+        toast(
+          `Evidence-Link: ${score}% match with expert indicators.`,
+          score >= 70 ? 'success' : score >= 40 ? 'info' : 'warning',
+        );
+      }
     } catch (err) {
       console.warn('Evidence-Link analysis failed:', err);
       setEvidenceLinkResult(null);
@@ -246,6 +347,8 @@ const MainApp: React.FC = () => {
     setSelectedConfidence(null);
 
     if (currentQuestionIndex < currentCase.questions.length - 1) {
+      // Confirm the answer landed; study mode defers correctness to the end summary.
+      toast('Answer recorded.', 'success');
       setCurrentQuestionIndex(prev => prev + 1);
       // Clear evidence link result for next question (user will see briefly)
       setTimeout(() => setEvidenceLinkResult(null), 5000);
@@ -278,13 +381,34 @@ const MainApp: React.FC = () => {
             const newCase = await api.generateCase(domain, difficulty);
             setCurrentCase(newCase);
             resetCase();
+            // Announce the freshly generated case is ready to work on.
+            toast('New case ready — good luck!', 'success');
         } catch (err) {
             console.error(err);
             setError("Failed to generate case. Please try again.");
             setIsGenerating(false);
+            // Surface an actionable error with a one-tap retry (graceful AI degradation).
+            toast("Couldn't generate a case. The AI tutor may be busy.", 'error', {
+                duration: 8000,
+                action: { label: 'Try again', onClick: () => handleGenerateCase(domain, difficulty) },
+            });
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    /**
+     * Builds a premium-gate message tailored to the user's state. Trial users are
+     * excluded from premium actions server-side (IsPaidUser checks is_paid only),
+     * so spell out that their trial covers Study Mode while the paid plan unlocks
+     * the rest — clearer than a generic "Upgrade to Premium".
+     */
+    const premiumGateMessage = (feature: string) => {
+        const profile = user?.userprofile;
+        if (profile?.is_trial_active && !profile?.is_paid) {
+            return `${feature} needs a paid plan. Your free trial covers Study Mode — upgrade to unlock it.`;
+        }
+        return `Upgrade to Premium to access ${feature}.`;
     };
 
     /**
@@ -292,10 +416,21 @@ const MainApp: React.FC = () => {
      */
     const handleStartMockStudySetup = () => {
         if (!user?.userprofile?.is_paid) {
-            alert("Upgrade to Premium to access Adaptive Mock Study.");
+            toast(premiumGateMessage('Adaptive Mock Study'), 'info');
+            navigate(HOME_PATH);
             return;
         }
         setIsMockSetupOpen(true);
+    };
+
+    /**
+     * Unified "New Case" entry point. Both the sidebar and top-bar buttons route
+     * here: go to the in-app home and open the Case Generator picker (instead of
+     * silently generating a hardcoded Physical Rehab / Medium case).
+     */
+    const handleNewCase = () => {
+        navigate(HOME_PATH);
+        setGeneratorNonce(n => n + 1);
     };
 
     /**
@@ -303,7 +438,7 @@ const MainApp: React.FC = () => {
      */
     const handleLaunchMockStudy = async (domain: string, difficulty: string, length: number) => {
         if (!user?.userprofile?.is_paid) {
-            alert("Upgrade to Premium to access Adaptive Mock Study.");
+            toast(premiumGateMessage('Adaptive Mock Study'), 'info');
             return;
         }
         try {
@@ -316,12 +451,16 @@ const MainApp: React.FC = () => {
             setActiveMockSession(data); // Set as active
         } catch (err) {
             console.error("Failed to start mock study:", err);
-            alert("Failed to start mock study session. Please try again.");
+            toast("Failed to start mock study session. Please try again.", "error");
         } finally {
             setIsGenerating(false);
         }
     };
 
+    /**
+     * Resumes the user's previously-saved (still active) mock study session by
+     * rehydrating its id/data into state and navigating to the mock view.
+     */
     const handleResumeMockStudy = () => {
         if (activeMockSession) {
             setMockSessionId(activeMockSession.session_id);
@@ -335,12 +474,18 @@ const MainApp: React.FC = () => {
      */
     const handleLaunchExam = async () => {
         if (!user?.userprofile?.is_paid) {
-            alert("Upgrade to Premium to access Full Exam Simulation.");
+            toast(premiumGateMessage('the Full Exam Simulation'), 'info');
             return;
         }
+        const ok = await confirm({
+            title: "Start Full Exam Simulation?",
+            message: "This starts a timed 4-hour, 200-question simulation with no feedback until the end. Make sure you can finish in one sitting.",
+            confirmLabel: "Start Exam",
+            cancelLabel: "Not yet",
+            tone: "danger",
+        });
+        if (!ok) return;
         try {
-            if (!confirm("Start Full Exam Simulation? This will start a 4-hour timer.")) return;
-            
             setIsGenerating(true);
             // Default: Exam Mode = 'exam', 200 questions (although backend default covers it)
             const data = await api.mockStudy.start("MIXED", "Exam", 200, 'exam');
@@ -349,7 +494,7 @@ const MainApp: React.FC = () => {
             navigate('/exam');
         } catch (err) {
             console.error("Failed to start exam:", err);
-            alert("Failed to start exam session. Please try again.");
+            toast("Failed to start exam session. Please try again.", "error");
         } finally {
             setIsGenerating(false);
         }
@@ -422,13 +567,16 @@ const MainApp: React.FC = () => {
 
   // --- RENDER ---
 
+  // Render the persistent AppShell (sidebar/top-bar chrome) and conditionally
+  // mount exactly one view body based on the URL-derived `view`. Each `view ===`
+  // block below is mutually exclusive, acting as a URL-driven switch.
   return (
     <AppShell
       activeView={view}
       onNavigate={handleNavigate}
       user={user}
       onLogout={logout}
-      onNewCase={() => handleGenerateCase('Physical Rehabilitation', 'Medium')}
+      onNewCase={handleNewCase}
       onResumeMock={activeMockSession ? handleResumeMockStudy : undefined}
       onUpgrade={handleUpgrade}
     >
@@ -443,6 +591,7 @@ const MainApp: React.FC = () => {
             </div>
         )}
 
+        {/* In-app home: dashboard with stats + entry points to start cases/mock/exam */}
         {view === 'landing' && (
             <MainDashboard
                 onStartCase={handleGenerateCase}
@@ -456,6 +605,7 @@ const MainApp: React.FC = () => {
                 onResumeMockStudy={activeMockSession ? handleResumeMockStudy : undefined}
                 activeMockSession={activeMockSession}
                 onStartExam={handleLaunchExam}
+                openGeneratorSignal={generatorNonce}
             />
         )}
         
@@ -465,6 +615,7 @@ const MainApp: React.FC = () => {
             onStart={handleLaunchMockStudy}
         />
 
+        {/* Study Mode: two-pane layout (vignette + question flow) when a case is loaded */}
         {view === 'study' && currentCase && (
           <div className="h-full flex flex-col md:flex-row">
             {/* Desktop Left Panel: Clinical Vignette with Highlighting */}
@@ -524,7 +675,16 @@ const MainApp: React.FC = () => {
                 )}
                 
                 <div className="mt-12 p-4 bg-yellow-50 rounded-lg border border-yellow-100 text-xs text-yellow-800">
-                  <p className="font-bold mb-1">PRO-TIP: HIGHLIGHTING</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-bold">PRO-TIP: HIGHLIGHTING</p>
+                    {/* Live count gives quiet feedback that highlights are being captured. */}
+                    {highlights.length > 0 && (
+                      <span className="inline-flex items-center gap-1 bg-yellow-200 text-yellow-900 font-bold px-2 py-0.5 rounded-full">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        {highlights.length} highlighted
+                      </span>
+                    )}
+                  </div>
                   <p>Click and drag text to highlight key clinical indicators. Your highlights will persist across all questions in this case bundle.</p>
                 </div>
               </div>
@@ -546,11 +706,15 @@ const MainApp: React.FC = () => {
                       ))}
                     </div>
                     <span className="text-sm font-bold text-gray-500 uppercase">Item {currentQuestionIndex + 1} of {currentCase.questions.length}</span>
-                    <button 
+                    <button
                         onClick={async () => {
                             if (currentCase) {
-                                await api.saveSession(currentCase.id, currentQuestionIndex, isCaseComplete);
-                                alert("Progress Saved!");
+                                try {
+                                    await api.saveSession(currentCase.id, currentQuestionIndex, isCaseComplete);
+                                    toast("Progress saved.", "success");
+                                } catch {
+                                    toast("Couldn't save progress. Please try again.", "error");
+                                }
                             }
                         }}
                         className="text-xs font-bold text-green-600 hover:text-green-700 underline"
@@ -624,8 +788,19 @@ const MainApp: React.FC = () => {
                     )}
                   </button>
 
-                  <div className="flex justify-center pt-4">
-                    <button className="text-gray-400 text-xs font-bold uppercase tracking-widest hover:text-blue-600 transition">Flag Item for Review</button>
+                  <div className="flex flex-col items-center gap-2 pt-4">
+                    <button
+                      onClick={() => currentQuestion && toggleFlag(currentQuestion.id)}
+                      className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest transition ${
+                        currentQuestion && flaggedItems.has(currentQuestion.id)
+                          ? 'text-amber-600'
+                          : 'text-gray-400 hover:text-amber-600'
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill={currentQuestion && flaggedItems.has(currentQuestion.id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 2H21l-3 6 3 6h-8.5l-1-2H5a2 2 0 00-2 2z" /></svg>
+                      {currentQuestion && flaggedItems.has(currentQuestion.id) ? 'Flagged for Review' : 'Flag Item for Review'}
+                    </button>
+                    <p className="text-[10px] text-gray-300 font-medium tracking-wide">Tip: press A–D or 1–4 to choose, Enter to submit</p>
                   </div>
                 </div>
               ) : (
@@ -639,6 +814,11 @@ const MainApp: React.FC = () => {
                     </div>
                     <h2 className="text-3xl font-extrabold text-gray-900">Case Complete</h2>
                     <p className="text-gray-500">You've finished the "{currentCase.title}" bundle. Review your rationales below.</p>
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-full font-bold text-sm">
+                      Score: {totalCorrect} / {currentCase.questions.length}
+                      <span className="text-gray-300">·</span>
+                      {Math.round((totalCorrect / (currentCase.questions.length || 1)) * 100)}%
+                    </div>
                   </div>
 
                   <div className="space-y-6">
@@ -683,11 +863,12 @@ const MainApp: React.FC = () => {
                     })}
                   </div>
 
-                  <div className="flex gap-4">
-                    <button onClick={resetCase} className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">Restart Case</button>
-                    <button onClick={() => navigate('/dashboard')} className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition">View Analytics</button>
-                    {/* Return to Dashboard */}
-                    <button onClick={() => navigate(HOME_PATH)} className="flex-1 py-4 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition">Home</button>
+                  <div className="space-y-3">
+                    <button onClick={() => navigate('/dashboard')} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">View Analytics</button>
+                    <div className="flex gap-3">
+                      <button onClick={resetCase} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">Restart Case</button>
+                      <button onClick={() => navigate(HOME_PATH)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">Home</button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -705,17 +886,24 @@ const MainApp: React.FC = () => {
               </div>
               <div className="px-6 pb-8 overflow-y-auto h-[calc(80vh-64px)]">
                 <h2 className="text-xl font-bold mb-4">{currentCase.title}</h2>
-                <HighlightableText 
+                <HighlightableText
                   text={currentCase.vignette}
                   highlights={highlights}
+                  expertHighlights={evidenceLinkResult?.expertHighlights}
                   onAddHighlight={addHighlight}
                   onRemoveHighlight={removeHighlight}
                 />
+                {evidenceLinkResult && (
+                  <div className="mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-xs text-indigo-700">
+                    <span className="font-bold">Evidence-Link: {evidenceLinkResult.score}% match.</span> {evidenceLinkResult.perceptualTip}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
+        {/* Study Mode empty state: no case loaded yet, prompt to generate one */}
         {view === 'study' && !currentCase && (
           <div className="h-full flex flex-col items-center justify-center p-8 text-center">
             <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mb-6">
@@ -733,6 +921,14 @@ const MainApp: React.FC = () => {
           // Dashboard Analysis View
           <div className="h-full overflow-y-auto p-4 md:p-12 bg-gray-50">
             <div className="max-w-4xl mx-auto space-y-12">
+              {/* Cross-session analytics (server-backed, all history) */}
+              <div>
+                <h1 className="text-2xl font-extrabold text-gray-900 mb-1">Performance Hub</h1>
+                <p className="text-gray-500 mb-6">Your mastery across every case, drill, and exam.</p>
+                <PerformanceHub />
+              </div>
+
+              {/* In-session competency radar (current case) */}
               <Dashboard stats={domainStats} />
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -755,9 +951,18 @@ const MainApp: React.FC = () => {
                   )}
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Next SRS Session</h4>
-                  <p className="text-gray-900 font-bold">48h from now</p>
-                  <p className="text-xs text-gray-500 mt-1">Focusing on {answers.filter(a => a.confidence === ConfidenceLevel.LOW).length} Low Confidence items.</p>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Review Queue</h4>
+                  {(() => {
+                    const incorrect = currentCase ? answers.filter(a => a.selectedLabel !== currentCase.questions.find(q => q.id === a.questionId)?.correctLabel).length : 0;
+                    const lowConf = answers.filter(a => a.confidence === ConfidenceLevel.LOW).length;
+                    const total = flaggedItems.size + incorrect;
+                    return (
+                      <>
+                        <p className="text-gray-900 font-bold">{total} item{total === 1 ? '' : 's'} to revisit</p>
+                        <p className="text-xs text-gray-500 mt-1">{flaggedItems.size} flagged · {incorrect} missed · {lowConf} low-confidence (this session)</p>
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Logic Path</h4>
@@ -769,8 +974,9 @@ const MainApp: React.FC = () => {
           </div>
         )}
 
+        {/* Adaptive Mock Study session (premium); requires a live session in memory */}
         {view === 'mock-study' && mockSessionId && mockSessionData && (
-            <MockStudySession 
+            <MockStudySession
                 sessionId={mockSessionId}
                 initialData={mockSessionData}
                 onExit={async () => {
@@ -784,6 +990,11 @@ const MainApp: React.FC = () => {
             />
         )}
 
+        {/* B2B organization console (admin/instructor): seats, members, cohort
+            analytics. OrgConsole self-gates by the caller's membership role. */}
+        {view === 'org' && <OrgConsole />}
+
+        {/* Full timed exam simulation (premium); also requires a live session */}
         {view === 'exam-mode' && mockSessionId && mockSessionData && (
             <ExamSession
                 sessionId={mockSessionId}
@@ -792,6 +1003,7 @@ const MainApp: React.FC = () => {
             />
         )}
 
+        {/* Stripe redirect target on success; payment sync runs in the effect above */}
         {view === 'payment-success' && (
             <div className="h-full flex flex-col items-center justify-center p-8 text-center">
                 <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
@@ -803,6 +1015,7 @@ const MainApp: React.FC = () => {
             </div>
         )}
 
+        {/* Stripe redirect target when the user backs out of checkout (no charge) */}
         {view === 'payment-cancel' && (
             <div className="h-full flex flex-col items-center justify-center p-8 text-center">
                 <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-6">
@@ -817,10 +1030,19 @@ const MainApp: React.FC = () => {
   );
 };
 
+/**
+ * App
+ * Top-level router. Chooses between the public surface (landing/auth) and the
+ * authenticated surface (MainApp) based on auth state, and handles cross-cutting
+ * concerns: legacy-link redirects, plan selection / checkout, and deferring
+ * route resolution until the auth token check completes.
+ * @returns The route table for the current auth state.
+ */
 const App: React.FC = () => {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated, loading, refreshProfile } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const toast = useToast();
     const [pendingPlan, setPendingPlan] = useState<string | null>(null);
 
     // Back-compat: legacy entrypoints that used to live on "/" as query strings
@@ -838,14 +1060,21 @@ const App: React.FC = () => {
         }
     }, [location.pathname, location.search, navigate]);
 
+    /**
+     * Handles a pricing-plan selection. Authenticated users go straight to a
+     * Stripe checkout session; anonymous users are routed through signup first,
+     * with the chosen tier stashed in `pendingPlan` to resume checkout after.
+     * @param tier The selected plan/tier identifier.
+     */
     const handleSelectPlan = async (tier: string) => {
         if (isAuthenticated) {
             try {
+                toast("Redirecting to secure checkout…", "info");
                 const { url } = await api.createCheckoutSession(tier);
                 window.location.href = url;
             } catch (err) {
                 console.error("Checkout failed:", err);
-                alert("Failed to initiate checkout. Please try again.");
+                toast("Failed to initiate checkout. Please try again.", "error");
             }
         } else {
             // Send unauthenticated buyers through onboarding, then resume checkout.
@@ -854,6 +1083,8 @@ const App: React.FC = () => {
         }
     };
 
+    // Resume a deferred checkout: once a previously-anonymous buyer authenticates
+    // (post-signup), pick up the stashed plan and continue to checkout.
     useEffect(() => {
         if (isAuthenticated && pendingPlan) {
             const tier = pendingPlan;
@@ -861,6 +1092,28 @@ const App: React.FC = () => {
             handleSelectPlan(tier);
         }
     }, [isAuthenticated, pendingPlan]);
+
+    // Redeem a deferred org invite: a user who clicked an invite link while logged
+    // out is sent through signup with the token stashed; once authenticated, redeem
+    // it and drop them in the org console.
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        let token: string | null = null;
+        try { token = localStorage.getItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
+        if (!token) return;
+        (async () => {
+            try {
+                await api.organizations.acceptInvite(token!);
+                await refreshProfile(); // pull new membership + inherited premium
+                toast('Invitation accepted — welcome to your organization!', 'success');
+                navigate('/org', { replace: true });
+            } catch (err) {
+                console.warn('Pending invite redemption failed:', err);
+            } finally {
+                try { localStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
+            }
+        })();
+    }, [isAuthenticated]);
 
     // Wait for the token check before resolving routes; otherwise a logged-in
     // user refreshing a deep link (e.g. /dashboard) would flash as logged-out
@@ -877,6 +1130,8 @@ const App: React.FC = () => {
         <Routes>
             {/* Email verification works in any auth state (clicked from an email). */}
             <Route path="/verify" element={<VerifyEmailPage />} />
+            {/* Org invite links work in any auth state (redeems or defers to signup). */}
+            <Route path="/accept-invite" element={<AcceptInvite />} />
 
             {!isAuthenticated && (
                 <>
@@ -911,10 +1166,18 @@ const App: React.FC = () => {
     );
 };
 
+/**
+ * AppWrapper (default export)
+ * Composition root: wraps the app in the global context providers it depends on
+ * — AuthProvider (session/user) and FeedbackProvider (toasts/confirm dialogs) —
+ * so any descendant can consume them via hooks.
+ */
 export default function AppWrapper() {
     return (
         <AuthProvider>
-            <App />
+            <FeedbackProvider>
+                <App />
+            </FeedbackProvider>
         </AuthProvider>
     );
 }

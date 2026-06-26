@@ -4,7 +4,7 @@
     {
       "id": "bc_a8314f2b",
       "title": "Stroke Rehabilitation: Outcome-Driven Plan Revision and Fieldwork Mentorship",
-      "vignette": "Mr. Delgado is a 68-year-old man admitted to an inpatient rehabilitation unit 12 days ago following a left hemisphere ischemic stroke. He presents with right hemiplegia, expressive aphasia, and moderate deficits in self-care performance. Prior to admission, he was independent in all activities of daily living and lived alone in a single-story home. He communicates preferences reliably through gestures and yes/no responses. His adult daughter attends therapy sessions when her work schedule permits.\n\nOver the past week, the treating occupational therapist (OT) has been implementing a compensatory approach to upper-extremity dressing and grooming retraining. Upon reviewing Mr. Delgado's Functional Independence Measure (FIM) scores at the two-week mark, the OT identifies minimal functional gains. The OT recently reviewed a systematic review indicating that task-specific training combined with graded repetition produces superior upper-extremity outcomes compared to compensatory strategies alone for clients with moderate paresis at this stage of recovery. The rehabilitation unit has also recently welcomed a Level II fieldwork student, who will begin co-treating with the OT beginning next week.",
+      "vignette": "Mr. Delgado is a 68-year-old man admitted to an inpatient rehabilitation unit 12 days ago following a left hemisphere ischemic stroke. He presents with right hemiplegia, expressive aphasia, and moderate deficits in self-care performance. Prior to admission, he was independent in all activities of daily living and lived alone in a single-story home. He communicates preferences reliably through gestures and yes/no responses. His adult daughter attends therapy sessions when her work schedule permits.\n\nOver the past week, the treating occupational therapist (OT) has been implementing a compensatory approach to upper-extremity dressing and grooming retraining. Upon reviewing Mr. Delgado's Functional Independence Measure (FIM) scores at the two-week mark, the OT identifies minimal functional gains. The OT recently reviewed a systematic review indicating that task-specific training combined with graded repetition produces superior upper-extremity outcomes compared to compensatory strategies alone for clients with moderate paresis at this stage of recovery. The rehabilitation unit has also recently welcomed a senior fieldwork student, who will begin co-treating with the OT beginning next week.",
       "setting": "inpatient rehabilitation unit",
       "domain": "EXCELLENCE",
       "tags": [
@@ -13,7 +13,13 @@
       ],
       "provenance": {
         "minted_by": "claude-sonnet-4-6"
-      }
+      },
+      "client_type": "individual",
+      "practice_setting": "rehab_centre",
+      "age_group": "older_adult",
+      "pronouns": "he",
+      "representation": "not_specified",
+      "diagnosis_category": "neurological"
     }
   ],
   "questions": [
@@ -29,7 +35,7 @@
       "core_concept": "The Canadian Occupational Performance Measure (COPM) operationalizes client-centered practice by transferring problem identification and prioritization to the client rather than the clinician. It is the standard OT tool when the clinical goal is to measure self-perceived occupational performance and satisfaction as outcomes, because it is occupation-based, individualized, and sensitive to change.",
       "explain_differently": "Picture handing the client a blank \"problem list\" and asking them to fill it in — that is the COPM. Every other tool on this list has the therapist or a standardized checklist deciding what to measure. The COPM is unique because the client names what they struggle with, scores how important it is, and then scores how well they think they are doing it. That combination of client voice plus scored outcomes is exactly what the stem is asking for.",
       "topic": "Occupational Performance Assessment — Client-Centered Outcome Measurement",
-      "cognitive_level": "recall",
+      "cognitive_level": "knowledge",
       "status": "approved",
       "options": [
         {
@@ -65,7 +71,11 @@
         },
         "revisions": 0,
         "selftest_passed": true
-      }
+      },
+      "client_type": "individual",
+      "age_group": "adult",
+      "representation": "not_specified",
+      "diagnosis_category": "neurological"
     },
     {
       "id": "bq_c3f9b86e",
@@ -115,7 +125,13 @@
         },
         "revisions": 0,
         "selftest_passed": true
-      }
+      },
+      "client_type": "individual",
+      "practice_setting": "home_care",
+      "age_group": "older_adult",
+      "pronouns": "he",
+      "representation": "indigenous",
+      "diagnosis_category": "musculoskeletal"
     },
     {
       "id": "bq_e180543c",
@@ -129,7 +145,7 @@
       "core_concept": "Interprofessional advocacy requires OTs to raise evidence-based safety concerns within the shared team forum at the moment the decision is being made, using objective, standardized data rather than subjective opinion. Raising concerns after the meeting or bypassing the team to escalate elsewhere first undermines collaborative practice standards and the OT's professional accountability for client safety.",
       "explain_differently": "Picture the team meeting as the one open window where all clinical voices can change the outcome in real time. The OT holds a key — objective, standardized assessment data that no other discipline collected. Waiting to slip a note under the door after the meeting closes, or going directly to the insurance company or the chart, means the window has already shut. Speaking up now, with data in hand, is not confrontation — it is exactly what interprofessional teams are designed to do: integrate each discipline's unique findings before locking in a plan.",
       "topic": "Interprofessional Team Communication and Clinical Advocacy at Discharge Planning",
-      "cognitive_level": "analysis",
+      "cognitive_level": "critical_thinking",
       "status": "approved",
       "options": [
         {
@@ -165,7 +181,12 @@
         },
         "revisions": 0,
         "selftest_passed": true
-      }
+      },
+      "client_type": "individual",
+      "practice_setting": "rehab_centre",
+      "pronouns": "he",
+      "representation": "not_specified",
+      "diagnosis_category": "neurological"
     },
     {
       "id": "bq_6e62d417",
@@ -175,7 +196,7 @@
       "case_id": null,
       "stem": "An occupational therapist provides home health services to a 72-year-old client with mild cognitive impairment who lives alone. During a session, the client discloses that their adult son has been withdrawing money from the client's bank account without permission. The client becomes tearful and says, \"Please don't tell anyone — he is all I have, and I don't want to get him in trouble.\" The client is alert, oriented to person and place, and demonstrates insight into the situation. What is the OT's most appropriate next action?",
       "correct_label": "D",
-      "correct_rationale": "Financial exploitation of a vulnerable adult constitutes elder abuse under mandatory reporting statutes in all U.S. jurisdictions. OT practitioners are designated mandated reporters, meaning the legal obligation to report reasonable suspicion of abuse to Adult Protective Services (APS) is triggered regardless of client consent or confidentiality preferences. Informing the client before reporting respects autonomy and therapeutic alliance while fulfilling the legal duty. The client's cognitive status and insight do not remove the OT's reporting obligation; mandatory reporting laws exist precisely because clients in exploitative situations often resist disclosure out of fear or loyalty.",
+      "correct_rationale": "Financial exploitation of a vulnerable adult constitutes elder abuse under adult-protection legislation in many Canadian provinces. OT practitioners are designated mandated reporters, meaning the legal obligation to report reasonable suspicion of abuse to the designated provincial authority is triggered regardless of client consent or confidentiality preferences. Informing the client before reporting respects autonomy and therapeutic alliance while fulfilling the legal duty. The client's cognitive status and insight do not remove the OT's reporting obligation; mandatory reporting laws exist precisely because clients in exploitative situations often resist disclosure out of fear or loyalty.",
       "core_concept": "Mandatory reporting statutes designate OT practitioners as mandated reporters who must report reasonable suspicion of elder abuse, neglect, or financial exploitation to protective authorities. This legal duty is non-discretionary and overrides both client requests for confidentiality and professional deference to other disciplines. Distinguishing when mandatory reporting obligations arise — and acting on them promptly — is a foundational professional responsibility competency.",
       "explain_differently": "Imagine the law has already made this decision for the clinician. For most clinical choices, the OT weighs evidence and exercises judgment. Mandatory reporting is different: the moment there is reasonable suspicion of abuse of a vulnerable adult, the law removes that discretion and requires action. The client's wish for secrecy and the OT's empathy for the family relationship are real and valid feelings — but they are not factors the law permits the OT to weigh against reporting. The OT can be compassionate in how they explain the report to the client, but the report itself is not optional.",
       "topic": "Mandatory Reporting of Elder Abuse and Financial Exploitation",
@@ -199,7 +220,7 @@
         },
         {
           "label": "D",
-          "text": "Explain to the client that the situation must be reported to Adult Protective Services, then submit a mandatory report.",
+          "text": "Explain to the client that the situation must be reported to the designated provincial authority, then submit a mandatory report.",
           "incorrect_rationale": null
         }
       ],
@@ -215,7 +236,12 @@
         },
         "revisions": 0,
         "selftest_passed": true
-      }
+      },
+      "client_type": "individual",
+      "practice_setting": "home_care",
+      "age_group": "older_adult",
+      "representation": "not_specified",
+      "diagnosis_category": "neurological"
     },
     {
       "id": "bq_16cee82b",
@@ -273,10 +299,10 @@
       "difficulty": "Easy",
       "format": "case",
       "case_id": "bc_a8314f2b",
-      "stem": "During a co-treatment dressing session, the Level II fieldwork student recommends continuing Mr. Delgado's compensatory dressing approach, stating he is \"more comfortable\" with those techniques. The supervising OT notes that Mr. Delgado's FIM self-care scores have plateaued for three consecutive weeks and that the systematic review evidence the team reviewed last week consistently favors task-specific training for motor recovery in patients with ischemic stroke. Which of the following actions BEST reflects the supervising OT's role as a fieldwork educator?",
+      "stem": "During a co-treatment dressing session, the senior fieldwork student recommends continuing Mr. Delgado's compensatory dressing approach, stating he is \"more comfortable\" with those techniques. The supervising OT notes that Mr. Delgado's FIM self-care scores have plateaued for three consecutive weeks and that the systematic review evidence the team reviewed last week consistently favors task-specific training for motor recovery in patients with ischemic stroke. Which of the following actions BEST reflects the supervising OT's role as a fieldwork educator?",
       "correct_label": "C",
-      "correct_rationale": "ACOTE standards require Level II fieldwork supervisors to provide direct, ongoing, and formative feedback rather than deferring guidance to scheduled evaluations. Structured post-session feedback anchored to an observable clinical event — the student's preference for compensatory techniques despite a measurable FIM plateau and contradicting systematic-review evidence — develops the student's evidence-based clinical reasoning while protecting Mr. Delgado's right to best-practice care. Collaboratively revising the plan models the OT process and fulfills the educator role more completely than any unilateral or delayed action.",
-      "core_concept": "Level II fieldwork educators are obligated by ACOTE standards to deliver timely, structured, formative feedback tied to observable clinical events, and to guide students in integrating current evidence into client-centered intervention planning.",
+      "correct_rationale": "Canadian (CAOT) fieldwork education standards require senior fieldwork supervisors to provide direct, ongoing, and formative feedback rather than deferring guidance to scheduled evaluations. Structured post-session feedback anchored to an observable clinical event — the student's preference for compensatory techniques despite a measurable FIM plateau and contradicting systematic-review evidence — develops the student's evidence-based clinical reasoning while protecting Mr. Delgado's right to best-practice care. Collaboratively revising the plan models the OT process and fulfills the educator role more completely than any unilateral or delayed action.",
+      "core_concept": "senior fieldwork educators are obligated by Canadian (CAOT) fieldwork education standards to deliver timely, structured, formative feedback tied to observable clinical events, and to guide students in integrating current evidence into client-centered intervention planning.",
       "explain_differently": "Think of the fieldwork educator's role as a two-track responsibility: keeping the client on the most evidence-supported path while simultaneously teaching the student why that path is correct. When the student's comfort with a familiar technique conflicts with objective outcome data (FIM plateau) and current evidence (systematic review favoring task-specific training), the educator's best move is a structured debrief that makes the student do the reasoning — not a silent override, not a delayed midterm note, and not unsupervised continuation. The feedback must be timely (post-session, not at midterm), structured (linked to specific observable data), and collaborative (the student builds the rationale, not just receives an answer).",
       "topic": "Fieldwork Education and Professional Supervision in Occupational Therapy",
       "cognitive_level": "application",
@@ -290,7 +316,7 @@
         {
           "label": "B",
           "text": "Defer all feedback on the student's clinical reasoning to the formal midterm evaluation form, allowing the student sufficient independent time to recognize the evidence-practice discrepancy before it is discussed.",
-          "incorrect_rationale": "Withholding timely, formative feedback violates ACOTE Level II fieldwork standards, allows the evidence-practice gap to persist uncorrected across multiple sessions, and places Mr. Delgado at continued risk of a suboptimal functional outcome."
+          "incorrect_rationale": "Withholding timely, formative feedback violates Canadian (CAOT) fieldwork education standards, allows the evidence-practice gap to persist uncorrected across multiple sessions, and places Mr. Delgado at continued risk of a suboptimal functional outcome."
         },
         {
           "label": "C",

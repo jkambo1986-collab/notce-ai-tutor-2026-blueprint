@@ -1,23 +1,44 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
+import { useToast } from '../ui/Feedback';
 
+/**
+ * RegisterPage
+ *
+ * Sign-up screen for new users.
+ *
+ * @param onSwitch - Callback to navigate to the LoginPage. Used both by the
+ *   "Sign In" link and by the post-registration "Continue to Login" button.
+ *
+ * Behavior: collects username/email/password and calls the register API.
+ * On success it swaps the form for a confirmation panel instead of logging the
+ * user in automatically, so they explicitly continue to the login screen.
+ */
 export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) => {
+    const toast = useToast();
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPw, setShowPw] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    // Tracks whether registration succeeded; flips the UI to the confirmation panel.
     const [success, setSuccess] = useState(false);
 
+    // Form submit handler: create the account on the backend.
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
         try {
             await api.register(username, email, password);
+            // Don't auto-login; show the success state so the user proceeds to login deliberately.
             setSuccess(true);
+            // Tell the user a verification email is on its way (and where).
+            toast(`Verification email sent to ${email}. Check your inbox.`, 'success', { duration: 6000 });
         } catch (err: any) {
             console.error('Registration error:', err);
+            // Treat connectivity issues differently from validation errors (e.g. taken username).
             const isNetworkError = err.message?.toLowerCase().includes('fetch') || 
                                  err.message?.toLowerCase().includes('failed') ||
                                  !window.navigator.onLine;
@@ -62,7 +83,10 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                             </div>
                             <h2 className="text-2xl font-bold text-white mb-2">Account created!</h2>
-                            <p className="text-gray-400 mb-6">Your account is ready. Sign in to start your prep.</p>
+                            <p className="text-gray-400 mb-6">
+                                We sent a verification link to <span className="text-white font-semibold">{email}</span>.
+                                Confirm your email, then sign in to start your prep.
+                            </p>
                             <button
                                 onClick={onSwitch}
                                 className="w-full bg-gradient-to-r from-emerald-500 to-cyan-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95"
@@ -95,14 +119,30 @@ export const RegisterPage: React.FC<{ onSwitch: () => void }> = ({ onSwitch }) =
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Secure Password</label>
-                            <input 
-                                type="password"
-                                value={password} 
-                                onChange={e => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 p-4 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
-                                required
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPw ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 p-4 pr-12 rounded-xl text-white outline-none transition-all placeholder:text-gray-600"
+                                    required
+                                    minLength={8}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPw(s => !s)}
+                                    aria-label={showPw ? 'Hide password' : 'Show password'}
+                                    className="absolute inset-y-0 right-0 px-4 flex items-center text-gray-500 hover:text-gray-300 transition"
+                                >
+                                    {showPw ? (
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                                    ) : (
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                    )}
+                                </button>
+                            </div>
+                            <p className="text-[11px] text-gray-500 mt-2 px-1">At least 8 characters.</p>
                         </div>
                         <button 
                             type="submit" 

@@ -1,11 +1,34 @@
-import React, { useState } from 'react';
+/**
+ * @file MainDashboard.tsx
+ * @description The authenticated home screen. Greets the user, surfaces trial/upgrade
+ * banners, exposes the primary learning entry points (AI case generator, analytics, saved
+ * progress, adaptive mock study, full exam sim), and gates premium features behind the
+ * user's subscription state. Also handles the post-Stripe-checkout payment sync.
+ */
+
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext';
 import { api } from '../services/api';
 import { DomainStats } from '../types';
 import CaseGeneratorModal from './CaseGeneratorModal';
 import AnalyticsModal from './AnalyticsModal';
 import SavedProgressModal from './SavedProgressModal';
+import { useToast } from './ui/Feedback';
 
+/**
+ * Props for {@link MainDashboard}.
+ * @property onStartCase         Generates and opens a new case for the given domain/difficulty.
+ * @property onResumeCase        Optional; resumes an in-progress case (optionally by id).
+ * @property hasActiveCase       Whether a resumable case exists (toggles the Resume button).
+ * @property domainStats         Per-domain stats forwarded to the analytics modal.
+ * @property totalAnswered       Total answered count for analytics.
+ * @property totalCorrect        Total correct count for analytics.
+ * @property currentCaseId       Id of the active case, used to highlight it in saved progress.
+ * @property onStartMockStudy    Optional; launches the adaptive mock study drill.
+ * @property onResumeMockStudy   Optional; resumes a saved mock study session.
+ * @property onStartExam         Optional; launches the full timed exam simulation.
+ * @property openGeneratorSignal Counter bumped by the parent to programmatically open the generator.
+ */
 interface MainDashboardProps {
     onStartCase: (domain: string, difficulty: string) => Promise<void>;
     onResumeCase?: (caseId?: string) => void;
@@ -17,11 +40,19 @@ interface MainDashboardProps {
     onStartMockStudy?: () => void;
     onResumeMockStudy?: () => void;
     onStartExam?: () => void;
+    /** Bumping this number opens the Case Generator (used by sidebar "New Case"). */
+    openGeneratorSignal?: number;
 }
 
-const MainDashboard: React.FC<MainDashboardProps> = ({ 
-    onStartCase, 
-    onResumeCase, 
+/**
+ * MainDashboard renders the post-login landing page and orchestrates the modals
+ * (generator, analytics, saved progress) plus premium-gated feature cards.
+ *
+ * @param props See {@link MainDashboardProps}.
+ */
+const MainDashboard: React.FC<MainDashboardProps> = ({
+    onStartCase,
+    onResumeCase,
     hasActiveCase,
     domainStats = [],
     totalAnswered = 0,
@@ -29,14 +60,29 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     currentCaseId,
     onStartMockStudy,
     onResumeMockStudy,
-    onStartExam
+    onStartExam,
+    openGeneratorSignal = 0
 }) => {
+    // Auth gives us the user (for greeting/tier gating) and a way to refetch the profile
+    // after a payment so paid features unlock without a manual reload.
     const { user, refreshProfile } = useAuth();
+    const toast = useToast();
+    // Visibility flags for the three modals owned by this screen.
     const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
     const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
     const [isProgressOpen, setIsProgressOpen] = useState(false);
+    // True while the post-checkout payment sync request is in flight.
     const [isSyncing, setIsSyncing] = useState(false);
 
+    // Open the generator when the parent bumps the signal (skip the initial 0).
+    // Lets the sidebar's "New Case" action drive this child without a shared ref.
+    useEffect(() => {
+        if (openGeneratorSignal > 0) setIsGeneratorOpen(true);
+    }, [openGeneratorSignal]);
+
+    // On return from Stripe checkout the URL carries ?success=true. Detect it, confirm the
+    // payment server-side, refresh the profile to reflect the new tier, then strip the query
+    // param so a refresh doesn't re-trigger the sync.
     React.useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('success') === 'true') {
@@ -57,41 +103,75 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         }
     }, [refreshProfile]);
 
+    // Once per browser session, surface a short progress recap when there's
+    // something to report. Guarded by sessionStorage so it greets the user a
+    // single time (and never duplicates the login "Welcome back" toast).
+    useEffect(() => {
+        if (totalAnswered <= 0) return;
+        try {
+            if (sessionStorage.getItem('notce_summary_shown')) return;
+            sessionStorage.setItem('notce_summary_shown', '1');
+        } catch {
+            /* sessionStorage unavailable (private mode) — just skip the recap. */
+            return;
+        }
+        const pct = Math.round((totalCorrect / totalAnswered) * 100);
+        toast(`So far: ${totalAnswered} question${totalAnswered === 1 ? '' : 's'} answered — ${pct}% accuracy. Keep it up!`, 'info');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [totalAnswered, totalCorrect]);
+
+    /** Starts a Stripe checkout session for the 'guarantee' tier and redirects the browser to it. */
     const handleUpgrade = async () => {
         try {
+            toast("Redirecting to secure checkout…", "info");
             // Using 'guarantee' tier for the upgrade button
             const { url } = await api.createCheckoutSession('guarantee');
             window.location.href = url;
         } catch (err) {
             console.error("Upgrade failed:", err);
-            alert("Failed to start upgrade process. Please try again.");
+            toast("Failed to start upgrade process. Please try again.", "error");
         }
     };
 
+    // Derive entitlement flags from the profile; these drive both the banners and the
+    // locked overlays on the premium feature cards below.
     const profile = user?.userprofile;
     const isPaid = profile?.is_paid;
     const isTrial = profile?.is_trial_active;
     const trialEndDate = profile?.trial_end_date ? new Date(profile.trial_end_date) : null;
+    // Whole days left in the trial (rounded up), shown in the trial banner.
     const daysRemaining = trialEndDate ? Math.ceil((trialEndDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+
+    // Escalate the trial banner's tone as expiry nears: calm (>3d) → amber (≤3d)
+    // → red (final day). Keeps the countdown honest and gently raises urgency.
+    const trialUrgency = daysRemaining <= 1
+        ? { box: 'bg-red-600', sub: 'text-red-100', btn: 'text-red-600 hover:bg-red-50', heading: daysRemaining <= 0 ? 'Trial ends today' : 'Final day of your trial' }
+        : daysRemaining <= 3
+        ? { box: 'bg-amber-500', sub: 'text-amber-50', btn: 'text-amber-600 hover:bg-amber-50', heading: 'Your trial is ending soon' }
+        : { box: 'bg-indigo-600', sub: 'text-indigo-100', btn: 'text-indigo-600 hover:bg-indigo-50', heading: '7-Day Free Trial Active' };
 
     return (
         <div className="min-h-screen bg-gray-50 p-8">
             <div className="max-w-5xl mx-auto space-y-8">
-                {/* Trial Banner */}
+                {/* Trial Banner — tone escalates as the trial nears its end. */}
                 {isTrial && !isPaid && (
-                     <div className="bg-indigo-600 rounded-2xl p-4 shadow-lg flex items-center justify-between text-white animate-pulse">
+                     <div className={`${trialUrgency.box} rounded-2xl p-4 shadow-lg flex items-center justify-between text-white`}>
                         <div className="flex items-center gap-3">
                             <div className="bg-white/20 p-2 rounded-lg">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </div>
                             <div>
-                                <h3 className="font-bold">7-Day Free Trial Active</h3>
-                                <p className="text-indigo-100 text-sm">{daysRemaining} days remaining of full premium access.</p>
+                                <h3 className="font-bold">{trialUrgency.heading}</h3>
+                                <p className={`${trialUrgency.sub} text-sm`}>
+                                    {daysRemaining <= 0
+                                        ? 'Upgrade now to keep your full premium access.'
+                                        : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining of full premium access.`}
+                                </p>
                             </div>
                         </div>
-                        <button 
+                        <button
                             onClick={handleUpgrade}
-                            className="px-4 py-2 bg-white text-indigo-600 font-bold rounded-lg text-sm hover:bg-indigo-50 transition"
+                            className={`px-4 py-2 bg-white ${trialUrgency.btn} font-bold rounded-lg text-sm transition`}
                         >
                             Lock in Access
                         </button>

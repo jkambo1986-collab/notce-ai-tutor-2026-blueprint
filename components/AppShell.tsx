@@ -8,21 +8,35 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../types';
 
+/** Union of every top-level view the shell can host; doubles as the nav/page-title key. */
 export type ShellView =
   | 'landing'
   | 'study'
   | 'dashboard'
   | 'mock-study'
   | 'exam-mode'
+  | 'org'
   | 'payment-success'
   | 'payment-cancel';
 
+/** A single sidebar navigation entry: the view it routes to plus its label and icon. */
 interface NavItem {
   key: ShellView;
   label: string;
   icon: React.ReactNode;
 }
 
+/**
+ * Props for {@link AppShell}.
+ * @property activeView   The currently selected view (drives nav highlight + top-bar title).
+ * @property onNavigate   Invoked when the user picks a nav item.
+ * @property user         The authenticated user (or null); supplies profile/tier/trial info.
+ * @property onLogout     Clears the session.
+ * @property onNewCase    Triggers the "New Case" generator action.
+ * @property onResumeMock Optional; when provided, shows a "Resume Session" shortcut.
+ * @property onUpgrade    Optional; when provided and the user is unpaid, shows an upgrade CTA.
+ * @property children     The active view's content, rendered in the main column.
+ */
 interface AppShellProps {
   activeView: ShellView;
   onNavigate: (view: ShellView) => void;
@@ -34,9 +48,11 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
+// localStorage key that persists the desktop sidebar collapsed/expanded preference.
 const STORAGE_KEY = 'sidebar_collapsed';
 
 // --- Icons (inline so the shell has no asset/icon dependency) ---
+/** Tiny SVG wrapper: renders a single stroked path so icons can be declared as path strings. */
 const Icon: React.FC<{ path: string; className?: string }> = ({ path, className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className || 'h-5 w-5'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d={path} />
@@ -56,8 +72,13 @@ const ICONS = {
   chevronLeft: 'M15 19l-7-7 7-7',
   play: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z',
   calendar: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+  users: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 0a4 4 0 10-3-7.75',
 };
 
+// Org-manager roles that unlock the Organization console nav entry.
+const ORG_MANAGER_ROLES = ['owner', 'admin', 'instructor'];
+
+// Ordered list of primary nav destinations shown in the sidebar.
 const NAV: NavItem[] = [
   { key: 'landing', label: 'Home', icon: <Icon path={ICONS.home} /> },
   { key: 'study', label: 'Study', icon: <Icon path={ICONS.book} /> },
@@ -66,16 +87,19 @@ const NAV: NavItem[] = [
   { key: 'dashboard', label: 'Analytics', icon: <Icon path={ICONS.chart} /> },
 ];
 
+// Human-readable title rendered in the top bar for each view.
 const PAGE_TITLES: Record<ShellView, string> = {
   'landing': 'Home',
   'study': 'Study Mode',
   'dashboard': 'Analytics',
   'mock-study': 'Mock Study',
   'exam-mode': 'Exam Simulation',
+  'org': 'Organization',
   'payment-success': 'Payment',
   'payment-cancel': 'Payment',
 };
 
+// Badge label + styling per subscription tier; `free` is the fallback for unknown tiers.
 const TIER_STYLES: Record<string, { label: string; className: string }> = {
   free: { label: 'Free', className: 'bg-slate-700 text-slate-200' },
   crammer: { label: 'Crammer', className: 'bg-blue-500/20 text-blue-300' },
@@ -91,6 +115,14 @@ function daysUntil(dateStr?: string | null): number | null {
   return Math.ceil((target - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * AppShell is the persistent chrome around every authenticated view: a desktop sidebar
+ * (collapsible, preference persisted), a mobile slide-in drawer, an account footer with
+ * tier/trial badges, and a top bar with the current page title. The active view's content
+ * is passed in via `children`.
+ *
+ * @param props See {@link AppShellProps}.
+ */
 const AppShell: React.FC<AppShellProps> = ({
   activeView,
   onNavigate,
@@ -101,6 +133,8 @@ const AppShell: React.FC<AppShellProps> = ({
   onUpgrade,
   children,
 }) => {
+  // Desktop collapse state, lazily initialized from localStorage so the layout
+  // reopens in the user's last-used width. Wrapped in try/catch for SSR/privacy modes.
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(STORAGE_KEY) === 'true';
@@ -108,8 +142,10 @@ const AppShell: React.FC<AppShellProps> = ({
       return false;
     }
   });
+  // Whether the mobile drawer is currently open (no persistence needed).
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Persist the collapse preference whenever it changes.
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, String(collapsed));
@@ -123,19 +159,31 @@ const AppShell: React.FC<AppShellProps> = ({
     setMobileOpen(false);
   }, [activeView]);
 
+  // Derive display state from the user's profile. Tier normalized to lowercase so it
+  // matches the TIER_STYLES keys; trial/exam countdowns computed via daysUntil.
   const profile = user?.userprofile;
   const tier = (profile?.subscription_tier || 'free').toLowerCase();
   const tierStyle = TIER_STYLES[tier] || TIER_STYLES.free;
   const trialDays = profile?.is_trial_active ? daysUntil(profile.trial_end_date) : null;
   const examDays = daysUntil(profile?.target_exam_date);
+  // Only nudge users who are neither paying nor mid-trial toward upgrading.
   const showUpgrade = !profile?.is_paid && !profile?.is_trial_active;
 
+  // B2B: surface the Organization console only to org admins/instructors/owners.
+  const isOrgManager = (user?.memberships || []).some(m => ORG_MANAGER_ROLES.includes(m.role));
+  const navItems: NavItem[] = isOrgManager
+    ? [...NAV, { key: 'org', label: 'Organization', icon: <Icon path={ICONS.users} /> }]
+    : NAV;
+
+  /** Navigate and also close the mobile drawer so the new view is visible. */
   const handleNavClick = (key: ShellView) => {
     onNavigate(key);
     setMobileOpen(false);
   };
 
   // --- Sidebar contents (shared between desktop rail and mobile drawer) ---
+  // Defined once as an element and rendered in both the desktop <aside> and the mobile
+  // drawer so the two layouts never drift out of sync.
   const sidebarBody = (
     <div className="flex flex-col h-full">
       {/* Brand */}
@@ -175,7 +223,7 @@ const AppShell: React.FC<AppShellProps> = ({
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {NAV.map(item => {
+        {navItems.map(item => {
           const active = activeView === item.key;
           return (
             <button
@@ -218,7 +266,9 @@ const AppShell: React.FC<AppShellProps> = ({
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tierStyle.className}`}>{tierStyle.label}</span>
               {trialDays !== null && trialDays >= 0 && (
-                <span className="text-[10px] text-amber-300 font-semibold">Trial: {trialDays}d left</span>
+                <span className={`text-[10px] font-semibold ${trialDays <= 1 ? 'text-red-400' : trialDays <= 3 ? 'text-amber-300' : 'text-teal-300'}`}>
+                  {trialDays === 0 ? 'Trial: ends today' : `Trial: ${trialDays}d left`}
+                </span>
               )}
             </div>
           </div>

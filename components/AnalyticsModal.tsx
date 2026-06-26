@@ -8,6 +8,14 @@ import React from 'react';
 import { DomainStats, DomainTag } from '../types';
 import { DOMAIN_INFO } from '../constants';
 
+/**
+ * Props for {@link AnalyticsModal}.
+ * @property isOpen        Controls visibility; when false the component renders nothing.
+ * @property onClose       Callback fired by the close button / backdrop click.
+ * @property domainStats   Per-domain score breakdown used for the domain list and bars.
+ * @property totalAnswered Total questions answered across all domains (denominator).
+ * @property totalCorrect  Total correct answers across all domains (numerator).
+ */
 interface AnalyticsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,30 +24,42 @@ interface AnalyticsModalProps {
   totalCorrect: number;
 }
 
-const AnalyticsModal: React.FC<AnalyticsModalProps> = ({ 
-  isOpen, 
-  onClose, 
+/**
+ * AnalyticsModal renders an overlay summarizing the learner's performance: an overall
+ * score (with a circular gauge) plus a per-domain breakdown with progress bars. It is a
+ * pure presentational component driven entirely by props; all aggregation is done upstream.
+ *
+ * @param props See {@link AnalyticsModalProps}.
+ * @returns The modal element, or null when `isOpen` is false.
+ */
+const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
+  isOpen,
+  onClose,
   domainStats,
   totalAnswered,
-  totalCorrect 
+  totalCorrect
 }) => {
+  // Early-out so the modal contributes no DOM (and no backdrop) when hidden.
   if (!isOpen) return null;
 
+  // Guard against divide-by-zero before any questions have been answered.
   const overallScore = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
 
-  // Calculate color for score
+  /** Maps a percentage score to a Tailwind text color (green/yellow/red thresholds). */
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600';
     if (score >= 60) return 'text-yellow-600';
     return 'text-red-600';
   };
 
+  /** Maps a percentage score to a Tailwind background color for the progress bar fill. */
   const getProgressColor = (score: number) => {
     if (score >= 80) return 'bg-green-500';
     if (score >= 60) return 'bg-yellow-500';
     return 'bg-red-500';
   };
 
+  /** Returns the gradient classes for a domain's avatar tile, keyed by its {@link DomainTag}. */
   const getDomainColor = (tag: DomainTag) => {
     const colors: Record<DomainTag, string> = {
       [DomainTag.OT_EXP]: 'from-blue-500 to-blue-600',
@@ -85,7 +105,9 @@ const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
 
         {/* Content */}
         <div className="p-8 overflow-y-auto max-h-[60vh]">
-          {/* Overall Score Card */}
+          {/* Overall Score Card: headline percentage plus an SVG ring gauge.
+              The ring's stroke-dasharray maps the score onto the circle's circumference
+              (2*pi*r ~= 351.8) and the stroke color mirrors the score thresholds above. */}
           <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 mb-8">
             <div className="flex items-center justify-between">
               <div>
@@ -115,9 +137,11 @@ const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
           <h3 className="text-lg font-bold text-gray-800 mb-4">Domain Breakdown</h3>
           <div className="space-y-4">
             {domainStats.map((stat) => {
+              // Per-domain percentage, again guarding against an empty (unanswered) domain.
               const percentage = stat.total > 0 ? Math.round((stat.score / stat.total) * 100) : 0;
+              // Static metadata (human label, etc.) looked up from the domain constant table.
               const info = DOMAIN_INFO[stat.tag];
-              
+
               return (
                 <div key={stat.tag} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition">
                   <div className="flex items-center justify-between mb-3">
@@ -145,6 +169,7 @@ const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
               );
             })}
             
+            {/* Empty state shown when no domains have data yet (nothing to chart). */}
             {domainStats.length === 0 && (
               <div className="text-center py-12 bg-gray-50 rounded-xl">
                 <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

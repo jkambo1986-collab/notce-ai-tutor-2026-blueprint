@@ -7,7 +7,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { CaseStudy, QuestionItem, DomainTag } from "../types";
 
-// Initialize Gemini client with API key from environment variables
+// Initialize Gemini client with API key from environment variables.
+// Falls back to an empty string when API_KEY is unset so construction never throws;
+// callers below guard on `process.env.API_KEY` before actually making a request.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 /**
@@ -25,8 +27,10 @@ export const getEvolvingRationale = async (
   previousAnswer: { questionId: string; selectedLabel: string; isCorrect: boolean } | null,
   allPreviousCorrect: boolean
 ) => {
+  // No API key configured: skip the call and signal "no tip" to the caller.
   if (!process.env.API_KEY) return null;
 
+  // Build the tutoring prompt, interpolating the current question and the user's prior result.
   const prompt = `
     You are an OT exam tutor. The student is answering a series of linked case-study questions.
     Current Question Stem: "${currentQuestion.stem}"
