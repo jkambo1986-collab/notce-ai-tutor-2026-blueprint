@@ -15,12 +15,40 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
-from django.http import HttpResponse
+from django.urls import path, re_path, include
+from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
+from django.conf import settings
+from django.views.decorators.cache import never_cache
+
+
+@never_cache
+def spa_index(request):
+    """
+    SPA fallback: serve the built React index.html for any non-API route so
+    client-side deep links (e.g. /dashboard, /signin) work on a full page load
+    when the frontend is served by Django (Railway). Real static files are
+    served by WhiteNoise before they reach this view; only unmatched app routes
+    fall through here. On Vercel the same fallback is handled by vercel.json.
+    """
+    index_file = settings.FRONTEND_DIST / "index.html"
+    try:
+        with open(index_file, "rb") as fh:
+            return HttpResponse(fh.read(), content_type="text/html")
+    except FileNotFoundError:
+        # No build present (e.g. local API-only dev without `npm run build`).
+        return HttpResponseNotFound(
+            "Frontend build not found. Run `npm run build` to generate dist/."
+        )
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
     path('health/', lambda r: HttpResponse("Backend is healthy")),
+    # Unknown /api/ paths 404 as JSON instead of falling through to the SPA shell.
+    re_path(r'^api/', lambda r: JsonResponse({"detail": "Not found."}, status=404)),
+    # SPA catch-all: anything not handled above returns the React app shell.
+    # (admin/, api/, health/, static/ are excluded so they keep their behaviour.)
+    re_path(r'^(?!admin/|api/|health/|static/).*$', spa_index),
 ]
 
