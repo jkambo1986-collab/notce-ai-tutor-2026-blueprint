@@ -9,6 +9,11 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import CaseStudyViewSet, UserAnswerViewSet, HighlightViewSet, AgentMemoryViewSet, UserSessionViewSet, RegisterView, MockStudyViewSet, CreateCheckoutSessionView, StripeWebhookView, VerifyEmailView, SyncPaymentView, MeView, TestEmailView, PingView, DiagnosticView, BankQuestionViewSet, BankCaseViewSet, EmailOrUsernameTokenObtainPairView, PerformanceView, ReviewQueueView, NotebookView, CookieTokenRefreshView, LogoutView, CsrfView
 from .org_views import OrganizationViewSet
+from .differentiator_views import (
+    ErrorAnalysisView, ReasoningCoachView,
+    CatStartView, CatAnswerView,
+    EncounterStartView, EncounterMessageView, EncounterFinishView,
+)
 
 # DRF router: auto-generates list/detail (and other) routes for each ViewSet.
 router = DefaultRouter()
@@ -35,6 +40,14 @@ urlpatterns = [
     path('performance/', PerformanceView.as_view(), name='performance'),  # cross-session analytics (Performance Hub)
     path('review-queue/', ReviewQueueView.as_view(), name='review_queue'),  # adaptive weak-item review
     path('notebook/', NotebookView.as_view(), name='notebook'),  # saved rationales notebook
+    # --- AI differentiator features ---
+    path('error-analysis/', ErrorAnalysisView.as_view(), name='error_analysis'),       # cognitive-error / trap insights
+    path('reasoning/evaluate/', ReasoningCoachView.as_view(), name='reasoning_eval'),  # grade free-text clinical reasoning
+    path('adaptive/start/', CatStartView.as_view(), name='cat_start'),                 # CAT readiness assessment - start
+    path('adaptive/answer/', CatAnswerView.as_view(), name='cat_answer'),              # CAT - answer + next/finish
+    path('encounter/start/', EncounterStartView.as_view(), name='encounter_start'),    # OSCE client encounter - start
+    path('encounter/message/', EncounterMessageView.as_view(), name='encounter_message'),  # encounter - send turn
+    path('encounter/finish/', EncounterFinishView.as_view(), name='encounter_finish'),     # encounter - score
     # Router-generated resource endpoints (cases, answers, bank/*, etc.).
     path('', include(router.urls)),
     # --- Stripe billing ---

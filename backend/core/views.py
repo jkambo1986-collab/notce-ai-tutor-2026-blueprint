@@ -1059,11 +1059,14 @@ class MockStudyViewSet(viewsets.ModelViewSet):
         if not request.user.is_authenticated:
             return Response(None)
             
+        # Only practice/exam sessions are resumable here; adaptive (CAT) and
+        # encounter sessions have their own flows and must not hijack this.
         session = MockStudySession.objects.filter(
-            user=request.user, 
-            is_active=True
+            user=request.user,
+            is_active=True,
+            mode__in=['practice', 'exam'],
         ).order_by('-last_accessed').first()
-        
+
         if not session:
             return Response(None)
             

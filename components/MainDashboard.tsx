@@ -14,6 +14,10 @@ import CaseGeneratorModal from './CaseGeneratorModal';
 import SavedProgressModal from './SavedProgressModal';
 import ReviewQueueModal from './ReviewQueueModal';
 import NotebookModal from './NotebookModal';
+import ErrorInsightsModal from './ErrorInsightsModal';
+import ReasoningCoachModal from './ReasoningCoachModal';
+import AdaptiveAssessmentModal from './AdaptiveAssessmentModal';
+import EncounterModal from './EncounterModal';
 import TodayPanel from './TodayPanel';
 import { useToast } from './ui/Feedback';
 
@@ -85,6 +89,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     const [isProgressOpen, setIsProgressOpen] = useState(false);
     const [isReviewOpen, setIsReviewOpen] = useState(false);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
+    // AI differentiator feature modals.
+    const [isInsightsOpen, setIsInsightsOpen] = useState(false);
+    const [isReasoningOpen, setIsReasoningOpen] = useState(false);
+    const [isAdaptiveOpen, setIsAdaptiveOpen] = useState(false);
+    const [isEncounterOpen, setIsEncounterOpen] = useState(false);
     // Number of weak items due for review (badge on the Daily Review card).
     const [reviewCount, setReviewCount] = useState<number | null>(null);
     // True while the post-checkout payment sync request is in flight.
@@ -332,6 +341,38 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                     </button>
                 </div>
 
+                {/* --- Advanced AI Practice (premium AI differentiators) --- */}
+                {(() => {
+                    const canUseAI = !!(isPaid || isTrial);
+                    const open = (setter: (v: boolean) => void) => () => (canUseAI ? setter(true) : handleUpgrade());
+                    const cards = [
+                        { onClick: open(setIsAdaptiveOpen), title: 'Adaptive Readiness Test', desc: "A scaled-score estimate that adapts difficulty to your ability — like the real exam.", grad: 'from-indigo-100 to-violet-100', text: 'text-indigo-600', hover: 'hover:border-indigo-200 group-hover:text-indigo-700', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
+                        { onClick: open(setIsReasoningOpen), title: 'Reasoning Coach', desc: 'Write your clinical reasoning; the AI grades the thinking, not a letter choice.', grad: 'from-blue-100 to-cyan-100', text: 'text-blue-600', hover: 'hover:border-blue-200 group-hover:text-blue-700', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+                        { onClick: open(setIsEncounterOpen), title: 'Client Encounter', desc: 'Interview a simulated client and get scored on client-centred practice.', grad: 'from-teal-100 to-emerald-100', text: 'text-teal-600', hover: 'hover:border-teal-200 group-hover:text-teal-700', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 21l1.9-3.8A7.95 7.95 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
+                        { onClick: open(setIsInsightsOpen), title: 'Test-Taking Insights', desc: 'See the recurring traps behind your wrong answers — and how to beat them.', grad: 'from-rose-100 to-pink-100', text: 'text-rose-600', hover: 'hover:border-rose-200 group-hover:text-rose-700', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+                    ];
+                    return (
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <h2 className="text-xl font-black text-gray-900">Advanced AI Practice</h2>
+                                <span className="px-2.5 py-1 bg-gray-900 text-white text-[10px] font-bold rounded-full uppercase tracking-wider">Premium</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {cards.map(c => (
+                                    <button key={c.title} onClick={c.onClick} className={`bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-left transition-all group cursor-pointer hover:shadow-lg ${c.hover}`}>
+                                        <div className={`h-11 w-11 bg-gradient-to-br ${c.grad} ${c.text} rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={c.icon} /></svg>
+                                        </div>
+                                        <h3 className="font-bold text-gray-800 group-hover:text-gray-900 transition">{c.title}</h3>
+                                        <p className="text-gray-500 text-xs mt-1.5 leading-relaxed">{c.desc}</p>
+                                        {!canUseAI && <span className="inline-block mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wide">🔒 Upgrade to unlock</span>}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 <div className={`bg-gradient-to-r from-teal-50 to-emerald-50 rounded-3xl p-8 border border-teal-100 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group ${!isPaid && !isTrial ? 'cursor-not-allowed' : ''}`}>
                      {/* Decorative Elements */}
                      <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-teal-200 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
@@ -517,6 +558,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 isOpen={isNotebookOpen}
                 onClose={() => setIsNotebookOpen(false)}
             />
+
+            <ErrorInsightsModal isOpen={isInsightsOpen} onClose={() => setIsInsightsOpen(false)} />
+            <ReasoningCoachModal isOpen={isReasoningOpen} onClose={() => setIsReasoningOpen(false)} />
+            {isAdaptiveOpen && <AdaptiveAssessmentModal isOpen={isAdaptiveOpen} onClose={() => setIsAdaptiveOpen(false)} />}
+            {isEncounterOpen && <EncounterModal isOpen={isEncounterOpen} onClose={() => setIsEncounterOpen(false)} />}
 
             {/* Mock Study Components will be lifted to App.tsx for session state, but entry point is here */}
         </div>

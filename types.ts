@@ -347,3 +347,72 @@ export interface ExamState {
     remaining_seconds: number | null;
     highlights: any[];
 }
+
+/** --- AI DIFFERENTIATORS --- */
+
+/** Cognitive-error / test-taking-trap analysis (GET /api/error-analysis/). */
+export interface ErrorPattern {
+    key: string;
+    label: string;
+    count: number;
+    severity: 'high' | 'medium' | 'low';
+    detail: string;
+    examples: string[];
+    domain?: string;
+}
+export interface ErrorAnalysis {
+    total_wrong: number;
+    enough_data: boolean;
+    patterns: ErrorPattern[];
+}
+
+/** Clinical-reasoning coach (GET/POST /api/reasoning/evaluate/). */
+export interface ReasoningScenario {
+    case_id: string;
+    title: string;
+    vignette: string;
+    prompt: string;
+}
+export interface ReasoningResult {
+    overall_score: number;
+    verdict: string;
+    rubric: Record<string, number>;
+    strengths: string[];
+    gaps: string[];
+    coaching: string;
+    model_answer: string;
+}
+
+/** Computer-adaptive readiness assessment (/api/adaptive/*). */
+export interface CatQuestion {
+    number: number;
+    total: number;
+    stem: string;
+    options: { label: string; text: string }[];
+    domain: string;
+}
+export interface CatResult {
+    readiness: number;
+    band: string;
+    ability: number;
+    correct: number;
+    total: number;
+    by_domain: { domain: string; ability: number; score: number }[];
+}
+
+/** OSCE simulated client encounter (/api/encounter/*). */
+export interface EncounterPersona {
+    name: string;
+    age: number;
+    pronouns: string;
+    setting: string;
+    presenting: string;
+}
+export interface EncounterResult {
+    overall_score: number;
+    verdict: string;
+    rubric: Record<string, number>;
+    did_well: string[];
+    missed: string[];
+    coaching: string;
+}

@@ -12,7 +12,7 @@
  * retrying once. Raw payloads are normalized via the transformers at the bottom.
  */
 
-import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, ExamState, Organization, OrgMember, OrgAnalytics, OrgRole, CohortAssignment } from '../types';
+import { CaseStudy, User, Performance, ReviewQueue, NoteEntry, ExamState, Organization, OrgMember, OrgAnalytics, OrgRole, CohortAssignment, ErrorAnalysis, ReasoningScenario, ReasoningResult, CatQuestion, CatResult, EncounterPersona, EncounterResult } from '../types';
 
 // Base URL for all API requests. Prefers the Vite-injected env var (set per
 // deployment), and falls back to the local dev backend when it's not defined.
@@ -217,6 +217,81 @@ export const api = {
     } catch {
       return null;
     }
+  },
+
+  // --- AI differentiator features ---
+
+  /** Cognitive-error / trap insights. GET /error-analysis/. Throws on non-OK. */
+  async getErrorAnalysis(): Promise<ErrorAnalysis> {
+    const response = await request('/error-analysis/');
+    if (!response.ok) throw new Error(`Failed to fetch error analysis: ${response.statusText}`);
+    return response.json();
+  },
+
+  /** Clinical-reasoning coach: scenario fetch + free-text evaluation. */
+  reasoning: {
+    /** Fetch a case scenario + reasoning prompt. GET /reasoning/evaluate/. */
+    async scenario(): Promise<ReasoningScenario> {
+      const response = await request('/reasoning/evaluate/');
+      if (!response.ok) throw new Error(`Failed to load scenario: ${response.statusText}`);
+      return response.json();
+    },
+    /** Grade the candidate's free-text reasoning. POST /reasoning/evaluate/. */
+    async evaluate(payload: { vignette: string; prompt: string; response: string }): Promise<ReasoningResult> {
+      const response = await request('/reasoning/evaluate/', { method: 'POST', body: body(payload) });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Evaluation failed: ${response.statusText}`);
+      }
+      return response.json();
+    },
+  },
+
+  /** Computer-adaptive readiness assessment. */
+  adaptive: {
+    /** Start an adaptive assessment. POST /adaptive/start/. */
+    async start(length?: number): Promise<{ session_id: string; question: CatQuestion; ability: number }> {
+      const response = await request('/adaptive/start/', { method: 'POST', body: body({ length }) });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Failed to start assessment: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    /** Submit an answer; returns the next item or the final result. POST /adaptive/answer/. */
+    async answer(sessionId: string, label: string): Promise<{ is_complete: boolean; question?: CatQuestion; ability?: number; result?: CatResult }> {
+      const response = await request('/adaptive/answer/', { method: 'POST', body: body({ session_id: sessionId, label }) });
+      if (!response.ok) throw new Error(`Failed to submit answer: ${response.statusText}`);
+      return response.json();
+    },
+  },
+
+  /** OSCE-style simulated client encounter. */
+  encounter: {
+    /** Start an encounter. POST /encounter/start/. */
+    async start(): Promise<{ session_id: string; persona: EncounterPersona; opening_line: string }> {
+      const response = await request('/encounter/start/', { method: 'POST', body: body({}) });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Failed to start encounter: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    /** Send the OT's turn; returns the client's reply. POST /encounter/message/. */
+    async message(sessionId: string, message: string): Promise<{ reply: string }> {
+      const response = await request('/encounter/message/', { method: 'POST', body: body({ session_id: sessionId, message }) });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `The client didn't respond: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    /** End + score the encounter. POST /encounter/finish/. */
+    async finish(sessionId: string): Promise<{ result: EncounterResult }> {
+      const response = await request('/encounter/finish/', { method: 'POST', body: body({ session_id: sessionId }) });
+      if (!response.ok) throw new Error(`Failed to score encounter: ${response.statusText}`);
+      return response.json();
+    },
   },
 
   /** Returns the user's saved rationale notebook. GET /notebook/. */
