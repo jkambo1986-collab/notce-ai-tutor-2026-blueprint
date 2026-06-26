@@ -24,3 +24,6 @@ __pycache__/
 .vscode/
 .idea/
 
+
+# Local screenshots / scratch artifacts at repo root
+/*.png

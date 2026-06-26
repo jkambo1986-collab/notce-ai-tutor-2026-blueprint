@@ -199,11 +199,11 @@ const AppShell: React.FC<AppShellProps> = ({
       <div className="px-3 pt-4">
         <button
           onClick={() => { onNewCase(); setMobileOpen(false); }}
-          title="Generate New Case"
+          title="Start practice from the vetted question bank"
           className={`w-full flex items-center gap-3 bg-teal-500 hover:bg-teal-400 text-white font-bold rounded-xl transition shadow-lg shadow-teal-500/20 ${collapsed ? 'md:justify-center md:px-0 px-4 py-3' : 'px-4 py-3'}`}
         >
           <Icon path={ICONS.bolt} className="h-5 w-5 flex-shrink-0" />
-          <span className={collapsed ? 'md:hidden' : ''}>New Case</span>
+          <span className={collapsed ? 'md:hidden' : ''}>Start Practice</span>
         </button>
       </div>
 
@@ -345,7 +345,7 @@ const AppShell: React.FC<AppShellProps> = ({
             className="ml-auto hidden md:flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition border border-teal-200"
           >
             <Icon path={ICONS.bolt} className="h-4 w-4" />
-            New Case
+            Start Practice
           </button>
         </header>
 

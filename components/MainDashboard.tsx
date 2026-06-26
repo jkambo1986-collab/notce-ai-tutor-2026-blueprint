@@ -197,32 +197,32 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                                 Resume Session
                             </button>
                         )}
-                        <button 
-                            onClick={() => setIsGeneratorOpen(true)}
-                            className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:from-indigo-700 hover:to-purple-700 transition shadow-lg shadow-indigo-200 flex items-center gap-2"
+                        <button
+                            onClick={() => onStartMockStudy?.()}
+                            className="px-8 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl font-bold hover:from-teal-700 hover:to-cyan-700 transition shadow-lg shadow-teal-200 flex items-center gap-2"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            Generate New Case
+                            Start Practice
                         </button>
                     </div>
                 </div>
 
                 {/* Quick Stats / Info Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* AI-Powered Cases Card */}
-                    <button 
-                        onClick={() => setIsGeneratorOpen(true)}
-                        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-left hover:shadow-lg hover:border-purple-200 transition-all group cursor-pointer"
+                    {/* Vetted Question Bank Card */}
+                    <button
+                        onClick={() => onStartMockStudy?.()}
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-left hover:shadow-lg hover:border-teal-200 transition-all group cursor-pointer"
                     >
-                        <div className="h-12 w-12 bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        <div className="h-12 w-12 bg-gradient-to-br from-teal-100 to-cyan-100 text-teal-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                         </div>
-                        <h3 className="font-bold text-gray-800 text-lg group-hover:text-purple-700 transition">AI-Powered Cases</h3>
-                        <p className="text-gray-500 text-sm mt-2">Generate infinite scenarios tailored to the 2026 NOTCE blueprint.</p>
-                        <div className="mt-4 text-purple-600 text-sm font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                            <span>Create Now</span>
+                        <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-700 transition">Vetted Question Bank</h3>
+                        <p className="text-gray-500 text-sm mt-2">Practice independently-reviewed questions aligned to the 2026 NOTCE blueprint.</p>
+                        <div className="mt-4 text-teal-600 text-sm font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <span>Start Now</span>
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </div>
                     </button>
@@ -285,7 +285,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                              <h2 className="text-2xl font-black text-gray-900">Adaptive Mock Study</h2>
                         </div>
                         <p className="text-gray-600 text-lg leading-relaxed max-w-2xl">
-                            Practice with AI-generated questions one-by-one. Select your specific domain weak spots and get instant, deep-dive feedback on every answer.
+                            Practice vetted, independently-reviewed bank questions one-by-one. Select your specific domain weak spots and get instant, deep-dive feedback on every answer.
                         </p>
                         
                         <div className="mt-6 flex flex-wrap gap-3">
@@ -383,7 +383,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                     </div>
                     <div>
                         <h4 className="font-bold text-indigo-800">2026 NOTCE Blueprint Aligned</h4>
-                        <p className="text-indigo-600 text-sm">All cases are generated according to the latest NOTCE (CAOT) exam specifications.</p>
+                        <p className="text-indigo-600 text-sm">All questions are independently reviewed and aligned to the latest NOTCE (CAOT) exam specifications.</p>
                     </div>
                 </div>
             </div>
