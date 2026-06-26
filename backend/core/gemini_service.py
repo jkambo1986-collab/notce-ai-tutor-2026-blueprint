@@ -123,13 +123,22 @@ def get_evolving_rationale(current_question_stem, current_correct_rationale,
         print(f"Gemini Error: {e}")
         return None
 
-def generate_full_case_study(domain="OT Expertise", difficulty="Medium"):
+def generate_full_case_study(domain="OT Expertise", difficulty="Medium", num_questions=None):
     """
     Generates a full structured case study JSON.
+
+    num_questions: how many linked questions to produce. The NOTCE Blueprint pairs
+    each case with "approximately three to six" questions, so when not specified we
+    pick a random count in that range rather than always emitting the maximum.
     """
     client = get_client()
     if not client:
         return None
+
+    if num_questions is None:
+        import random
+        num_questions = random.randint(3, 6)
+    num_questions = max(3, min(6, int(num_questions)))
 
     prompt = f"""
     Generate a comprehensive Occupational Therapy case study for an exam prep application.
@@ -173,7 +182,8 @@ def generate_full_case_study(domain="OT Expertise", difficulty="Medium"):
             }}
         ]
     }}
-    Generate 6 connected questions for this case. At least one question MUST have domain="CEJ_JUSTICE".
+    Generate exactly {num_questions} connected questions for this case (the NOTCE pairs each case
+    with approximately three to six questions). At least one question MUST have domain="CEJ_JUSTICE".
     Ensure rationales are educational.
     Do not wrap in markdown code blocks. Just raw JSON.
     """
