@@ -1069,7 +1069,20 @@ class MockStudyViewSet(viewsets.ModelViewSet):
 
         if not session:
             return Response(None)
-            
+
+        # Self-heal a stale/empty practice session: if the stored question has no
+        # stem or options (e.g. an old session created before bank-only serving,
+        # or one whose data was never populated), serve a fresh vetted bank
+        # question and persist it so resuming never shows a blank card. Exam mode
+        # keeps its full question set in exam_config, so it's left untouched.
+        qd = session.current_question_data or {}
+        if session.mode == 'practice' and (not qd.get("stem") or not qd.get("options")):
+            fresh = serve_bank_question(session.domain, session.difficulty)
+            if fresh:
+                session.current_question_data = fresh
+                session.save(update_fields=["current_question_data"])
+                qd = fresh
+
         return Response({
             "session_id": session.id,
             "domain": session.domain,
@@ -1077,8 +1090,8 @@ class MockStudyViewSet(viewsets.ModelViewSet):
             "total_questions": session.total_questions,
             "current_question": session.current_question,
             "question": {
-                "stem": (session.current_question_data or {}).get("stem"),
-                "options": (session.current_question_data or {}).get("options", [])
+                "stem": qd.get("stem"),
+                "options": qd.get("options", [])
             },
             "highlights": session.highlights,
             "progress": {
