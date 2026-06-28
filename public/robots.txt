@@ -11,4 +11,4 @@ Disallow: /exam
 Disallow: /payment/
 Disallow: /verify
 
-Sitemap: https://notce-ai-tutor-2026-blueprint.vercel.app/sitemap.xml
+Sitemap: https://notce.ngnsimulation.com/sitemap.xml

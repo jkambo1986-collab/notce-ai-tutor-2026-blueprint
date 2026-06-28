@@ -134,6 +134,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://notce-ai-tutor-2026-blueprint.vercel.app",
+    "https://notce.ngnsimulation.com",
 ]
 
 # Allow Vercel preview deploys and Railway domains without enumerating each one.
@@ -155,6 +156,7 @@ if CORS_ALLOWED_ORIGIN_ENV:
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "https://notce-ai-tutor-2026-blueprint.vercel.app",
+    "https://notce.ngnsimulation.com",
     "https://*.vercel.app",
     "https://*.railway.app"
 ]

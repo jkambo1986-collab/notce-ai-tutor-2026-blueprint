@@ -17,7 +17,7 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-const SITE_URL = 'https://notce-ai-tutor-2026-blueprint.vercel.app';
+const SITE_URL = 'https://notce.ngnsimulation.com';
 
 /** Public, crawlable pages. { path, priority, changefreq }. */
 const PAGES = [
