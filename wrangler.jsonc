@@ -1,0 +1,15 @@
+// Cloudflare Workers (static assets) config for the Vite SPA frontend.
+// The Django API lives on Railway; this only serves dist/.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "notce-ai-tutor",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    // SPA fallback: unknown paths serve index.html (replaces vercel.json rewrite)
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    { "pattern": "notce.ngnsimulation.com", "custom_domain": true }
+  ]
+}

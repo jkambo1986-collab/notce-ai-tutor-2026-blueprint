@@ -28,7 +28,7 @@ def spa_index(request):
     client-side deep links (e.g. /dashboard, /signin) work on a full page load
     when the frontend is served by Django (Railway). Real static files are
     served by WhiteNoise before they reach this view; only unmatched app routes
-    fall through here. On Vercel the same fallback is handled by vercel.json.
+    fall through here. On Cloudflare the same fallback is handled by wrangler.jsonc.
     """
     index_file = settings.FRONTEND_DIST / "index.html"
     try:

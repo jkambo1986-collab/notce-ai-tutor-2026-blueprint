@@ -8,7 +8,9 @@
     "sitemap": "node scripts/generate-sitemap.mjs",
     "prebuild": "node scripts/generate-sitemap.mjs",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:cloudflare": "node scripts/generate-sitemap.mjs && vite build --mode cloudflare",
+    "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy"
   },
   "dependencies": {
     "@google/genai": "^1.37.0",

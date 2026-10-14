@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 NOTCE AI-Tutor is an AI-powered study companion for the **Canadian NOTCE** (National Occupational Therapy Certification Examination, administered by CAOT) occupational therapy licensing exam, targeting the September 2026 Blueprint (built on the Competencies for Occupational Therapists in Canada, COTC 2021). Note: this is the **Canadian** exam — it is *not* the US NBCOT, and content should never reference NBCOT/AOTA frameworks. It generates clinical case studies and practice questions on the fly via Google Gemini, grades answers, and gives adaptive feedback. Monetized through Stripe subscription tiers with a 7-day trial.
 
-It is a **split repo**: a Vite + React 19 + TypeScript SPA at the root, and a Django REST backend under `backend/`. The two deploy separately (Vercel frontend, Railway backend) and talk over a JSON API.
+It is a **split repo**: a Vite + React 19 + TypeScript SPA at the root, and a Django REST backend under `backend/`. The two deploy separately (Cloudflare Workers frontend, Railway backend) and talk over a JSON API.
 
 ## Architecture
 
@@ -63,7 +63,7 @@ There are **no automated tests** (`core/tests.py` is empty). "Testing" means run
 
 ## Deployment
 - **Backend → Railway**: `nixpacks.toml` (Python 3.12 + Postgres, `collectstatic`, gunicorn) and `Procfile`. Static served by WhiteNoise. Postgres comes from `DATABASE_URL` (overrides the hardcoded local default in `settings.py`).
-- **Frontend → Vercel**: `vercel.json`. `runtime.txt` pins Python 3.12.
+- **Frontend → Cloudflare Workers** (static assets, free plan): `wrangler.jsonc` serves `dist/` with SPA fallback on `notce.ngnsimulation.com`. Build with `npm run build:cloudflare` (uses `.env.cloudflare` for the Railway API URL); deploy with `npm run deploy:cloudflare`. `runtime.txt` pins Python 3.12.
 - Note the **two `requirements.txt`** (root and `backend/`) — the backend one is authoritative for the Django app; `nixpacks.toml` installs from `backend/`.
 
 ## Constraints & gotchas

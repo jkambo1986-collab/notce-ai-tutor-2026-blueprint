@@ -133,13 +133,12 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://notce-ai-tutor-2026-blueprint.vercel.app",
     "https://notce.ngnsimulation.com",
+    "https://notce-ai-tutor.jay-f1a.workers.dev",
 ]
 
-# Allow Vercel preview deploys and Railway domains without enumerating each one.
+# Allow Railway domains without enumerating each one.
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",
     r"^https://.*\.railway\.app$",
 ]
 
@@ -151,13 +150,12 @@ if CORS_ALLOWED_ORIGIN_ENV:
 
 
 # CSRF trusted origins: which cross-site origins may submit state-changing
-# requests. Mirrors the CORS allow-list (local dev, the Vercel frontend, and
-# wildcard Vercel/Railway domains) and is likewise extendable via env.
+# requests. Mirrors the CORS allow-list (local dev, the Cloudflare frontend, and
+# wildcard Railway domains) and is likewise extendable via env.
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
-    "https://notce-ai-tutor-2026-blueprint.vercel.app",
     "https://notce.ngnsimulation.com",
-    "https://*.vercel.app",
+    "https://notce-ai-tutor.jay-f1a.workers.dev",
     "https://*.railway.app"
 ]
 if CORS_ALLOWED_ORIGIN_ENV:
