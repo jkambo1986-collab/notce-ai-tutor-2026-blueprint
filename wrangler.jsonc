@@ -1,5 +1,5 @@
 // Cloudflare Workers (static assets) config for the Vite SPA frontend.
-// The Django API lives on Railway; this only serves dist/.
+// The Django API lives on Oracle/Dokploy (api-notce.ngnsimulation.com); this only serves dist/.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "notce-ai-tutor",
