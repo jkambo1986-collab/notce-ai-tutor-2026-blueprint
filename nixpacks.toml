@@ -2,9 +2,11 @@
 nixPkgs = ["python312", "postgresql", "nodejs_20"]
 
 [phases.install]
+# pip lives in a venv: plain nix python312 has no pip on Dokploy's Nixpacks (exit 127).
+paths = ["/opt/venv/bin"]
 cmds = [
   "npm ci",
-  "cd backend && pip install -r requirements.txt",
+  "python -m venv /opt/venv && /opt/venv/bin/pip install -r backend/requirements.txt",
 ]
 
 [phases.build]
