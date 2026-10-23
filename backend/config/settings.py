@@ -217,7 +217,9 @@ if os.environ.get('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.config(
         conn_max_age=600,
         conn_health_checks=True,
-        ssl_require=True
+        # Railway's proxy needed SSL; on Oracle/Dokploy the DB is reached over the private
+        # Docker network without TLS, so DATABASE_SSL_REQUIRE=false there.
+        ssl_require=os.environ.get('DATABASE_SSL_REQUIRE', 'true').lower() != 'false'
     )
 
 
